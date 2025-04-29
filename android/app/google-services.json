@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "373594331946",
+    "project_id": "kony-25092",
+    "storage_bucket": "kony-25092.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:373594331946:android:daf0ce989dc74d53cd9c53",
+        "android_client_info": {
+          "package_name": "com.example.kony"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC03OzcWVM4KeeWPxYwbPIHH0JYoY8PBD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,56 @@
+lib/
+├── app/
+│   └── routes.dart
+├── models/
+│   ├── report_sections/
+│   │   └── floor.dart
+│   ├── report.dart
+│   ├── technical_visit_report.dart
+│   └── user_model.dart
+├── services/
+│   ├── auth_service.dart
+│   ├── firebase_initialization_service.dart
+│   ├── pdf_generation_service.dart
+│   ├── report_service.dart
+│   ├── technical_visit_report_service.dart
+│   └── user_management_service.dart
+├── utils/
+│   ├── firebase_options.dart
+│   └── notification_tutils.dart
+├── view_models/
+│   ├── admin_view_model.dart
+│   ├── login_view_model.dart
+│   ├── technical_visit_report_view_model.dart
+│   ├── technician_view_model.dart
+│   └── user_management_view_model.dart
+├── views/
+│   ├── screens/
+│   │   ├── report_form/
+│   │   │   ├── basic_info_form.dart
+│   │   │   ├── conclusion_form.dart
+│   │   │   ├── floor_components_form.dart
+│   │   │   ├── project_context_form.dart
+│   │   │   └── report_form_screen.dart
+│   │   ├── admin_screen.dart
+│   │   ├── login_screen.dart
+│   │   ├── pdf_viewer_screen.dart
+│   │   ├── report_list_screen.dart
+│   │   ├── technician_screen.dart
+│   │   └── user_management_screen.dart
+│   └── widgets/
+│       ├── report_form/
+│       │   ├── component_type_selector.dart
+│       │   ├── dynamic_list_section.dart
+│       │   ├── floor_selector.dart
+│       │   ├── form_checkbox.dart
+│       │   ├── form_dropdown.dart
+│       │   ├── form_number_field.dart
+│       │   ├── form_step_indicator.dart
+│       │   ├── form_text_field.dart
+│       │   └── section_header.dart
+│       ├── custom_notification.dart
+│       ├── report_card.dart
+│       ├── technical_visit_report_card.dart
+│       ├── user_edit_dialog.dart
+│       └── main.dart
+└── main.dart
