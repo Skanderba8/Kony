@@ -32,7 +32,7 @@ class TechnicalVisitReportService {
     try {
       Query query = _reports;
 
-      // Apply filters if provided
+      // Apply filters if provided, without complex sorting
       if (statusFilter != null && statusFilter.toLowerCase() != 'all') {
         query = query.where('status', isEqualTo: statusFilter.toLowerCase());
       }
@@ -41,14 +41,7 @@ class TechnicalVisitReportService {
         query = query.where('technicianId', isEqualTo: technicianId);
       }
 
-      // Always sort by creation date descending (newest first)
-      query = query.orderBy('createdAt', descending: true);
-
-      debugPrint(
-        'Fetching technical visit reports with filters: '
-        'status=${statusFilter ?? 'any'}, technicianId=${technicianId ?? 'any'}',
-      );
-
+      // Simple stream without complex indexing or sorting
       return query.snapshots().map((snapshot) {
         debugPrint(
           'Query returned ${snapshot.docs.length} technical visit reports',
