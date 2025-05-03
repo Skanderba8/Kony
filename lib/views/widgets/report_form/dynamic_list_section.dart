@@ -15,6 +15,8 @@ class DynamicListSection<T> extends StatelessWidget {
   final Function(int index) onRemoveItem;
   final String addButtonLabel;
   final String emptyStateMessage;
+  final VoidCallback? onAddOtherComponentType;
+  final String componentType;
 
   const DynamicListSection({
     super.key,
@@ -27,6 +29,8 @@ class DynamicListSection<T> extends StatelessWidget {
     required this.onRemoveItem,
     this.addButtonLabel = 'Ajouter',
     this.emptyStateMessage = 'Aucun élément ajouté',
+    this.onAddOtherComponentType,
+    this.componentType = '',
   });
 
   @override
@@ -76,20 +80,6 @@ class DynamicListSection<T> extends StatelessWidget {
                 ],
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: onAddItem,
-              icon: const Icon(Icons.add),
-              label: Text(addButtonLabel),
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -123,9 +113,10 @@ class DynamicListSection<T> extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
                 elevation: 1,
+                color: Colors.blue.shade50, // Light blue background
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade200),
+                  side: BorderSide(color: Colors.blue.shade100),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,9 +128,10 @@ class DynamicListSection<T> extends StatelessWidget {
                         children: [
                           Text(
                             'Élément ${index + 1}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade800,
                             ),
                           ),
                           IconButton(
@@ -153,17 +145,69 @@ class DynamicListSection<T> extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Divider(color: Colors.grey.shade200),
+                    Divider(color: Colors.blue.shade200),
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: itemBuilder(item, index),
                     ),
+
+                    // Only show the buttons at the bottom of the last item
+                    if (index == items.length - 1) ...[
+                      Divider(color: Colors.blue.shade200),
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // Add same component type button
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: onAddItem,
+                                icon: const Icon(Icons.add),
+                                label: Text('Ajouter un autre $componentType'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.blue,
+                                  side: BorderSide(color: Colors.blue.shade300),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12.0,
+                                    horizontal: 16.0,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24.0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Add different component type button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: onAddOtherComponentType,
+                                icon: const Icon(Icons.category_outlined),
+                                label: const Text('Ajouter un autre composant'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12.0,
+                                    horizontal: 16.0,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24.0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               );
             },
           ),
-        const SizedBox(height: 16),
       ],
     );
   }

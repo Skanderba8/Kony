@@ -1,7 +1,7 @@
 // lib/views/widgets/report_form/component_type_selector.dart
 import 'package:flutter/material.dart';
 
-/// A widget for selecting a component type from a dropdown
+/// A widget for selecting a component type with a more user-friendly UI
 class ComponentTypeSelector extends StatelessWidget {
   final List<String> componentTypes;
   final String? selectedType;
@@ -22,7 +22,7 @@ class ComponentTypeSelector extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
@@ -40,60 +40,63 @@ class ComponentTypeSelector extends StatelessWidget {
             label,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.0),
           ),
-          const SizedBox(height: 8.0),
-          // Using an InkWell to open a modal dialog instead of a dropdown
-          // This avoids overflow issues with long component type names
-          InkWell(
-            onTap: () => _showComponentTypeDialog(context),
-            borderRadius: BorderRadius.circular(8.0),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
+          const SizedBox(height: 12.0),
+
+          if (selectedType == null)
+            ElevatedButton.icon(
+              onPressed: () => _showComponentTypeDialog(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter un composant'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12.0,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24.0),
+                ),
+                elevation: 2,
               ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(color: Colors.grey.shade300),
-                color: Colors.grey.shade50,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      selectedType ?? 'Sélectionner un type de composant',
-                      style: TextStyle(
-                        color:
-                            selectedType == null
-                                ? Colors.grey.shade600
-                                : Colors.black87,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      _getComponentIcon(selectedType!),
+                      color: Colors.blue.shade700,
+                      size: 24,
                     ),
-                  ),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        selectedType!,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8.0),
+                Text(
+                  _getComponentDescription(selectedType!),
+                  style: TextStyle(fontSize: 14.0, color: Colors.grey.shade700),
+                ),
+              ],
             ),
-          ),
-          if (selectedType != null) ...[
-            const SizedBox(height: 16.0),
-            Text(
-              _getComponentDescription(selectedType!),
-              style: TextStyle(
-                fontSize: 14.0,
-                color: Colors.grey.shade700,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
   /// Show a dialog to select a component type
-  /// This avoids overflow issues with the dropdown
   void _showComponentTypeDialog(BuildContext context) {
     showDialog(
       context: context,

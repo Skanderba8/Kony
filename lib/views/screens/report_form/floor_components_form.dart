@@ -109,6 +109,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter une baie',
           emptyStateMessage: 'Aucune baie informatique ajoutée',
+          componentType: 'baie informatique',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (cabinet, index) {
             return _buildCabinetForm(cabinet, index, viewModel);
           },
@@ -134,6 +139,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter un percement',
           emptyStateMessage: 'Aucun percement ajouté',
+          componentType: 'percement',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (perforation, index) {
             return _buildPerforationForm(perforation, index, viewModel);
           },
@@ -158,6 +168,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter une trappe',
           emptyStateMessage: 'Aucune trappe d\'accès ajoutée',
+          componentType: 'trappe d\'accès',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (trap, index) {
             return _buildAccessTrapForm(trap, index, viewModel);
           },
@@ -182,6 +197,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter un chemin',
           emptyStateMessage: 'Aucun chemin de câbles ajouté',
+          componentType: 'chemin de câbles',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (path, index) {
             return _buildCablePathForm(path, index, viewModel);
           },
@@ -206,6 +226,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter une goulotte',
           emptyStateMessage: 'Aucune goulotte ajoutée',
+          componentType: 'goulotte',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (trunking, index) {
             return _buildCableTrunkingForm(trunking, index, viewModel);
           },
@@ -230,6 +255,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter un conduit',
           emptyStateMessage: 'Aucun conduit ajouté',
+          componentType: 'conduit',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (conduit, index) {
             return _buildConduitForm(conduit, index, viewModel);
           },
@@ -254,6 +284,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter un câblage cuivre',
           emptyStateMessage: 'Aucun câblage cuivre ajouté',
+          componentType: 'câblage cuivre',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (cabling, index) {
             return _buildCopperCablingForm(cabling, index, viewModel);
           },
@@ -278,6 +313,11 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           },
           addButtonLabel: 'Ajouter un câblage fibre',
           emptyStateMessage: 'Aucun câblage fibre optique ajouté',
+          componentType: 'câblage fibre optique',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
           itemBuilder: (cabling, index) {
             return _buildFiberOpticCablingForm(cabling, index, viewModel);
           },
@@ -314,6 +354,17 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 onPressed: () => _showComponentTypeSelector(context, viewModel),
                 icon: const Icon(Icons.add),
                 label: const Text('Ajouter un composant'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
               ),
             ],
           ),
@@ -385,9 +436,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
         return Icons.device_unknown;
     }
   }
-
-  /// The remaining form builder methods remain the same...
-  /// (NetworkCabinetFormItem, _buildPerforationForm, etc.)
 
   /// Build form for network cabinet
   Widget _buildCabinetForm(
@@ -1134,6 +1182,7 @@ class NetworkCabinetFormItem extends StatelessWidget {
           },
         ),
 
+        // Location field
         // Location field
         FormTextField(
           label: 'Emplacement précis',
