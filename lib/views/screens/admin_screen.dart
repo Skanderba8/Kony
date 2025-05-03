@@ -235,6 +235,11 @@ class _AdminScreenState extends State<AdminScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          labelColor:
+              Theme.of(context).primaryColor, // Blue text for selected tab
+          unselectedLabelColor: Colors.grey, // Grey text for unselected tabs
+          indicatorColor: Theme.of(context).primaryColor, // Blue indicator line
+          indicatorWeight: 3, // Makes the indicator line more visible
           tabs: const [
             Tab(text: 'Submitted'),
             Tab(text: 'Reviewed'),
@@ -365,6 +370,8 @@ class _AdminScreenState extends State<AdminScreen>
 
     // Get the date to display
     final displayDate = report.submittedAt ?? report.createdAt;
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final timeFormat = DateFormat('HH:mm');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -397,7 +404,7 @@ class _AdminScreenState extends State<AdminScreen>
                 ),
                 const Spacer(),
                 Text(
-                  'Submitted: ${_dateFormat.format(displayDate)} at ${_timeFormat.format(displayDate)}',
+                  'Submitted: ${dateFormat.format(displayDate)} at ${timeFormat.format(displayDate)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ],
@@ -431,6 +438,8 @@ class _AdminScreenState extends State<AdminScreen>
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -452,6 +461,8 @@ class _AdminScreenState extends State<AdminScreen>
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -477,6 +488,8 @@ class _AdminScreenState extends State<AdminScreen>
                           Text(
                             report.technicianName,
                             style: const TextStyle(fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -495,6 +508,8 @@ class _AdminScreenState extends State<AdminScreen>
                                 ? report.projectManager
                                 : '(Not specified)',
                             style: const TextStyle(fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -507,33 +522,37 @@ class _AdminScreenState extends State<AdminScreen>
                 const SizedBox(height: 16),
 
                 // Floors and components summary
-                Row(
-                  children: [
-                    _buildInfoBadge(
-                      'Floors',
-                      '${report.floors.length}',
-                      Colors.blue.shade700,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildInfoBadge(
-                      'Components',
-                      _calculateTotalComponents(report).toString(),
-                      Colors.amber.shade700,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildInfoBadge(
-                      'Est. Duration',
-                      '${report.estimatedDurationDays} days',
-                      Colors.green.shade700,
-                    ),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildInfoBadge(
+                        'Floors',
+                        '${report.floors.length}',
+                        Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildInfoBadge(
+                        'Components',
+                        _calculateTotalComponents(report).toString(),
+                        Colors.amber.shade700,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildInfoBadge(
+                        'Est. Duration',
+                        '${report.estimatedDurationDays} days',
+                        Colors.green.shade700,
+                      ),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 20),
 
-                // Action buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                // Action buttons - fixes overflow issue
+                Wrap(
+                  spacing: 8,
+                  alignment: WrapAlignment.end,
                   children: [
                     // Delete button
                     IconButton(
@@ -552,10 +571,11 @@ class _AdminScreenState extends State<AdminScreen>
                       label: const Text('View PDF'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                       ),
                     ),
-
-                    const SizedBox(width: 8),
 
                     // Status update buttons based on current status
                     if (status == 'submitted')
@@ -565,7 +585,11 @@ class _AdminScreenState extends State<AdminScreen>
                         icon: const Icon(Icons.fact_check, size: 18),
                         label: const Text('Mark as Reviewed'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                         ),
                       ),
 
@@ -577,6 +601,10 @@ class _AdminScreenState extends State<AdminScreen>
                         label: const Text('Approve'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                         ),
                       ),
                   ],

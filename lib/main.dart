@@ -83,7 +83,19 @@ class KonyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Kony',
-        theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          primaryColor: Colors.blue,
+          indicatorColor: Colors.blue,
+          tabBarTheme: TabBarTheme(
+            labelColor: Colors.blue,
+            unselectedLabelColor: Colors.grey,
+            indicator: UnderlineTabIndicator(
+              borderSide: BorderSide(color: Colors.blue, width: 3.0),
+            ),
+          ),
+          useMaterial3: true,
+        ),
         initialRoute: AppRoutes.login,
         routes: AppRoutes.getRoutes(),
       ),
