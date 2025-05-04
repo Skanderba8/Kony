@@ -1,0 +1,120 @@
+body {
+  background-color: #f8f9fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.card {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  margin-bottom: 20px;
+  border-radius: 10px;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+.navbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.navbar-brand {
+  font-weight: bold;
+  color: #3b71ca;
+}
+
+.nav-tabs .nav-link.active {
+  font-weight: bold;
+  color: #3b71ca;
+  border-color: #dee2e6 #dee2e6 #fff;
+}
+
+.btn-primary, .bg-primary {
+  background-color: #3b71ca !important;
+  border-color: #3b71ca !important;
+}
+
+.btn-outline-primary {
+  color: #3b71ca;
+  border-color: #3b71ca;
+}
+
+.btn-outline-primary:hover {
+  background-color: #3b71ca;
+  color: white;
+}
+
+.btn-outline-danger {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.status-badge {
+  font-size: 0.8rem;
+  padding: 0.35em 0.65em;
+  font-weight: 600;
+  border-radius: 50rem;
+}
+
+.login-container {
+  max-width: 450px;
+  margin: 0 auto;
+  padding-top: 100px;
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.login-card {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: 15px;
+}
+
+.login-header {
+  background-color: #3b71ca;
+  color: white;
+  border-radius: 15px 15px 0 0;
+  padding: 20px;
+  text-align: center;
+}
+
+.sidebar {
+  min-height: calc(100vh - 56px);
+  background-color: #343a40;
+  color: white;
+}
+
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+}
+
+.sidebar .nav-link:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .nav-link.active {
+  color: white;
+  background-color: #3b71ca;
+}
+
+.table th {
+  font-weight: 600;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
