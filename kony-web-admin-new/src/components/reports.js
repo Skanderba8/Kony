@@ -196,60 +196,164 @@ function createReportCard(report, status) {
 /**
  * View PDF for a report
  */
+/**
+ * View PDF for a report with detailed progress updates
+ */
+/**
+ * View PDF for a report with detailed progress updates
+ */
 async function viewReportPdf(reportId) {
-    const pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
-    const pdfViewer = document.getElementById('pdfViewer');
-    
-    try {
-      // Show loading in iframe
-      pdfViewer.srcdoc = `
-        <html>
-          <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
-            <div style="text-align: center;">
-              <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto;"></div>
-              <p style="margin-top: 20px;">Generating PDF...</p>
-            </div>
-            <style>
-              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            </style>
-          </body>
-        </html>
-      `;
+  const pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
+  const pdfViewer = document.getElementById('pdfViewer');
+  
+  // Progress log array to keep track of all messages
+  const progressLog = [];
+  
+  // Function to update loading progress
+  const updateProgress = (message) => {
+      console.log(`PDF Progress: ${message}`);
+      progressLog.push(`• ${message}`);
       
+      pdfViewer.srcdoc = `
+          <html>
+          <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
+              <div style="text-align: center; max-width: 80%;">
+              <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto;"></div>
+              <p style="margin-top: 20px; font-weight: bold;">PDF Generation in Progress</p>
+              <p style="margin-top: 10px;">${message}</p>
+              <div style="text-align: left; background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 20px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;" id="progressLog">
+                  ${progressLog.join('<br>')}
+              </div>
+              </div>
+              <style>
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              </style>
+          </body>
+          </html>
+      `;
+  };
+
+  try {
+      // Show initial loading state
+      updateProgress("Initializing PDF generation...");
       pdfModal.show();
       
+      // Set a timeout to detect if PDF generation is taking too long
+      const timeoutId = setTimeout(() => {
+          updateProgress("⚠️ PDF generation is taking longer than expected. This might indicate an issue with the data or the generation process. You can wait or try again later.");
+      }, 15000); // 15 seconds timeout
+      
       console.log('Starting PDF generation for report ID:', reportId);
-      const pdfBlob = await generateReportPdf(reportId);
-      console.log('PDF blob generated:', pdfBlob);
+      updateProgress("Fetching report data...");
       
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      console.log('PDF URL created:', pdfUrl);
+      // Fetch the report data first to see if there's an issue there
+      const report = await getReportById(reportId);
+      console.log('Report data received:', report);
       
-      pdfViewer.src = pdfUrl;
-      console.log('PDF viewer source set');
+      // Check if report data is valid
+      if (!report) {
+          updateProgress("❌ Error: No report data received");
+          throw new Error("Failed to fetch report data");
+      }
       
-      // Clean up URL when modal is hidden
-      document.getElementById('pdfModal').addEventListener('hidden.bs.modal', () => {
-        URL.revokeObjectURL(pdfUrl);
-        console.log('PDF URL revoked');
-      }, { once: true });
-    } catch (error) {
+      updateProgress(`Report data received (${Object.keys(report).length} fields)`);
+      
+      // Check if floors data is present
+      if (!report.floors || report.floors.length === 0) {
+          updateProgress("⚠️ Warning: No floors data found in report");
+      } else {
+          updateProgress(`Found ${report.floors.length} floors with data`);
+          
+          // Log components count for debugging
+          let totalComponents = 0;
+          report.floors.forEach(floor => {
+              const componentsCount = (floor.networkCabinets?.length || 0) +
+                                     (floor.perforations?.length || 0) +
+                                     (floor.accessTraps?.length || 0) +
+                                     (floor.cablePaths?.length || 0) +
+                                     (floor.cableTrunkings?.length || 0) +
+                                     (floor.conduits?.length || 0) +
+                                     (floor.copperCablings?.length || 0) +
+                                     (floor.fiberOpticCablings?.length || 0);
+              totalComponents += componentsCount;
+              updateProgress(`Floor "${floor.name}": ${componentsCount} components`);
+          });
+          updateProgress(`Total components to process: ${totalComponents}`);
+      }
+      
+      // Generate the PDF with progress updates
+      updateProgress("Creating PDF document structure...");
+      
+      // Track start time for performance analysis
+      const startTime = performance.now();
+      
+      // Add periodic updates while PDF is generating
+      const progressInterval = setInterval(() => {
+          updateProgress(`Still generating PDF... (${((performance.now() - startTime) / 1000).toFixed(1)} seconds elapsed)`);
+      }, 3000);
+      
+      try {
+          const pdfBlob = await generateReportPdf(reportId);
+          
+          // Clear the progress interval
+          clearInterval(progressInterval);
+          
+          // Calculate elapsed time
+          const elapsedTime = ((performance.now() - startTime) / 1000).toFixed(2);
+          console.log(`PDF generated in ${elapsedTime} seconds`);
+          updateProgress(`✅ PDF generation completed in ${elapsedTime} seconds. Loading document...`);
+          
+          // Clear the timeout since PDF generation completed
+          clearTimeout(timeoutId);
+          
+          console.log('PDF blob generated:', pdfBlob);
+          
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          console.log('PDF URL created:', pdfUrl);
+          
+          // Short delay before loading the PDF to ensure the progress message is seen
+          setTimeout(() => {
+              pdfViewer.src = pdfUrl;
+              console.log('PDF viewer source set');
+          }, 500);
+          
+          // Clean up URL when modal is hidden
+          document.getElementById('pdfModal').addEventListener('hidden.bs.modal', () => {
+              URL.revokeObjectURL(pdfUrl);
+              console.log('PDF URL revoked');
+          }, { once: true });
+      } catch (pdfError) {
+          clearInterval(progressInterval);
+          clearTimeout(timeoutId);
+          
+          console.error('Error generating PDF:', pdfError);
+          updateProgress(`❌ Error during PDF generation: ${pdfError.message}`);
+          
+          // Re-throw to be caught by the outer try/catch
+          throw pdfError;
+      }
+  } catch (error) {
       console.error('Error viewing PDF:', error);
       
       pdfViewer.srcdoc = `
-        <html>
+          <html>
           <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
-            <div style="text-align: center; color: #dc3545;">
+              <div style="text-align: center; color: #dc3545; max-width: 80%;">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                  <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
               </svg>
               <h3 style="margin-top: 20px;">Error Generating PDF</h3>
               <p>${error.message}</p>
-              <pre style="text-align: left; background: #f8f9fa; padding: 10px; border-radius: 5px; overflow: auto; max-width: 100%;">${error.stack}</pre>
-            </div>
+              <div style="text-align: left; background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 20px; overflow: auto; max-height: 300px;">
+                  <pre style="margin: 0; white-space: pre-wrap;">${error.stack}</pre>
+              </div>
+              <div style="margin-top: 20px;">
+                  <button onclick="window.location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Again</button>
+              </div>
+              </div>
           </body>
-        </html>
+          </html>
       `;
-    }
   }
+}
