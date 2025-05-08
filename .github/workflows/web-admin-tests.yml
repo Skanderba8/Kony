@@ -1,0 +1,33 @@
+name: Web Admin Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kony-web-admin-new/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "kony-web-admin-new/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./kony-web-admin-new
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "./kony-web-admin-new/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test

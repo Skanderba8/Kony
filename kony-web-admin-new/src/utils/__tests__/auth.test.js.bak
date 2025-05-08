@@ -1,0 +1,66 @@
+// src/utils/__tests__/auth.test.js
+
+// Use ESM-compatible approach to mock Firebase
+const mockSignInWithEmailAndPassword = jest.fn();
+const mockSignOut = jest.fn();
+const mockGetAuth = jest.fn();
+const mockDoc = jest.fn();
+const mockGetDoc = jest.fn();
+const mockCollection = jest.fn();
+const mockQuery = jest.fn();
+const mockWhere = jest.fn();
+const mockGetDocs = jest.fn();
+
+// Mock Firebase before importing your modules
+jest.mock('firebase/auth', () => {
+  return {
+    signInWithEmailAndPassword: mockSignInWithEmailAndPassword,
+    signOut: mockSignOut,
+    getAuth: mockGetAuth
+  };
+});
+
+jest.mock('firebase/firestore', () => {
+  return {
+    doc: mockDoc,
+    getDoc: mockGetDoc,
+    collection: mockCollection,
+    query: mockQuery,
+    where: mockWhere,
+    getDocs: mockGetDocs
+  };
+});
+
+// Now import your auth functions
+import { signIn, logOut, getUserRole } from '../auth.js';
+
+describe('Auth Utilities', () => {
+  beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+  });
+
+  test('signIn calls Firebase signInWithEmailAndPassword', async () => {
+    // Setup
+    const mockUser = { uid: 'tKqhd0niLQdGFMa8D6EB4oIv0zj2' };
+    mockSignInWithEmailAndPassword.mockResolvedValue({ user: mockUser });
+    
+    // Execute
+    const result = await signIn('skander.cars139@gmail.com', 'skander1234');
+    
+    // Verify
+    expect(mockSignInWithEmailAndPassword).toHaveBeenCalled();
+    expect(result).toEqual(mockUser);
+  });
+
+  test('logOut calls Firebase signOut', async () => {
+    // Setup
+    mockSignOut.mockResolvedValue(undefined);
+    
+    // Execute
+    await logOut();
+    
+    // Verify
+    expect(mockSignOut).toHaveBeenCalled();
+  });
+});

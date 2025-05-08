@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@sentry/browser": "^9.16.1",
+    "@sentry/tracing": "^7.120.3",
+    "firebase": "^11.7.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
+    "jest": "^29.7.0"
+  }
+}
