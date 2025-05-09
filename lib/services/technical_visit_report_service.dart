@@ -9,42 +9,59 @@ class TechnicalVisitReportService {
   CollectionReference get _reports =>
       _firestore.collection('technical_visit_reports');
 
+  // In the technical_visit_report_service.dart file, you'll need to:
+  // 1. Remove any queries that combine where() and orderBy()
+  // 2. Replace them with simpler queries and in-memory filtering/sorting
+
   Stream<List<TechnicalVisitReport>> getReportsStream({
     String? statusFilter,
     String? technicianId,
   }) {
     try {
-      Query query = _reports;
+      Query query = _firestore.collection('technical_visit_reports');
 
+      // Only use one filter condition
       if (statusFilter != null && statusFilter.toLowerCase() != 'all') {
         query = query.where('status', isEqualTo: statusFilter.toLowerCase());
-      }
-
-      if (technicianId != null) {
+      } else if (technicianId != null) {
         query = query.where('technicianId', isEqualTo: technicianId);
       }
 
+      // Remove any orderBy clauses - do sorting in memory instead
       return query.snapshots().map((snapshot) {
-        debugPrint(
-          'Query returned ${snapshot.docs.length} technical visit reports',
-        );
-        return snapshot.docs
-            .map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              if (!_validateDocumentData(data)) {
-                debugPrint(
-                  'Skipping invalid technical visit report document: ${doc.id}',
-                );
-                return null;
+        final reports =
+            snapshot.docs
+                .map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  if (!_validateDocumentData(data)) {
+                    return null;
+                  }
+                  return TechnicalVisitReport.fromJson(data);
+                })
+                .where((report) => report != null)
+                .cast<TechnicalVisitReport>()
+                .toList();
+
+        // If needed, filter by the other condition in memory
+        final filteredReports =
+            reports.where((report) {
+              if (statusFilter != null && technicianId != null) {
+                return report.status == statusFilter.toLowerCase() &&
+                    report.technicianId == technicianId;
               }
-              return TechnicalVisitReport.fromJson(data);
-            })
-            .where((report) => report != null)
-            .cast<TechnicalVisitReport>()
-            .toList();
+              return true;
+            }).toList();
+
+        // Sort in memory if needed
+        filteredReports.sort(
+          (a, b) => (b.submittedAt ?? b.createdAt).compareTo(
+            a.submittedAt ?? a.createdAt,
+          ),
+        );
+
+        return filteredReports;
       });
     } catch (e) {
-      debugPrint('Error in getReportsStream: $e');
       return Stream.value([]);
     }
   }
@@ -72,27 +89,56 @@ class TechnicalVisitReportService {
 
   Future<void> createReport(TechnicalVisitReport report) async {
     try {
+      debugPrint('Creating report in Firestore with ID: ${report.id}');
+      debugPrint('Report status: ${report.status}');
+      debugPrint('Report technician ID: ${report.technicianId}');
+
       final reportData = report.toJson();
       await _reports.doc(report.id).set(reportData);
-      debugPrint('Technical visit report created: ${report.id}');
+
+      debugPrint('Report created successfully: ${report.id}');
     } catch (e) {
-      debugPrint('Error creating technical visit report: $e');
+      debugPrint('Error creating report: $e');
+
+      // Provide more detailed error information
+      if (e.toString().contains('PERMISSION_DENIED')) {
+        debugPrint('Firestore security rules prevented the write operation');
+      } else if (e.toString().contains('NOT_FOUND')) {
+        debugPrint('Collection or document path not found');
+      }
+
       rethrow;
     }
   }
 
   Future<void> updateReport(TechnicalVisitReport report) async {
     try {
+      // Log the operation to help with debugging
       debugPrint('Updating report: ${report.id}, Status: ${report.status}');
+      debugPrint('Report technician ID: ${report.technicianId}');
 
+      // First check if document exists
+      final docSnapshot = await _reports.doc(report.id).get();
+
+      if (!docSnapshot.exists) {
+        debugPrint(
+          'Report document does not exist, will create it: ${report.id}',
+        );
+        await createReport(report);
+        return;
+      }
+
+      // Convert to JSON with timestamp handling
       final reportData = report.toJson();
 
+      // Single Firestore operation
       await _reports.doc(report.id).update(reportData);
 
       debugPrint('Report update successful');
     } catch (e) {
       debugPrint('Error updating report: $e');
 
+      // Important: Add detailed error logging for Firestore errors
       if (e.toString().contains('permission-denied')) {
         debugPrint(
           'PERMISSION DENIED: This usually indicates a security rules violation',
@@ -199,36 +245,85 @@ class TechnicalVisitReportService {
   Stream<List<TechnicalVisitReport>> getDraftReportsStream(
     String technicianId,
   ) {
-    return getReportsStream(statusFilter: 'draft', technicianId: technicianId);
+    try {
+      // Only use one condition, don't combine where() with orderBy()
+      final query = _reports.where('technicianId', isEqualTo: technicianId);
+
+      return query.snapshots().map((snapshot) {
+        final reports =
+            snapshot.docs
+                .map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  if (!_validateDocumentData(data)) {
+                    return null;
+                  }
+                  return TechnicalVisitReport.fromJson(data);
+                })
+                .where((report) => report != null)
+                .cast<TechnicalVisitReport>()
+                .toList();
+
+        // Filter for draft status in memory
+        final draftReports =
+            reports.where((report) => report.status == 'draft').toList();
+
+        // Sort by lastModified in memory
+        draftReports.sort(
+          (a, b) => (b.lastModified ?? b.createdAt).compareTo(
+            a.lastModified ?? a.createdAt,
+          ),
+        );
+
+        return draftReports;
+      });
+    } catch (e) {
+      return Stream.value([]);
+    }
   }
 
   Stream<List<TechnicalVisitReport>> getSubmittedReportsStream(
     String technicianId,
   ) {
     try {
-      final query = _reports
-          .where('technicianId', isEqualTo: technicianId)
-          .where('status', whereIn: ['submitted', 'reviewed', 'approved'])
-          .orderBy('submittedAt', descending: true);
+      // Only use single condition queries
+      final query = _reports.where('technicianId', isEqualTo: technicianId);
 
       return query.snapshots().map((snapshot) {
-        return snapshot.docs
-            .map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              if (!_validateDocumentData(data)) {
-                debugPrint(
-                  'Skipping invalid technical visit report document: ${doc.id}',
-                );
-                return null;
-              }
-              return TechnicalVisitReport.fromJson(data);
-            })
-            .where((report) => report != null)
-            .cast<TechnicalVisitReport>()
-            .toList();
+        final reports =
+            snapshot.docs
+                .map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  if (!_validateDocumentData(data)) {
+                    return null;
+                  }
+                  return TechnicalVisitReport.fromJson(data);
+                })
+                .where((report) => report != null)
+                .cast<TechnicalVisitReport>()
+                .toList();
+
+        // Filter for submitted/reviewed/approved status in memory
+        final submittedReports =
+            reports
+                .where(
+                  (report) => [
+                    'submitted',
+                    'reviewed',
+                    'approved',
+                  ].contains(report.status),
+                )
+                .toList();
+
+        // Sort by submittedAt in memory
+        submittedReports.sort(
+          (a, b) => (b.submittedAt ?? b.createdAt).compareTo(
+            a.submittedAt ?? a.createdAt,
+          ),
+        );
+
+        return submittedReports;
       });
     } catch (e) {
-      debugPrint('Error in getSubmittedReportsStream: $e');
       return Stream.value([]);
     }
   }

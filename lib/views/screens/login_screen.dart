@@ -278,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       child: Text(
-                        '"Mot de passe oublié ?',
+                        'Mot de passe oublié ?',
                         style: TextStyle(color: Colors.blue, fontSize: 14),
                       ),
                     ),

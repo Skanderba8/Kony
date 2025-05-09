@@ -9,6 +9,9 @@ import '../../models/technical_visit_report.dart';
 import '../../services/technical_visit_report_service.dart';
 import '../screens/report_form/report_form_screen.dart';
 import '../../utils/notification_utils.dart';
+import 'dart:io';
+import '../screens/pdf_viewer_screen.dart';
+import '../../app/routes.dart';
 
 /// Screen that displays a list of technical visit reports for the technician.
 /// Allows creating new reports and managing existing ones.
@@ -369,6 +372,8 @@ class _ReportListScreenState extends State<ReportListScreen>
                         icon: const Icon(Icons.add),
                         label: const Text('Nouveau rapport'),
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,
@@ -585,29 +590,27 @@ class _ReportListScreenState extends State<ReportListScreen>
                               ),
                             ),
                           ] else ...[
-                            // View PDF button for submitted reports
+                            // Edit button (just a pen icon) for submitted reports
                             IconButton(
                               icon: const Icon(
-                                Icons.picture_as_pdf,
+                                Icons.edit,
                                 color: Colors.blue,
                                 size: 20,
                               ),
-                              onPressed: () => _viewReportPdf(report),
-                              tooltip: 'Voir PDF',
+                              onPressed: () => _openReport(report),
+                              tooltip: 'Modifier',
                               visualDensity: VisualDensity.compact,
                             ),
-                            OutlinedButton.icon(
-                              onPressed: () => _openReport(report),
-                              icon: const Icon(
-                                Icons.visibility_outlined,
-                                size: 18,
-                              ),
-                              label: const Text('Consulter'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue,
-                                side: const BorderSide(color: Colors.blue),
+                            // Prominent PDF button for submitted reports
+                            ElevatedButton.icon(
+                              onPressed: () => _viewReportPdf(report),
+                              icon: const Icon(Icons.picture_as_pdf, size: 18),
+                              label: const Text('Voir PDF'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 16,
                                   vertical: 8,
                                 ),
                               ),
@@ -628,44 +631,56 @@ class _ReportListScreenState extends State<ReportListScreen>
 
   Future<void> _viewReportPdf(TechnicalVisitReport report) async {
     try {
-      // Show loading indicator
+      // Show loading indicator dialog
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (BuildContext context) {
+          return const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        },
       );
 
-      // Get the service to generate PDF
+      // Get the PDF generation service
       final pdfService = Provider.of<PdfGenerationService>(
         context,
         listen: false,
       );
 
-      // Generate PDF
-      final pdfFile = await pdfService.generateTechnicalReportPdf(report);
+      // Generate the PDF
+      final File pdfFile = await pdfService.generateTechnicalReportPdf(report);
 
-      // Close loading dialog
-      if (mounted) Navigator.of(context).pop();
+      // Close the loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
 
       // Navigate to PDF viewer
       if (mounted) {
-        Navigator.pushNamed(
+        await Navigator.push(
           context,
-          AppRoutes.pdfViewer,
-          arguments: {
-            'pdfFile': pdfFile,
-            'reportName':
-                report.clientName.isNotEmpty
-                    ? report.clientName
-                    : 'Rapport de visite technique',
-          },
+          MaterialPageRoute(
+            builder:
+                (context) => PdfViewerScreen(
+                  pdfFile: pdfFile,
+                  reportName:
+                      report.clientName.isNotEmpty
+                          ? report.clientName
+                          : 'Rapport de visite technique',
+                ),
+          ),
         );
       }
     } catch (e) {
       // Close loading dialog if still showing
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
 
-      // Show error
+      // Show error notification
       if (mounted) {
         NotificationUtils.showError(
           context,

@@ -196,7 +196,7 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 16.0),
                     child: Text(
-                      'Kony App v1.0.0',
+                      'Kony App v1.0.2',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade500,

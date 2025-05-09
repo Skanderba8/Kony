@@ -1,8 +1,9 @@
-// lib/views/screens/pdf_viewer_screen.dart
+// In lib/views/screens/pdf_viewer_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart'; // You'll need to add this package
-import 'package:share_plus/share_plus.dart'; // You'll need to add this package
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../utils/notification_utils.dart';
 
 /// A screen to view PDF documents generated from technical visit reports.
@@ -45,7 +46,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _sharePdf,
-            tooltip: 'Partager le PDF',
+            tooltip: 'Partager',
+          ),
+          // Download/save button
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: _savePdf,
+            tooltip: 'Télécharger',
           ),
         ],
       ),
@@ -80,6 +87,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     _isLoading = false;
                   });
                 },
+                enableSwipe: true,
+                swipeHorizontal: true,
+                autoSpacing: true,
+                pageFling: true,
+                pageSnap: true,
               ),
 
           // Loading Indicator
@@ -111,7 +123,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           Icon(Icons.error_outline, size: 60, color: Colors.red.shade400),
           const SizedBox(height: 16),
           Text(
-            'Échec du chargement du PDF',
+            'Impossible de charger le PDF',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -132,6 +144,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.arrow_back),
             label: const Text('Retour'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -170,7 +186,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
           // Page counter
           Text(
-            'Page ${_currentPage + 1} sur $_totalPages',
+            'Page ${_currentPage + 1} / $_totalPages',
             style: const TextStyle(color: Colors.white),
           ),
 
@@ -205,7 +221,30 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       ], text: 'Rapport de Visite Technique: ${widget.reportName}');
     } catch (e) {
       if (mounted) {
-        NotificationUtils.showError(context, 'Échec du partage du PDF: $e');
+        NotificationUtils.showError(
+          context,
+          'Erreur lors du partage du PDF: $e',
+        );
+      }
+    }
+  }
+
+  // Save the PDF to device storage (simplified method)
+  void _savePdf() async {
+    try {
+      // Indicate PDF is already saved since we're using a local file
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Le PDF est déjà enregistré sur votre appareil'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        NotificationUtils.showError(
+          context,
+          'Erreur lors de l\'enregistrement du PDF: $e',
+        );
       }
     }
   }

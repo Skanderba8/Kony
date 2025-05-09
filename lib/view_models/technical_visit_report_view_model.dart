@@ -154,31 +154,36 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
   ///
   /// Persists the current report state to the service, creating a new report
   /// if it's a new draft or updating an existing one.
+  /// Save the current report as a draft
+  ///
+  /// Persists the current report state to the service, creating a new report
+  /// if it's a new draft or updating an existing one.
   Future<bool> saveDraft() async {
     if (_currentReport == null) {
       _setError('No report to save');
       return false;
     }
-
     _setLoading(true);
     _clearError();
-
     try {
       final updatedReport = _currentReport!.copyWith(
         lastModified: DateTime.now(),
       );
-
+      debugPrint('Saving draft report with ID: ${updatedReport.id}');
       if (_isNewReport()) {
+        debugPrint('Creating new draft report in Firestore');
         await _reportService.createReport(updatedReport);
+        debugPrint('New draft saved successfully with ID: ${updatedReport.id}');
       } else {
+        debugPrint('Updating existing draft report in Firestore');
         await _reportService.updateReport(updatedReport);
+        debugPrint('Draft updated successfully with ID: ${updatedReport.id}');
       }
-
       _currentReport = updatedReport;
       notifyListeners();
-
       return true;
     } catch (e) {
+      debugPrint('Error saving draft: $e');
       _setError('Failed to save draft: $e');
       return false;
     } finally {
@@ -291,12 +296,18 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
   /// Get all draft reports for the current technician
   ///
   /// Returns a stream of reports with 'draft' status for the current user.
+  /// Get all draft reports for the current technician
+  ///
+  /// Returns a stream of reports with 'draft' status for the current user.
   Stream<List<TechnicalVisitReport>> getDraftReportsStream() {
     final user = _authService.currentUser;
     if (user == null) {
+      debugPrint(
+        'User is not authenticated, returning empty draft reports stream',
+      );
       return Stream.value([]);
     }
-
+    debugPrint('Fetching draft reports stream for user: ${user.uid}');
     return _reportService.getDraftReportsStream(user.uid);
   }
 
@@ -306,9 +317,12 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
   Stream<List<TechnicalVisitReport>> getSubmittedReportsStream() {
     final user = _authService.currentUser;
     if (user == null) {
+      debugPrint(
+        'User is not authenticated, returning empty submitted reports stream',
+      );
       return Stream.value([]);
     }
-
+    debugPrint('Fetching submitted reports stream for user: ${user.uid}');
     return _reportService.getSubmittedReportsStream(user.uid);
   }
 
@@ -1137,8 +1151,13 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
   ///
   /// Determines if the report is being created for the first time by
   /// comparing creation and modification timestamps.
+  /// Helper method to check if this is a completely new report
+  ///
+  /// Determines if the report is being created for the first time by
+  /// comparing creation and modification timestamps.
   bool _isNewReport() {
-    return _currentReport?.createdAt == _currentReport?.lastModified;
+    // If report has an empty ID or hasn't been saved to Firestore yet
+    return _currentReport?.id.isEmpty ?? true;
   }
 
   /// Validate all required sections of the report
