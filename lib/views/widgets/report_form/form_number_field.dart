@@ -1,9 +1,10 @@
-// lib/views/widgets/report_form/form_number_field.dart
+// In file: lib/views/widgets/report_form/form_number_field.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// A specialized text field for numeric input with optional increment/decrement controls
-class FormNumberField extends StatelessWidget {
+/// A specialized text field for numeric input with functional increment/decrement controls
+class FormNumberField extends StatefulWidget {
   final String label;
   final num? value;
   final Function(num?) onChanged;
@@ -30,6 +31,68 @@ class FormNumberField extends StatelessWidget {
   });
 
   @override
+  State<FormNumberField> createState() => _FormNumberFieldState();
+}
+
+class _FormNumberFieldState extends State<FormNumberField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value?.toString() ?? '');
+  }
+
+  @override
+  void didUpdateWidget(FormNumberField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update controller text if the value changes externally
+    if (widget.value?.toString() != _controller.text) {
+      _controller.text = widget.value?.toString() ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // Increment the value
+  void _increment() {
+    num currentValue = widget.value ?? widget.min;
+    num newValue;
+
+    if (widget.decimal) {
+      newValue = (currentValue + widget.step).toDouble();
+    } else {
+      newValue = (currentValue + widget.step).toInt();
+    }
+
+    if (newValue <= widget.max) {
+      _controller.text = newValue.toString();
+      widget.onChanged(newValue);
+    }
+  }
+
+  // Decrement the value
+  void _decrement() {
+    num currentValue = widget.value ?? widget.min;
+    num newValue;
+
+    if (widget.decimal) {
+      newValue = (currentValue - widget.step).toDouble();
+    } else {
+      newValue = (currentValue - widget.step).toInt();
+    }
+
+    if (newValue >= widget.min) {
+      _controller.text = newValue.toString();
+      widget.onChanged(newValue);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,14 +100,14 @@ class FormNumberField extends StatelessWidget {
         Row(
           children: [
             Text(
-              label,
+              widget.label,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade800,
               ),
             ),
-            if (required) ...[
+            if (widget.required) ...[
               const SizedBox(width: 4),
               Text(
                 '*',
@@ -62,13 +125,13 @@ class FormNumberField extends StatelessWidget {
           children: [
             Expanded(
               child: TextFormField(
-                initialValue: value?.toString() ?? '',
+                controller: _controller,
                 keyboardType:
-                    decimal
+                    widget.decimal
                         ? const TextInputType.numberWithOptions(decimal: true)
                         : TextInputType.number,
                 inputFormatters: [
-                  decimal
+                  widget.decimal
                       ? FilteringTextInputFormatter.allow(
                         RegExp(r'^\d*\.?\d*$'),
                       )
@@ -76,29 +139,37 @@ class FormNumberField extends StatelessWidget {
                 ],
                 onChanged: (text) {
                   if (text.isEmpty) {
-                    onChanged(null);
+                    widget.onChanged(null);
                     return;
                   }
 
                   num? parsedValue;
                   try {
                     parsedValue =
-                        decimal ? double.parse(text) : int.parse(text);
+                        widget.decimal ? double.parse(text) : int.parse(text);
                   } catch (e) {
                     return;
                   }
 
                   // Enforce min/max constraints
-                  if (parsedValue < min) {
-                    parsedValue = min;
-                  } else if (parsedValue > max) {
-                    parsedValue = max;
+                  if (parsedValue < widget.min) {
+                    parsedValue = widget.min;
+                    _controller.text = parsedValue.toString();
+                    _controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _controller.text.length),
+                    );
+                  } else if (parsedValue > widget.max) {
+                    parsedValue = widget.max;
+                    _controller.text = parsedValue.toString();
+                    _controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _controller.text.length),
+                    );
                   }
 
-                  onChanged(parsedValue);
+                  widget.onChanged(parsedValue);
                 },
                 decoration: InputDecoration(
-                  hintText: hintText,
+                  hintText: widget.hintText,
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.all(16),
@@ -119,7 +190,7 @@ class FormNumberField extends StatelessWidget {
                   ),
                 ),
                 validator:
-                    required
+                    widget.required
                         ? (value) =>
                             (value == null || value.isEmpty)
                                 ? 'Ce champ est obligatoire'
@@ -127,7 +198,7 @@ class FormNumberField extends StatelessWidget {
                         : null,
               ),
             ),
-            if (showControls) ...[
+            if (widget.showControls) ...[
               const SizedBox(width: 8),
               Container(
                 decoration: BoxDecoration(
@@ -139,18 +210,7 @@ class FormNumberField extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.add),
-                      onPressed: () {
-                        final current = value ?? min;
-                        num newValue;
-                        if (decimal) {
-                          newValue = (current + step).toDouble();
-                        } else {
-                          newValue = (current + step).toInt();
-                        }
-                        if (newValue <= max) {
-                          onChanged(newValue);
-                        }
-                      },
+                      onPressed: _increment,
                       padding: const EdgeInsets.all(8),
                       constraints: const BoxConstraints(),
                       iconSize: 20,
@@ -162,18 +222,7 @@ class FormNumberField extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.remove),
-                      onPressed: () {
-                        final current = value ?? min;
-                        num newValue;
-                        if (decimal) {
-                          newValue = (current - step).toDouble();
-                        } else {
-                          newValue = (current - step).toInt();
-                        }
-                        if (newValue >= min) {
-                          onChanged(newValue);
-                        }
-                      },
+                      onPressed: _decrement,
                       padding: const EdgeInsets.all(8),
                       constraints: const BoxConstraints(),
                       iconSize: 20,

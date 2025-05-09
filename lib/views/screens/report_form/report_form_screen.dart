@@ -418,6 +418,10 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                 ),
 
                 // Navigation buttons
+                // In file: lib/views/screens/report_form/report_form_screen.dart
+
+                // Update the navigation buttons section in the build method
+                // Replace the existing navigation buttons with this improved version:
                 Container(
                   padding: const EdgeInsets.all(16.0),
                   decoration: BoxDecoration(
@@ -436,7 +440,9 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                       // Back button
                       OutlinedButton.icon(
                         onPressed:
-                            viewModel.currentStep > 0 ? _previousStep : null,
+                            viewModel.currentStep > 0 && !_isLoading
+                                ? _previousStep
+                                : null,
                         icon: const Icon(Icons.arrow_back),
                         label: const Text('Précédent'),
                         style: OutlinedButton.styleFrom(
@@ -453,10 +459,27 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                           onPressed:
                               _isLoading || viewModel.isLoading
                                   ? null
-                                  : _nextStep,
-                          icon: const Icon(Icons.arrow_forward),
+                                  : () async {
+                                    setState(() => _isLoading = true);
+                                    await _nextStep();
+                                    if (mounted)
+                                      setState(() => _isLoading = false);
+                                  },
+                          icon:
+                              _isLoading
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.arrow_forward),
                           label: const Text('Suivant'),
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 12,
@@ -492,6 +515,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                                 viewModel.canSubmit
                                     ? Colors.green
                                     : Colors.blue,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 12,
