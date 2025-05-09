@@ -45,7 +45,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _sharePdf,
-            tooltip: 'Share PDF',
+            tooltip: 'Partager le PDF',
           ),
         ],
       ),
@@ -111,7 +111,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           Icon(Icons.error_outline, size: 60, color: Colors.red.shade400),
           const SizedBox(height: 16),
           Text(
-            'Failed to load PDF',
+            'Échec du chargement du PDF',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -131,7 +131,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           ElevatedButton.icon(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Go Back'),
+            label: const Text('Retour'),
           ),
         ],
       ),
@@ -170,7 +170,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
           // Page counter
           Text(
-            'Page ${_currentPage + 1} of $_totalPages',
+            'Page ${_currentPage + 1} sur $_totalPages',
             style: const TextStyle(color: Colors.white),
           ),
 
@@ -202,10 +202,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     try {
       await Share.shareFiles([
         widget.pdfFile.path,
-      ], text: 'Technical Visit Report: ${widget.reportName}');
+      ], text: 'Rapport de Visite Technique: ${widget.reportName}');
     } catch (e) {
       if (mounted) {
-        NotificationUtils.showError(context, 'Failed to share PDF: $e');
+        NotificationUtils.showError(context, 'Échec du partage du PDF: $e');
       }
     }
   }

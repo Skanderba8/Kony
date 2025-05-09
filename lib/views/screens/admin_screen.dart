@@ -34,12 +34,12 @@ class _AdminScreenState extends State<AdminScreen>
     super.dispose();
   }
 
-  // Navigate to user management screen
+  // Navigation vers l'écran de gestion des utilisateurs
   void _navigateToUserManagement() {
     Navigator.pushNamed(context, AppRoutes.userManagement);
   }
 
-  // Handle logout action
+  // Gestion de la déconnexion
   Future<void> _logout() async {
     final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
@@ -52,17 +52,17 @@ class _AdminScreenState extends State<AdminScreen>
       if (mounted) {
         NotificationUtils.showError(
           context,
-          "Error logging out: ${viewModel.errorMessage ?? e}",
+          "Erreur lors de la déconnexion: ${viewModel.errorMessage ?? e}",
         );
       }
     }
   }
 
-  // Open the PDF associated with a technical visit report
+  // Ouvrir le PDF associé à un rapport de visite technique
   Future<void> _viewReportPdf(TechnicalVisitReport report) async {
     final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
-    // Show loading indicator
+    // Afficher un indicateur de chargement
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -72,33 +72,36 @@ class _AdminScreenState extends State<AdminScreen>
     try {
       final pdfFile = await viewModel.generateReportPdf(report.id);
 
-      // Close loading indicator
+      // Fermer l'indicateur de chargement
       if (mounted) Navigator.of(context).pop();
 
       if (pdfFile != null) {
         if (Platform.isAndroid || Platform.isIOS) {
           try {
             final result = await OpenFile.open(pdfFile.path);
-            // Check if opening was successful in a way that's compatible with any version of open_file
+            // Vérifier si l'ouverture a réussi d'une manière compatible avec n'importe quelle version de open_file
             if (result.type != 'done' && result.type != 'done') {
-              debugPrint('Error opening PDF: ${result.message}');
+              debugPrint('Could not open PDF: ${result.message}');
               if (mounted) {
                 NotificationUtils.showError(
                   context,
-                  'Could not open PDF: ${result.message}',
+                  'Impossible d\'ouvrir le PDF: ${result.message}',
                 );
               }
             }
           } catch (e) {
             debugPrint('Exception opening PDF: $e');
             if (mounted) {
-              NotificationUtils.showError(context, 'Failed to open PDF: $e');
+              NotificationUtils.showError(
+                context,
+                'Échec de l\'ouverture du PDF: $e',
+              );
             }
           }
         } else {
           NotificationUtils.showInfo(
             context,
-            'PDF generated at: ${pdfFile.path}',
+            'PDF généré à: ${pdfFile.path}',
             duration: const Duration(seconds: 5),
           );
         }
@@ -106,25 +109,28 @@ class _AdminScreenState extends State<AdminScreen>
         if (mounted) {
           NotificationUtils.showError(
             context,
-            viewModel.errorMessage ?? 'Failed to generate PDF',
+            viewModel.errorMessage ?? 'Erreur lors de la génération du PDF',
           );
         }
       }
     } catch (e) {
-      // Close loading indicator if still showing
+      // Fermer l'indicateur de chargement s'il est toujours affiché
       if (mounted) Navigator.of(context).pop();
       debugPrint('Error generating PDF: $e');
-      NotificationUtils.showError(context, 'Error generating PDF: $e');
+      NotificationUtils.showError(
+        context,
+        'Erreur lors de la génération du PDF: $e',
+      );
     }
   }
 
-  // Update the status of a technical visit report
+  // Mettre à jour le statut d'un rapport de visite technique
   Future<void> _updateReportStatus(
     TechnicalVisitReport report,
     String newStatus,
   ) async {
     final String statusText =
-        newStatus == 'reviewed' ? 'Mark as Reviewed' : 'Approve';
+        newStatus == 'reviewed' ? 'Marquer comme Examiné' : 'Approuver';
 
     final bool confirmed =
         await showDialog<bool>(
@@ -133,12 +139,12 @@ class _AdminScreenState extends State<AdminScreen>
               (context) => AlertDialog(
                 title: Text('$statusText?'),
                 content: Text(
-                  'Are you sure you want to $statusText this report?',
+                  'Êtes-vous sûr de vouloir $statusText ce rapport?',
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+                    child: const Text('Annuler'),
                   ),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(true),
@@ -156,39 +162,40 @@ class _AdminScreenState extends State<AdminScreen>
       if (success && mounted) {
         NotificationUtils.showSuccess(
           context,
-          'Report marked as ${newStatus.toUpperCase()} successfully',
+          'Rapport marqué comme ${newStatus.toUpperCase()} avec succès',
         );
       } else if (mounted) {
         NotificationUtils.showError(
           context,
-          viewModel.errorMessage ?? 'Failed to update report status',
+          viewModel.errorMessage ??
+              'Échec de la mise à jour du statut du rapport',
         );
       }
     }
   }
 
-  // Delete a technical visit report
+  // Supprimer un rapport de visite technique
   Future<void> _confirmDeleteReport(TechnicalVisitReport report) async {
     final bool confirmed =
         await showDialog<bool>(
           context: context,
           builder:
               (context) => AlertDialog(
-                title: const Text('Delete Report?'),
+                title: const Text('Supprimer le Rapport ?'),
                 content: const Text(
-                  'Are you sure you want to delete this report? This action cannot be undone.',
+                  'Êtes-vous sûr de vouloir supprimer ce rapport ? Cette action ne peut pas être annulée.',
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+                    child: const Text('Annuler'),
                   ),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
-                    child: const Text('Delete'),
+                    child: const Text('Supprimer'),
                   ),
                 ],
               ),
@@ -200,11 +207,11 @@ class _AdminScreenState extends State<AdminScreen>
       final success = await viewModel.deleteReport(report.id);
 
       if (success && mounted) {
-        NotificationUtils.showSuccess(context, 'Report deleted successfully');
+        NotificationUtils.showSuccess(context, 'Rapport supprimé avec succès');
       } else if (mounted) {
         NotificationUtils.showError(
           context,
-          viewModel.errorMessage ?? 'Failed to delete report',
+          viewModel.errorMessage ?? 'Échec de la suppression du rapport',
         );
       }
     }
@@ -215,35 +222,39 @@ class _AdminScreenState extends State<AdminScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Admin Dashboard',
+          'Tableau de Bord Admin',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         automaticallyImplyLeading: false,
         actions: [
-          // User Management button
+          // Bouton de gestion des utilisateurs
           IconButton(
             icon: const Icon(Icons.people),
             onPressed: _navigateToUserManagement,
-            tooltip: 'User Management',
+            tooltip: 'Gestion des Utilisateurs',
           ),
-          // Logout button
+          // Bouton de déconnexion
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
-            tooltip: 'Logout',
+            tooltip: 'Déconnexion',
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
           labelColor:
-              Theme.of(context).primaryColor, // Blue text for selected tab
-          unselectedLabelColor: Colors.grey, // Grey text for unselected tabs
-          indicatorColor: Theme.of(context).primaryColor, // Blue indicator line
-          indicatorWeight: 3, // Makes the indicator line more visible
+              Theme.of(
+                context,
+              ).primaryColor, // Texte bleu pour l'onglet sélectionné
+          unselectedLabelColor:
+              Colors.grey, // Texte gris pour les onglets non sélectionnés
+          indicatorColor:
+              Theme.of(context).primaryColor, // Ligne indicatrice bleue
+          indicatorWeight: 3, // Rend la ligne indicatrice plus visible
           tabs: const [
-            Tab(text: 'Submitted'),
-            Tab(text: 'Reviewed'),
-            Tab(text: 'Approved'),
+            Tab(text: 'Soumis'),
+            Tab(text: 'Examinés'),
+            Tab(text: 'Approuvés'),
           ],
         ),
       ),
@@ -252,19 +263,19 @@ class _AdminScreenState extends State<AdminScreen>
           return TabBarView(
             controller: _tabController,
             children: [
-              // Submitted Reports Tab
+              // Onglet des rapports soumis
               _buildReportList(
                 viewModel.getSubmittedReportsStream(),
                 'submitted',
               ),
 
-              // Reviewed Reports Tab
+              // Onglet des rapports examinés
               _buildReportList(
                 viewModel.getReviewedReportsStream(),
                 'reviewed',
               ),
 
-              // Approved Reports Tab
+              // Onglet des rapports approuvés
               _buildReportList(
                 viewModel.getApprovedReportsStream(),
                 'approved',
@@ -276,7 +287,7 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  // Build a list of reports based on the provided stream and status
+  // Construire une liste de rapports basée sur le flux fourni et le statut
   Widget _buildReportList(
     Stream<List<TechnicalVisitReport>> stream,
     String status,
@@ -295,11 +306,14 @@ class _AdminScreenState extends State<AdminScreen>
               children: [
                 Icon(Icons.error_outline, size: 48, color: Colors.red),
                 const SizedBox(height: 16),
-                Text('Error loading reports: ${snapshot.error}'),
+                Text(
+                  'Erreur lors du chargement des rapports: ${snapshot.error}',
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => setState(() {}), // Force refresh
-                  child: const Text('Try Again'),
+                  onPressed:
+                      () => setState(() {}), // Forcer le rafraîchissement
+                  child: const Text('Réessayer'),
                 ),
               ],
             ),
@@ -320,7 +334,11 @@ class _AdminScreenState extends State<AdminScreen>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No ${status.toLowerCase()} reports',
+                  status == 'submitted'
+                      ? 'Aucun rapport soumis'
+                      : (status == 'reviewed'
+                          ? 'Aucun rapport examiné'
+                          : 'Aucun rapport approuvé'),
                   style: TextStyle(
                     fontSize: 18,
                     color: Colors.grey.shade600,
@@ -344,9 +362,9 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  // Build a card to display a technical visit report
+  // Construire une carte pour afficher un rapport de visite technique
   Widget _buildReportCard(TechnicalVisitReport report, String status) {
-    // Get status color
+    // Obtenir la couleur du statut
     Color statusColor;
     IconData statusIcon;
 
@@ -368,10 +386,8 @@ class _AdminScreenState extends State<AdminScreen>
         statusIcon = Icons.help_outline;
     }
 
-    // Get the date to display
+    // Obtenir la date à afficher
     final displayDate = report.submittedAt ?? report.createdAt;
-    final dateFormat = DateFormat('dd/MM/yyyy');
-    final timeFormat = DateFormat('HH:mm');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -379,7 +395,7 @@ class _AdminScreenState extends State<AdminScreen>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
-          // Status header
+          // En-tête du statut
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -395,7 +411,9 @@ class _AdminScreenState extends State<AdminScreen>
                 Icon(statusIcon, size: 18, color: statusColor),
                 const SizedBox(width: 8),
                 Text(
-                  status.toUpperCase(),
+                  status == 'submitted'
+                      ? 'SOUMIS'
+                      : (status == 'reviewed' ? 'EXAMINÉ' : 'APPROUVÉ'),
                   style: TextStyle(
                     color: statusColor,
                     fontWeight: FontWeight.bold,
@@ -404,20 +422,20 @@ class _AdminScreenState extends State<AdminScreen>
                 ),
                 const Spacer(),
                 Text(
-                  'Submitted: ${dateFormat.format(displayDate)} at ${timeFormat.format(displayDate)}',
+                  'Soumis: ${_dateFormat.format(displayDate)} à ${_timeFormat.format(displayDate)}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ],
             ),
           ),
 
-          // Report content
+          // Contenu du rapport
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Client info
+                // Informations sur le client
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -433,7 +451,7 @@ class _AdminScreenState extends State<AdminScreen>
                           Text(
                             report.clientName.isNotEmpty
                                 ? report.clientName
-                                : '(No client name)',
+                                : '(Pas de nom de client)',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -449,14 +467,14 @@ class _AdminScreenState extends State<AdminScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Location',
+                            'Lieu',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             report.location.isNotEmpty
                                 ? report.location
-                                : '(No location)',
+                                : '(Pas d\'emplacement)',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -472,7 +490,7 @@ class _AdminScreenState extends State<AdminScreen>
 
                 const SizedBox(height: 16),
 
-                // Technician info
+                // Informations sur le technicien
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -481,7 +499,7 @@ class _AdminScreenState extends State<AdminScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Technician',
+                            'Technicien',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 4),
@@ -499,14 +517,14 @@ class _AdminScreenState extends State<AdminScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Project Manager',
+                            'Chef de Projet',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             report.projectManager.isNotEmpty
                                 ? report.projectManager
-                                : '(Not specified)',
+                                : '(Non spécifié)',
                             style: const TextStyle(fontWeight: FontWeight.w500),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -521,26 +539,26 @@ class _AdminScreenState extends State<AdminScreen>
                 const Divider(height: 1),
                 const SizedBox(height: 16),
 
-                // Floors and components summary
+                // Résumé des étages et des composants
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
                       _buildInfoBadge(
-                        'Floors',
+                        'Étages',
                         '${report.floors.length}',
                         Colors.blue.shade700,
                       ),
                       const SizedBox(width: 12),
                       _buildInfoBadge(
-                        'Components',
+                        'Composants',
                         _calculateTotalComponents(report).toString(),
                         Colors.amber.shade700,
                       ),
                       const SizedBox(width: 12),
                       _buildInfoBadge(
-                        'Est. Duration',
-                        '${report.estimatedDurationDays} days',
+                        'Durée Est.',
+                        '${report.estimatedDurationDays} jours',
                         Colors.green.shade700,
                       ),
                     ],
@@ -549,26 +567,26 @@ class _AdminScreenState extends State<AdminScreen>
 
                 const SizedBox(height: 20),
 
-                // Action buttons - fixes overflow issue
+                // Boutons d'action - corrige le problème de débordement
                 Wrap(
                   spacing: 8,
                   alignment: WrapAlignment.end,
                   children: [
-                    // Delete button
+                    // Bouton de suppression
                     IconButton(
                       onPressed: () => _confirmDeleteReport(report),
                       icon: Icon(
                         Icons.delete_outline,
                         color: Colors.red.shade400,
                       ),
-                      tooltip: 'Delete Report',
+                      tooltip: 'Supprimer le Rapport',
                     ),
 
-                    // View PDF button
+                    // Bouton d'affichage du PDF
                     OutlinedButton.icon(
                       onPressed: () => _viewReportPdf(report),
                       icon: const Icon(Icons.picture_as_pdf, size: 18),
-                      label: const Text('View PDF'),
+                      label: const Text('Voir PDF'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(
@@ -577,13 +595,13 @@ class _AdminScreenState extends State<AdminScreen>
                       ),
                     ),
 
-                    // Status update buttons based on current status
+                    // Boutons de mise à jour du statut en fonction du statut actuel
                     if (status == 'submitted')
                       ElevatedButton.icon(
                         onPressed:
                             () => _updateReportStatus(report, 'reviewed'),
                         icon: const Icon(Icons.fact_check, size: 18),
-                        label: const Text('Mark as Reviewed'),
+                        label: const Text('Marquer comme Examiné'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
@@ -598,7 +616,7 @@ class _AdminScreenState extends State<AdminScreen>
                         onPressed:
                             () => _updateReportStatus(report, 'approved'),
                         icon: const Icon(Icons.check_circle, size: 18),
-                        label: const Text('Approve'),
+                        label: const Text('Approuver'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
@@ -617,7 +635,7 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  // Build an info badge with a label and value
+  // Construire un badge d'information avec une étiquette et une valeur
   Widget _buildInfoBadge(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -646,7 +664,7 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  // Calculate the total number of components across all floors
+  // Calculer le nombre total de composants sur tous les étages
   int _calculateTotalComponents(TechnicalVisitReport report) {
     int total = 0;
     for (final floor in report.floors) {

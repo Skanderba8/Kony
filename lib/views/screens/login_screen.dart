@@ -37,12 +37,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final viewModel = Provider.of<LoginViewModel>(context, listen: false);
 
     if (email.isEmpty || password.isEmpty) {
-      NotificationUtils.showWarning(context, "Please fill in all fields");
+      NotificationUtils.showWarning(
+        context,
+        "Veuillez remplir tous les champs",
+      );
       return;
     }
 
     try {
-      debugPrint('LoginScreen: Attempting to sign in with email: $email');
+      debugPrint('LoginScreen: Tentative de connexion avec email: $email');
       final userCredential = await viewModel.signInWithEmailAndPassword(
         email,
         password,
@@ -50,22 +53,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userCredential != null && mounted) {
         debugPrint(
-          'LoginScreen: Authentication successful. Getting user role...',
+          'LoginScreen: Authentification réussie. Récupération du rôle utilisateur...',
         );
-        // Get user role and navigate
+        // Obtenir le rôle utilisateur et naviguer
         final role = await viewModel.getUserRole();
-        debugPrint('LoginScreen: User role: $role');
+        debugPrint('LoginScreen: Rôle utilisateur: $role');
 
         if (role == null && mounted) {
           NotificationUtils.showError(
             context,
-            "Authentication successful but couldn't determine user role. Please contact support.",
+            "Authentification réussie mais impossible de déterminer le rôle utilisateur. Veuillez contacter le support.",
           );
           return;
         }
 
         if (mounted) {
-          debugPrint('LoginScreen: Navigating based on role: $role');
+          debugPrint('LoginScreen: Navigation basée sur le rôle: $role');
           navigateBasedOnRole(context, role);
         }
       } else if (mounted) {
@@ -73,29 +76,29 @@ class _LoginScreenState extends State<LoginScreen> {
         NotificationUtils.showError(context, dMessage);
       }
     } catch (e) {
-      debugPrint("LoginScreen: Unexpected error during login: $e");
-      dMessage = "An unexpected error occurred. Please try again.";
+      debugPrint("LoginScreen: Erreur inattendue lors de la connexion: $e");
+      dMessage = "Une erreur inattendue s'est produite. Veuillez réessayer.";
       if (mounted) {
         NotificationUtils.showError(context, dMessage);
       }
     }
   }
 
-  // Navigate based on user role with better logging
+  // Navigation basée sur le rôle utilisateur avec une meilleure journalisation
   void navigateBasedOnRole(BuildContext context, String? role) {
-    debugPrint('LoginScreen: Navigating based on role: $role');
+    debugPrint('LoginScreen: Navigation basée sur le rôle: $role');
     try {
       AppRoutes.navigateBasedOnRole(context, role);
     } catch (e) {
-      debugPrint('LoginScreen: Navigation error: $e');
+      debugPrint('LoginScreen: Erreur de navigation: $e');
       NotificationUtils.showError(
         context,
-        "Error navigating to home screen. Please try again.",
+        "Erreur lors de la navigation vers l'écran d'accueil. Veuillez réessayer.",
       );
     }
   }
 
-  // Function to send a password reset email
+  // Fonction pour envoyer un email de réinitialisation de mot de passe
   Future<void> sendPasswordResetEmail(
     BuildContext context,
     String email,
@@ -103,24 +106,33 @@ class _LoginScreenState extends State<LoginScreen> {
     final viewModel = Provider.of<LoginViewModel>(context, listen: false);
 
     if (email.isEmpty) {
-      NotificationUtils.showWarning(context, "Please enter your email address");
+      NotificationUtils.showWarning(
+        context,
+        "Veuillez entrer votre adresse e-mail",
+      );
       return;
     }
 
     try {
       final success = await viewModel.sendPasswordResetEmail(email);
       if (success && mounted) {
-        NotificationUtils.showSuccess(context, "Password reset email sent!");
+        NotificationUtils.showSuccess(
+          context,
+          "E-mail de réinitialisation envoyé !",
+        );
       } else if (mounted && viewModel.errorMessage != null) {
         NotificationUtils.showError(
           context,
-          "Error: ${viewModel.errorMessage}",
+          "Erreur: ${viewModel.errorMessage}",
         );
       }
     } catch (e) {
-      debugPrint("Unexpected error: $e");
+      debugPrint("Erreur inattendue: $e");
       if (mounted) {
-        NotificationUtils.showError(context, "An unexpected error occurred");
+        NotificationUtils.showError(
+          context,
+          "Une erreur inattendue s'est produite",
+        );
       }
     }
   }
@@ -150,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   const Center(
                     child: Text(
-                      'Welcome!',
+                      'Bienvenue !',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -162,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Email Address',
+                        'Adresse e-mail',
                         style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                       const SizedBox(height: 5),
@@ -183,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           focusNode: _emailFocusNode,
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
-                            hintText: 'Enter your email',
+                            hintText: 'Entrez votre e-mail',
                             hintStyle: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 15,
@@ -203,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Password',
+                        'Mot de passe',
                         style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                       const SizedBox(height: 5),
@@ -266,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       child: Text(
-                        'Forgot password?',
+                        '"Mot de passe oublié ?',
                         style: TextStyle(color: Colors.blue, fontSize: 14),
                       ),
                     ),
@@ -304,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             )
                             : const Text(
-                              'Login',
+                              'Connexion',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,

@@ -49,7 +49,7 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
       if (mounted) {
         NotificationUtils.showError(
           context,
-          "Error logging out: ${viewModel.errorMessage ?? e}",
+          "Erreur lors de la déconnexion: ${viewModel.errorMessage ?? e}",
         );
       }
     }

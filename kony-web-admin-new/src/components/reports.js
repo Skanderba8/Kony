@@ -1,45 +1,46 @@
-import { getReportsByStatus, updateReportStatus, deleteReport } from '../utils/api.js';
+// src/components/reports.js
+import { getReportsByStatus, updateReportStatus, deleteReport, getReportById } from '../utils/api.js';
 import { generateReportPdf } from '../utils/pdf.js';
 
 /**
- * Shows the reports list
+ * Affiche la liste des rapports
  */
 export async function showReportsList() {
-  console.log('Showing reports list');
+  console.log('Affichage de la liste des rapports');
   const contentContainer = document.getElementById('contentContainer');
   
-  // Show loading state
+  // Afficher l'état de chargement
   contentContainer.innerHTML = `
     <div class="text-center py-5">
       <div class="spinner-border text-primary" role="status"></div>
-      <p class="mt-2">Loading reports...</p>
+      <p class="mt-2">Chargement des rapports...</p>
     </div>
   `;
   
-  // Create reports UI
+  // Créer l'interface utilisateur des rapports
   contentContainer.innerHTML = `
     <div class="row mb-4">
       <div class="col-12">
         <div class="card">
           <div class="card-header bg-white">
-            <h5 class="mb-0">Technical Visit Reports</h5>
+            <h5 class="mb-0">Rapports de Visite Technique</h5>
           </div>
           <div class="card-body">
             <ul class="nav nav-tabs" id="reportTabs">
               <li class="nav-item">
-                <a class="nav-link active" data-status="submitted" href="#">Submitted</a>
+                <a class="nav-link active" data-status="submitted" href="#">Soumis</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" data-status="reviewed" href="#">Reviewed</a>
+                <a class="nav-link" data-status="reviewed" href="#">Examinés</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" data-status="approved" href="#">Approved</a>
+                <a class="nav-link" data-status="approved" href="#">Approuvés</a>
               </li>
             </ul>
             
             <div class="tab-content mt-3">
               <div id="reportsContainer" class="tab-pane active">
-                <!-- Reports will be loaded here -->
+                <!-- Les rapports seront chargés ici -->
               </div>
             </div>
           </div>
@@ -48,96 +49,108 @@ export async function showReportsList() {
     </div>
   `;
   
-  // Add event listeners for tabs
+  // Ajouter des écouteurs d'événements pour les onglets
   document.querySelectorAll('#reportTabs .nav-link').forEach(tab => {
     tab.addEventListener('click', async (e) => {
       e.preventDefault();
       
-      // Update active tab
+      // Mettre à jour l'onglet actif
       document.querySelectorAll('#reportTabs .nav-link').forEach(t => {
         t.classList.remove('active');
       });
       e.target.classList.add('active');
       
-      // Load reports
+      // Charger les rapports
       const status = e.target.getAttribute('data-status');
       await loadReports(status);
     });
   });
   
-  // Load submitted reports by default
+  // Charger les rapports soumis par défaut
   await loadReports('submitted');
 }
 
 /**
- * Load reports by status
+ * Charger les rapports par statut
  */
 async function loadReports(status) {
   const reportsContainer = document.getElementById('reportsContainer');
   
   try {
-    // Show loading state
+    // Afficher l'état de chargement
     reportsContainer.innerHTML = `
       <div class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2">Loading ${status} reports...</p>
+        <p class="mt-2">Chargement des rapports ${getStatusLabel(status).toLowerCase()}...</p>
       </div>
     `;
     
-    // Fetch reports
+    // Récupérer les rapports
     const reports = await getReportsByStatus(status);
     
     if (reports.length === 0) {
       reportsContainer.innerHTML = `
         <div class="text-center py-5">
-          <div class="display-6 text-muted">No ${status} reports</div>
-          <p class="text-muted">Reports will appear here when technicians submit them</p>
+          <div class="display-6 text-muted">Aucun rapport ${getStatusLabel(status).toLowerCase()}</div>
+          <p class="text-muted">Les rapports apparaîtront ici lorsque les techniciens les soumettront</p>
         </div>
       `;
       return;
     }
     
-    // Render reports
+    // Afficher les rapports
     reportsContainer.innerHTML = reports.map(report => createReportCard(report, status)).join('');
     
-    // Add event listeners for actions
+    // Ajouter des écouteurs d'événements pour les actions
     reports.forEach(report => {
-      // View PDF button
-      document.querySelector(`.view-pdf-btn[data-id="${report.id}"]`)?.addEventListener('click', () => {
-        viewReportPdf(report.id);
+      // Bouton Télécharger PDF
+      document.querySelector(`.download-pdf-btn[data-id="${report.id}"]`)?.addEventListener('click', () => {
+        downloadReportPdf(report.id);
       });
       
-      // Mark as reviewed button
+      // Bouton Marquer comme examiné
       if (status === 'submitted') {
         document.querySelector(`.review-btn[data-id="${report.id}"]`)?.addEventListener('click', () => {
           updateStatus(report.id, 'reviewed');
         });
       }
       
-      // Approve button
+      // Bouton Approuver
       if (status === 'reviewed') {
         document.querySelector(`.approve-btn[data-id="${report.id}"]`)?.addEventListener('click', () => {
           updateStatus(report.id, 'approved');
         });
       }
       
-      // Delete button
+      // Bouton Supprimer
       document.querySelector(`.delete-btn[data-id="${report.id}"]`)?.addEventListener('click', () => {
         confirmDeleteReport(report.id);
       });
     });
   } catch (error) {
-    console.error('Error loading reports:', error);
+    console.error('Erreur lors du chargement des rapports:', error);
     reportsContainer.innerHTML = `
       <div class="alert alert-danger">
-        <i class="bi bi-exclamation-triangle"></i> Error loading reports: ${error.message}
+        <i class="bi bi-exclamation-triangle"></i> Erreur lors du chargement des rapports: ${error.message}
       </div>
     `;
   }
 }
 
 /**
- * Create a report card HTML
+ * Obtenir le libellé du statut en français
+ */
+function getStatusLabel(status) {
+  switch(status) {
+    case 'submitted': return 'Soumis';
+    case 'reviewed': return 'Examinés';
+    case 'approved': return 'Approuvés';
+    default: return status;
+  }
+}
+
+/**
+ * Créer le HTML de la carte de rapport
  */
 function createReportCard(report, status) {
   const statusColorClasses = {
@@ -151,41 +164,37 @@ function createReportCard(report, status) {
   return `
     <div class="card mb-3">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">${report.clientName || 'Unnamed Report'}</h5>
-        <span class="status-badge ${statusColorClasses[report.status] || 'bg-secondary'}">${report.status.toUpperCase()}</span>
+        <h5 class="mb-0">${report.clientName || 'Rapport sans nom'}</h5>
+        <span class="status-badge ${statusColorClasses[report.status] || 'bg-secondary'}">${getStatusLabel(report.status).toUpperCase()}</span>
       </div>
       <div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
-            <p><strong>Location:</strong> 
-            <div class="card-body">
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <p><strong>Location:</strong> ${report.location || 'Not specified'}</p>
-            <p><strong>Technician:</strong> ${report.technicianName}</p>
-            <p><strong>Project Manager:</strong> ${report.projectManager || 'Not specified'}</p>
+            <p><strong>Lieu:</strong> ${report.location || 'Non spécifié'}</p>
+            <p><strong>Technicien:</strong> ${report.technicianName}</p>
+            <p><strong>Chef de projet:</strong> ${report.projectManager || 'Non spécifié'}</p>
           </div>
           <div class="col-md-6">
-            <p><strong>Date:</strong> ${new Date(report.date).toLocaleDateString(undefined, dateOptions)}</p>
+            <p><strong>Date:</strong> ${new Date(report.date).toLocaleDateString('fr-FR', dateOptions)}</p>
             ${report.submittedAt ? 
-              `<p><strong>Submitted:</strong> ${new Date(report.submittedAt).toLocaleDateString(undefined, dateOptions)}</p>` : ''}
+              `<p><strong>Soumis le:</strong> ${new Date(report.submittedAt).toLocaleDateString('fr-FR', dateOptions)}</p>` : ''}
           </div>
         </div>
         
         <div class="d-flex justify-content-end">
           <button class="btn btn-outline-danger me-2 delete-btn" data-id="${report.id}">
-            <i class="bi bi-trash"></i> Delete
+            <i class="bi bi-trash"></i> Supprimer
           </button>
-          <button class="btn btn-outline-primary me-2 view-pdf-btn" data-id="${report.id}">
-            <i class="bi bi-file-pdf"></i> View PDF
+          <button class="btn btn-outline-primary me-2 download-pdf-btn" data-id="${report.id}">
+            <i class="bi bi-download"></i> Télécharger PDF
           </button>
           ${status === 'submitted' ? 
             `<button class="btn btn-outline-info review-btn" data-id="${report.id}">
-              <i class="bi bi-check-circle"></i> Mark as Reviewed
+              <i class="bi bi-check-circle"></i> Marquer comme Examiné
             </button>` : ''}
           ${status === 'reviewed' ? 
             `<button class="btn btn-outline-success approve-btn" data-id="${report.id}">
-              <i class="bi bi-check-all"></i> Approve
+              <i class="bi bi-check-all"></i> Approuver
             </button>` : ''}
         </div>
       </div>
@@ -194,166 +203,146 @@ function createReportCard(report, status) {
 }
 
 /**
- * View PDF for a report
+ * Télécharger directement le PDF d'un rapport sans l'afficher
  */
-/**
- * View PDF for a report with detailed progress updates
- */
-/**
- * View PDF for a report with detailed progress updates
- */
-async function viewReportPdf(reportId) {
-  const pdfModal = new bootstrap.Modal(document.getElementById('pdfModal'));
-  const pdfViewer = document.getElementById('pdfViewer');
-  
-  // Progress log array to keep track of all messages
-  const progressLog = [];
-  
-  // Function to update loading progress
-  const updateProgress = (message) => {
-      console.log(`PDF Progress: ${message}`);
-      progressLog.push(`• ${message}`);
-      
-      pdfViewer.srcdoc = `
-          <html>
-          <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
-              <div style="text-align: center; max-width: 80%;">
-              <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto;"></div>
-              <p style="margin-top: 20px; font-weight: bold;">PDF Generation in Progress</p>
-              <p style="margin-top: 10px;">${message}</p>
-              <div style="text-align: left; background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 20px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;" id="progressLog">
-                  ${progressLog.join('<br>')}
-              </div>
-              </div>
-              <style>
-              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-              </style>
-          </body>
-          </html>
-      `;
-  };
-
+async function downloadReportPdf(reportId) {
   try {
-      // Show initial loading state
-      updateProgress("Initializing PDF generation...");
-      pdfModal.show();
+    // Créer et afficher un indicateur de chargement
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'position-fixed bottom-0 end-0 p-3';
+    loadingToast.style.zIndex = '5000';
+    loadingToast.innerHTML = `
+      <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto">Génération du PDF</strong>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Fermer"></button>
+        </div>
+        <div class="toast-body d-flex align-items-center">
+          <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+          <span>Préparation du PDF, veuillez patienter...</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(loadingToast);
+    
+    console.log('Démarrage de la génération du PDF pour le rapport ID:', reportId);
+    
+    // Générer le PDF
+    const pdfBlob = await generateReportPdf(reportId);
+    console.log('Blob PDF généré, taille:', pdfBlob.size, 'octets');
+    
+    // Créer une URL pour le blob
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    console.log('URL PDF créée pour le téléchargement');
+    
+    // Créer un élément <a> pour déclencher le téléchargement
+    const downloadLink = document.createElement('a');
+    downloadLink.href = pdfUrl;
+    downloadLink.download = `rapport-technique-${reportId}.pdf`;
+    
+    // Ajouter au DOM, déclencher le téléchargement et nettoyer
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    // Retirer le toast de chargement
+    loadingToast.remove();
+    
+    // Afficher un toast de succès
+    const successToast = document.createElement('div');
+    successToast.className = 'position-fixed bottom-0 end-0 p-3';
+    successToast.style.zIndex = '5000';
+    successToast.innerHTML = `
+      <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-success text-white">
+          <strong class="me-auto">Téléchargement réussi</strong>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Fermer"></button>
+        </div>
+        <div class="toast-body">
+          Le PDF a été généré et téléchargé avec succès.
+        </div>
+      </div>
+    `;
+    document.body.appendChild(successToast);
+    
+    // Nettoyer l'URL du blob
+    setTimeout(() => {
+      URL.revokeObjectURL(pdfUrl);
+      console.log('URL PDF révoquée');
       
-      // Set a timeout to detect if PDF generation is taking too long
-      const timeoutId = setTimeout(() => {
-          updateProgress("⚠️ PDF generation is taking longer than expected. This might indicate an issue with the data or the generation process. You can wait or try again later.");
-      }, 15000); // 15 seconds timeout
-      
-      console.log('Starting PDF generation for report ID:', reportId);
-      updateProgress("Fetching report data...");
-      
-      // Fetch the report data first to see if there's an issue there
-      const report = await getReportById(reportId);
-      console.log('Report data received:', report);
-      
-      // Check if report data is valid
-      if (!report) {
-          updateProgress("❌ Error: No report data received");
-          throw new Error("Failed to fetch report data");
-      }
-      
-      updateProgress(`Report data received (${Object.keys(report).length} fields)`);
-      
-      // Check if floors data is present
-      if (!report.floors || report.floors.length === 0) {
-          updateProgress("⚠️ Warning: No floors data found in report");
-      } else {
-          updateProgress(`Found ${report.floors.length} floors with data`);
-          
-          // Log components count for debugging
-          let totalComponents = 0;
-          report.floors.forEach(floor => {
-              const componentsCount = (floor.networkCabinets?.length || 0) +
-                                     (floor.perforations?.length || 0) +
-                                     (floor.accessTraps?.length || 0) +
-                                     (floor.cablePaths?.length || 0) +
-                                     (floor.cableTrunkings?.length || 0) +
-                                     (floor.conduits?.length || 0) +
-                                     (floor.copperCablings?.length || 0) +
-                                     (floor.fiberOpticCablings?.length || 0);
-              totalComponents += componentsCount;
-              updateProgress(`Floor "${floor.name}": ${componentsCount} components`);
-          });
-          updateProgress(`Total components to process: ${totalComponents}`);
-      }
-      
-      // Generate the PDF with progress updates
-      updateProgress("Creating PDF document structure...");
-      
-      // Track start time for performance analysis
-      const startTime = performance.now();
-      
-      // Add periodic updates while PDF is generating
-      const progressInterval = setInterval(() => {
-          updateProgress(`Still generating PDF... (${((performance.now() - startTime) / 1000).toFixed(1)} seconds elapsed)`);
+      // Retirer le toast de succès après 3 secondes
+      setTimeout(() => {
+        successToast.remove();
       }, 3000);
-      
-      try {
-          const pdfBlob = await generateReportPdf(reportId);
-          
-          // Clear the progress interval
-          clearInterval(progressInterval);
-          
-          // Calculate elapsed time
-          const elapsedTime = ((performance.now() - startTime) / 1000).toFixed(2);
-          console.log(`PDF generated in ${elapsedTime} seconds`);
-          updateProgress(`✅ PDF generation completed in ${elapsedTime} seconds. Loading document...`);
-          
-          // Clear the timeout since PDF generation completed
-          clearTimeout(timeoutId);
-          
-          console.log('PDF blob generated:', pdfBlob);
-          
-          const pdfUrl = URL.createObjectURL(pdfBlob);
-          console.log('PDF URL created:', pdfUrl);
-          
-          // Short delay before loading the PDF to ensure the progress message is seen
-          setTimeout(() => {
-              pdfViewer.src = pdfUrl;
-              console.log('PDF viewer source set');
-          }, 500);
-          
-          // Clean up URL when modal is hidden
-          document.getElementById('pdfModal').addEventListener('hidden.bs.modal', () => {
-              URL.revokeObjectURL(pdfUrl);
-              console.log('PDF URL revoked');
-          }, { once: true });
-      } catch (pdfError) {
-          clearInterval(progressInterval);
-          clearTimeout(timeoutId);
-          
-          console.error('Error generating PDF:', pdfError);
-          updateProgress(`❌ Error during PDF generation: ${pdfError.message}`);
-          
-          // Re-throw to be caught by the outer try/catch
-          throw pdfError;
-      }
+    }, 1000);
+    
   } catch (error) {
-      console.error('Error viewing PDF:', error);
+    console.error('Erreur lors de la génération ou du téléchargement du PDF:', error);
+    
+    // Afficher un toast d'erreur
+    const errorToast = document.createElement('div');
+    errorToast.className = 'position-fixed bottom-0 end-0 p-3';
+    errorToast.style.zIndex = '5000';
+    errorToast.innerHTML = `
+      <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-danger text-white">
+          <strong class="me-auto">Erreur de téléchargement</strong>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Fermer"></button>
+        </div>
+        <div class="toast-body">
+          Erreur lors de la génération du PDF: ${error.message}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(errorToast);
+    
+    // Retirer le toast d'erreur après 5 secondes
+    setTimeout(() => {
+      errorToast.remove();
+    }, 5000);
+  }
+}
+
+/**
+ * Mettre à jour le statut du rapport
+ */
+async function updateStatus(reportId, newStatus) {
+  try {
+    await updateReportStatus(reportId, newStatus);
+    
+    // Rafraîchir la vue actuelle
+    const activeTab = document.querySelector('#reportTabs .nav-link.active');
+    if (activeTab) {
+      await loadReports(activeTab.getAttribute('data-status'));
+    }
+    
+    // Afficher un message de succès
+    alert(`Statut du rapport mis à jour en ${getStatusLabel(newStatus).toUpperCase()}`);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut du rapport:', error);
+    alert(`Erreur lors de la mise à jour du statut du rapport: ${error.message}`);
+  }
+}
+
+/**
+ * Confirmer la suppression du rapport
+ */
+async function confirmDeleteReport(reportId) {
+  if (confirm('Êtes-vous sûr de vouloir supprimer ce rapport ? Cette action ne peut pas être annulée.')) {
+    try {
+      await deleteReport(reportId);
       
-      pdfViewer.srcdoc = `
-          <html>
-          <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
-              <div style="text-align: center; color: #dc3545; max-width: 80%;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                  <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
-              </svg>
-              <h3 style="margin-top: 20px;">Error Generating PDF</h3>
-              <p>${error.message}</p>
-              <div style="text-align: left; background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 20px; overflow: auto; max-height: 300px;">
-                  <pre style="margin: 0; white-space: pre-wrap;">${error.stack}</pre>
-              </div>
-              <div style="margin-top: 20px;">
-                  <button onclick="window.location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Again</button>
-              </div>
-              </div>
-          </body>
-          </html>
-      `;
+      // Rafraîchir la vue actuelle
+      const activeTab = document.querySelector('#reportTabs .nav-link.active');
+      if (activeTab) {
+        await loadReports(activeTab.getAttribute('data-status'));
+      }
+      
+      // Afficher un message de succès
+      alert('Rapport supprimé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la suppression du rapport:', error);
+      alert(`Erreur lors de la suppression du rapport: ${error.message}`);
+    }
   }
 }

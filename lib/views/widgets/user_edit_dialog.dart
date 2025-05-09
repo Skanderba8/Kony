@@ -86,7 +86,7 @@ class _UserEditDialogState extends State<UserEditDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(
-        'Edit User',
+        'Modifier l\'Utilisateur',
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: Colors.blue.shade800,
@@ -102,32 +102,32 @@ class _UserEditDialogState extends State<UserEditDialog> {
               _buildTextField(
                 controller: _nameController,
                 focusNode: _nameFocusNode,
-                label: 'Full Name',
-                hintText: 'Enter full name',
+                label: 'Nom Complet',
+                hintText: 'Entrez le nom complet',
                 prefixIcon: Icons.person,
                 validator:
                     (value) =>
                         value == null || value.trim().isEmpty
-                            ? 'Name is required'
+                            ? 'Le nom est requis'
                             : null,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: _emailController,
                 focusNode: _emailFocusNode,
-                label: 'Email',
-                hintText: 'Enter email address',
+                label: 'E-mail',
+                hintText: 'Entrez l\'adresse e-mail',
                 prefixIcon: Icons.email,
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Email is required';
+                    return 'L\'e-mail est requis';
                   }
                   final emailRegex = RegExp(
                     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                   );
                   return !emailRegex.hasMatch(value)
-                      ? 'Enter a valid email address'
+                      ? 'Entrez une adresse e-mail valide'
                       : null;
                 },
               ),
@@ -138,7 +138,7 @@ class _UserEditDialogState extends State<UserEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: Colors.grey.shade700)),
+          child: Text('Annuler', style: TextStyle(color: Colors.grey.shade700)),
         ),
         ElevatedButton(
           onPressed: () {
@@ -157,7 +157,7 @@ class _UserEditDialogState extends State<UserEditDialog> {
               borderRadius: BorderRadius.circular(24.0),
             ),
           ),
-          child: const Text('Save Changes'),
+          child: const Text('Enregistrer les Modifications'),
         ),
       ],
     );

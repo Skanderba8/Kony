@@ -1,4 +1,4 @@
-// src/utils/pdf.js - Enhanced Version with detailed logging
+// src/utils/pdf.js - Enhanced Version with debugging and improved blob handling
 import { jsPDF } from 'jspdf';
 import { getReportById } from './api.js';
 
@@ -278,8 +278,12 @@ export async function generateReportPdf(reportId) {
     console.timeEnd('PDF Generation');
     console.log(`PDF generated with ${pageCount} pages`);
     
-    // Save PDF
-    return pdf.output('blob');
+    // Save PDF as Blob with explicit content type
+    console.log('Creating PDF blob...');
+    const pdfBlob = pdf.output('blob', { type: 'application/pdf' });
+    console.log('PDF blob created successfully, size:', pdfBlob.size, 'bytes');
+    
+    return pdfBlob;
   } catch (error) {
     console.error("Error generating PDF:", error);
     console.timeEnd('PDF Generation');
@@ -292,109 +296,114 @@ export async function generateReportPdf(reportId) {
  * Returns the new Y position after adding the section
  */
 function addComponentsSection(pdf, title, components, currentY) {
-  // Check if we need a new page
-  if (currentY > 250) {
-    console.log(`Adding new page for ${title} section`);
-    pdf.addPage();
-    currentY = 20;
-  }
-  
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.text(title, 20, currentY);
-  currentY += 6;
-  
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  
-  // Add each component
-  components.forEach((component, index) => {
-    try {
-      // Check if we need a new page
-      if (currentY > 270) {
-        console.log(`Adding new page for component ${index + 1} in ${title}`);
-        pdf.addPage();
-        currentY = 20;
-      }
-      
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(20, currentY - 4, 175, 6, 'F');
-      
-      // Get component name or location for display
-      const componentName = component.name || component.location || `Composant ${index + 1}`;
-      pdf.text(`${index + 1}. ${componentName}`, 22, currentY);
-      currentY += 6;
-      
-      // Get component properties
-      const properties = Object.entries(component)
-        .filter(([key]) => key !== 'id' && key !== 'name' && key !== 'notes')
-        .map(([key, value]) => {
-          try {
-            // Format property name
-            const formattedKey = key
-              .replace(/([A-Z])/g, ' $1')
-              .replace(/^./, (str) => str.toUpperCase());
-            
-            // Format property value
-            let formattedValue = value;
-            if (typeof value === 'boolean') {
-              formattedValue = value ? 'Oui' : 'Non';
-            } else if (typeof value === 'number') {
-              if (key.toLowerCase().includes('meters')) {
-                formattedValue = `${value} m`;
+  try {
+    // Check if we need a new page
+    if (currentY > 250) {
+      console.log(`Adding new page for ${title} section`);
+      pdf.addPage();
+      currentY = 20;
+    }
+    
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text(title, 20, currentY);
+    currentY += 6;
+    
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    
+    // Add each component
+    components.forEach((component, index) => {
+      try {
+        // Check if we need a new page
+        if (currentY > 270) {
+          console.log(`Adding new page for component ${index + 1} in ${title}`);
+          pdf.addPage();
+          currentY = 20;
+        }
+        
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(20, currentY - 4, 175, 6, 'F');
+        
+        // Get component name or location for display
+        const componentName = component.name || component.location || `Composant ${index + 1}`;
+        pdf.text(`${index + 1}. ${componentName}`, 22, currentY);
+        currentY += 6;
+        
+        // Get component properties
+        const properties = Object.entries(component)
+          .filter(([key]) => key !== 'id' && key !== 'name' && key !== 'notes')
+          .map(([key, value]) => {
+            try {
+              // Format property name
+              const formattedKey = key
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, (str) => str.toUpperCase());
+              
+              // Format property value
+              let formattedValue = value;
+              if (typeof value === 'boolean') {
+                formattedValue = value ? 'Oui' : 'Non';
+              } else if (typeof value === 'number') {
+                if (key.toLowerCase().includes('meters')) {
+                  formattedValue = `${value} m`;
+                }
+              } else if (value === null || value === undefined) {
+                formattedValue = 'N/A';
+              } else if (typeof value === 'object') {
+                // Handle nested objects or arrays
+                formattedValue = JSON.stringify(value);
               }
-            } else if (value === null || value === undefined) {
-              formattedValue = 'N/A';
-            } else if (typeof value === 'object') {
-              // Handle nested objects or arrays
-              formattedValue = JSON.stringify(value);
+              
+              return `${formattedKey}: ${formattedValue}`;
+            } catch (err) {
+              console.error(`Error formatting property ${key}:`, err);
+              return `${key}: Error`;
+            }
+          });
+        
+        // Add properties
+        properties.forEach(property => {
+          try {
+            if (currentY > 270) {
+              pdf.addPage();
+              currentY = 20;
             }
             
-            return `${formattedKey}: ${formattedValue}`;
+            pdf.text(`  • ${property}`, 22, currentY);
+            currentY += 5;
           } catch (err) {
-            console.error(`Error formatting property ${key}:`, err);
-            return `${key}: Error`;
+            console.error(`Error adding property to PDF:`, err);
+            currentY += 5; // Still increment Y to avoid layout issues
           }
         });
-      
-      // Add properties
-      properties.forEach(property => {
-        try {
-          if (currentY > 270) {
-            pdf.addPage();
-            currentY = 20;
+        
+        // Add notes if any
+        if (component.notes) {
+          try {
+            if (currentY > 270) {
+              pdf.addPage();
+              currentY = 20;
+            }
+            
+            pdf.text(`  • Notes: ${component.notes}`, 22, currentY);
+            currentY += 5;
+          } catch (err) {
+            console.error(`Error adding notes to PDF:`, err);
+            currentY += 5;
           }
-          
-          pdf.text(`  • ${property}`, 22, currentY);
-          currentY += 5;
-        } catch (err) {
-          console.error(`Error adding property to PDF:`, err);
-          currentY += 5; // Still increment Y to avoid layout issues
         }
-      });
-      
-      // Add notes if any
-      if (component.notes) {
-        try {
-          if (currentY > 270) {
-            pdf.addPage();
-            currentY = 20;
-          }
-          
-          pdf.text(`  • Notes: ${component.notes}`, 22, currentY);
-          currentY += 5;
-        } catch (err) {
-          console.error(`Error adding notes to PDF:`, err);
-          currentY += 5;
-        }
+        
+        currentY += 2;
+      } catch (err) {
+        console.error(`Error processing component ${index} in ${title}:`, err);
+        currentY += 5; // Increment Y to avoid layout issues
       }
-      
-      currentY += 2;
-    } catch (err) {
-      console.error(`Error processing component ${index} in ${title}:`, err);
-      currentY += 5; // Increment Y to avoid layout issues
-    }
-  });
-  
-  return currentY + 5;
+    });
+    
+    return currentY + 5;
+  } catch (error) {
+    console.error(`Error in addComponentsSection for ${title}:`, error);
+    return currentY + 10; // Return increased Y to continue with next section
+  }
 }

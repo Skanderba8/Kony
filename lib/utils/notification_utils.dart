@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 class NotificationUtils {
-  // Helper method for showing info notifications
   static void showInfo(
     BuildContext context,
     String message, {
@@ -30,7 +29,6 @@ class NotificationUtils {
     );
   }
 
-  // Helper method for showing success notifications
   static void showSuccess(
     BuildContext context,
     String message, {
@@ -59,7 +57,6 @@ class NotificationUtils {
     );
   }
 
-  // Helper method for showing error notifications
   static void showError(
     BuildContext context,
     String message, {
@@ -88,7 +85,6 @@ class NotificationUtils {
     );
   }
 
-  // Helper method for showing warning notifications
   static void showWarning(
     BuildContext context,
     String message, {

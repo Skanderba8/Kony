@@ -20,7 +20,6 @@ class TechnicalVisitReportCard extends StatelessWidget {
     Color statusColor;
     IconData statusIcon;
 
-    // Determine status color and icon
     switch (report.status) {
       case 'draft':
         statusColor = Colors.grey;
@@ -60,7 +59,7 @@ class TechnicalVisitReportCard extends StatelessWidget {
                   child: Text(
                     report.clientName.isNotEmpty
                         ? report.clientName
-                        : 'Technical Visit Report',
+                        : 'Rapport de Visite Technique',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -70,7 +69,13 @@ class TechnicalVisitReportCard extends StatelessWidget {
                 ),
                 Chip(
                   label: Text(
-                    report.status.toUpperCase(),
+                    report.status == 'draft'
+                        ? 'BROUILLON'
+                        : (report.status == 'submitted'
+                            ? 'SOUMIS'
+                            : (report.status == 'reviewed'
+                                ? 'EXAMINÉ'
+                                : 'APPROUVÉ')),
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.bold,
@@ -88,7 +93,7 @@ class TechnicalVisitReportCard extends StatelessWidget {
                   ? report.location
                   : (report.projectContext.isNotEmpty
                       ? "${report.projectContext.substring(0, report.projectContext.length > 100 ? 100 : report.projectContext.length)}..."
-                      : 'No location specified'),
+                      : 'Aucun lieu spécifié'),
               style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -98,7 +103,7 @@ class TechnicalVisitReportCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'By: ${report.technicianName}',
+                  'Par: ${report.technicianName}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade600,
@@ -118,21 +123,21 @@ class TechnicalVisitReportCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onViewDetails,
                   icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('View Details'),
+                  label: const Text('Voir les Détails'),
                 ),
                 const SizedBox(width: 8),
                 if (report.status == 'submitted')
                   TextButton.icon(
                     onPressed: () => onStatusUpdate('reviewed'),
                     icon: const Icon(Icons.fact_check_outlined, size: 18),
-                    label: const Text('Mark as Reviewed'),
+                    label: const Text('Marquer comme Examiné'),
                     style: TextButton.styleFrom(foregroundColor: Colors.blue),
                   ),
                 if (report.status == 'reviewed')
                   TextButton.icon(
                     onPressed: () => onStatusUpdate('approved'),
                     icon: const Icon(Icons.check_circle_outline, size: 18),
-                    label: const Text('Approve'),
+                    label: const Text('Approuver'),
                     style: TextButton.styleFrom(foregroundColor: Colors.green),
                   ),
               ],
@@ -143,11 +148,10 @@ class TechnicalVisitReportCard extends StatelessWidget {
     );
   }
 
-  // Format date and time in a user-friendly way
   String _formatDateTime(DateTime dateTime) {
     final DateFormat dateFormatter = DateFormat('dd/MM/yyyy');
     final DateFormat timeFormatter = DateFormat('HH:mm');
 
-    return '${dateFormatter.format(dateTime)} at ${timeFormatter.format(dateTime)}';
+    return '${dateFormatter.format(dateTime)} à ${timeFormatter.format(dateTime)}';
   }
 }

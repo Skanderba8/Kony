@@ -60,10 +60,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (success && mounted) {
       _clearForm();
       setState(() => _selectedTabIndex = 1);
-      NotificationUtils.showInfo(
-        context,
-        'Technician account created successfully',
-      );
+      NotificationUtils.showInfo(context, 'Compte technicien créé avec succès');
     } else if (mounted && viewModel.errorMessage != null) {
       NotificationUtils.showError(context, viewModel.errorMessage!);
     }
@@ -80,7 +77,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'User Management',
+          'Gestion des Utilisateurs',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
@@ -98,13 +95,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   _buildSegmentedControlButton(
                     context,
                     index: 0,
-                    label: 'Create Technician',
+                    label: 'Créer un Technicien',
                     icon: Icons.person_add_outlined,
                   ),
                   _buildSegmentedControlButton(
                     context,
                     index: 1,
-                    label: 'Technician List',
+                    label: 'Liste des Techniciens',
                     icon: Icons.list_outlined,
                   ),
                 ],
@@ -174,32 +171,32 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 _buildTextField(
                   controller: _nameController,
                   focusNode: _nameFocusNode,
-                  label: 'Full Name',
-                  hintText: 'Enter full name',
+                  label: 'Nom Complet',
+                  hintText: 'Entrez le nom complet',
                   prefixIcon: Icons.person,
                   validator:
                       (value) =>
                           value == null || value.trim().isEmpty
-                              ? 'Please enter full name'
+                              ? 'Veuillez entrer le nom complet'
                               : null,
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _emailController,
                   focusNode: _emailFocusNode,
-                  label: 'Email',
-                  hintText: 'Enter email address',
+                  label: 'E-mail',
+                  hintText: 'Entrez l\'adresse e-mail',
                   prefixIcon: Icons.email,
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter email';
+                      return 'Veuillez entrer l\'e-mail';
                     }
                     final emailRegex = RegExp(
                       r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                     );
                     return !emailRegex.hasMatch(value)
-                        ? 'Please enter a valid email'
+                        ? 'Veuillez entrer un e-mail valide'
                         : null;
                   },
                 ),
@@ -236,7 +233,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               ),
                             )
                             : const Text(
-                              'Create Technician',
+                              'Créer un Technicien',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -331,7 +328,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Password',
+          'Mot de passe',
           style: TextStyle(fontSize: 14, color: Colors.grey[700]),
         ),
         const SizedBox(height: 5),
@@ -353,15 +350,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             obscureText: !isPasswordVisible,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter password';
+                return 'Veuillez entrer le mot de passe';
               }
               if (value.length < 6) {
-                return 'Password must be at least 6 characters';
+                return 'Le mot de passe doit comporter au moins 6 caractères';
               }
               return null;
             },
             decoration: InputDecoration(
-              hintText: 'Enter password',
+              hintText: 'Entrez le mot de passe',
               hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
               prefixIcon: const Icon(Icons.lock, color: Colors.grey),
               suffixIcon: IconButton(
@@ -408,7 +405,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       borderRadius: BorderRadius.circular(24.0),
                     ),
                   ),
-                  child: const Text('Retry'),
+                  child: const Text('Réessayer'),
                 ),
               ],
             ),
@@ -422,10 +419,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               children: [
                 const Icon(Icons.people_outline, size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
-                const Text('No users found'),
+                const Text('Aucun utilisateur trouvé'),
                 const SizedBox(height: 8),
                 Text(
-                  'Try refreshing or checking Firebase console',
+                  'Essayez d\'actualiser ou vérifiez la console Firebase',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
@@ -440,7 +437,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           borderRadius: BorderRadius.circular(24.0),
                         ),
                       ),
-                      child: const Text('Refresh List'),
+                      child: const Text('Actualiser la Liste'),
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton(
@@ -451,7 +448,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           borderRadius: BorderRadius.circular(24.0),
                         ),
                       ),
-                      child: const Text('Create New User'),
+                      child: const Text('Créer un Nouvel Utilisateur'),
                     ),
                   ],
                 ),
@@ -499,12 +496,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         onPressed: () => _showEditUserDialog(user),
-                        tooltip: 'Edit User',
+                        tooltip: 'Modifier l\'Utilisateur',
                       ),
                       IconButton(
                         icon: Icon(Icons.delete, color: Colors.red.shade400),
                         onPressed: () => _confirmDeleteUser(user),
-                        tooltip: 'Delete User',
+                        tooltip: 'Supprimer l\'Utilisateur',
                       ),
                     ],
                   ),
@@ -540,18 +537,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 if (success) {
                   NotificationUtils.showInfo(
                     context,
-                    'User ${user.name} updated successfully',
+                    'Utilisateur ${user.name} mis à jour avec succès',
                   );
                 } else {
                   NotificationUtils.showError(
                     context,
-                    'Failed to update user ${user.name}',
+                    'Échec de la mise à jour de l\'utilisateur ${user.name}',
                   );
                 }
               } catch (e) {
                 NotificationUtils.showError(
                   context,
-                  'An error occurred while updating user: ${e.toString()}',
+                  'Une erreur s\'est produite lors de la mise à jour de l\'utilisateur: ${e.toString()}',
                 );
               }
             },
@@ -565,7 +562,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       builder:
           (context) => AlertDialog(
             title: Text(
-              'Delete User',
+              'Supprimer l\'Utilisateur',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.red.shade700,
@@ -576,13 +573,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 style: DefaultTextStyle.of(context).style,
                 children: [
                   const TextSpan(
-                    text: 'Are you sure you want to delete the user ',
+                    text: 'Êtes-vous sûr de vouloir supprimer l\'utilisateur ',
                   ),
                   TextSpan(
                     text: user.name,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const TextSpan(text: '? This action cannot be undone.'),
+                  const TextSpan(
+                    text: ' ? Cette action ne peut pas être annulée.',
+                  ),
                 ],
               ),
             ),
@@ -590,7 +589,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  'Cancel',
+                  'Annuler',
                   style: TextStyle(color: Colors.grey.shade700),
                 ),
               ),
@@ -605,7 +604,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     borderRadius: BorderRadius.circular(24.0),
                   ),
                 ),
-                child: const Text('Delete'),
+                child: const Text('Supprimer'),
               ),
             ],
           ),
@@ -624,18 +623,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       if (success) {
         NotificationUtils.showInfo(
           context,
-          'User ${user.name} deleted successfully',
+          'Utilisateur ${user.name} supprimé avec succès',
         );
       } else {
         NotificationUtils.showError(
           context,
-          'Failed to delete user ${user.name}',
+          'Échec de la suppression de l\'utilisateur ${user.name}',
         );
       }
     } catch (e) {
       NotificationUtils.showError(
         context,
-        'An error occurred while deleting user: ${e.toString()}',
+        'Une erreur s\'est produite lors de la suppression de l\'utilisateur: ${e.toString()}',
       );
     }
   }
