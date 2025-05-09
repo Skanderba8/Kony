@@ -1,4 +1,6 @@
 // lib/views/screens/report_form/report_form_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/technical_visit_report_view_model.dart';
@@ -27,19 +29,41 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   bool _isInitialized = false;
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
+  bool _isSaving = false;
+  Timer? _autoSaveTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeReport();
+      // Setup auto-save every 30 seconds
+      _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        _autoSave();
+      });
     });
   }
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Auto-save the report without UI feedback
+  Future<void> _autoSave() async {
+    if (_isInitialized && !_isLoading && !_isSaving) {
+      final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+        context,
+        listen: false,
+      );
+
+      if (viewModel.currentReport != null) {
+        await viewModel.saveDraft();
+        debugPrint('Auto-saved report at ${DateTime.now()}');
+      }
+    }
   }
 
   /// Initialize the report, either by loading an existing one or creating a new draft
@@ -99,7 +123,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       listen: false,
     );
 
-    // Save before proceeding
+    // Always save before proceeding
     await viewModel.saveDraft();
 
     if (viewModel.nextStep()) {
@@ -112,12 +136,15 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     }
   }
 
-  /// Move to the previous step
-  void _previousStep() {
+  // Also update the _previousStep method to save before navigating
+  void _previousStep() async {
     final viewModel = Provider.of<TechnicalVisitReportViewModel>(
       context,
       listen: false,
     );
+
+    // Save current state before going back
+    await viewModel.saveDraft();
 
     if (viewModel.previousStep()) {
       // Scroll to top when changing steps
@@ -233,6 +260,16 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 
   /// Display confirmation dialog before discarding changes and going back
   Future<bool> _confirmExit() async {
+    // Save the current state automatically
+    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+      context,
+      listen: false,
+    );
+
+    if (viewModel.currentReport != null) {
+      await viewModel.saveDraft();
+    }
+
     final bool confirmed =
         await showDialog(
           context: context,
@@ -241,7 +278,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                 title: const Text('Quitter l\'édition ?'),
                 content: const Text(
                   'Voulez-vous quitter l\'édition de ce rapport ? '
-                  'Les modifications que vous avez apportées ont été automatiquement enregistrées comme brouillon.',
+                  'Vos modifications ont été automatiquement enregistrées comme brouillon.',
                 ),
                 actions: [
                   TextButton(
@@ -268,7 +305,9 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
     return WillPopScope(
       onWillPop: _confirmExit,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: // In lib/views/screens/report_form/report_form_screen.dart
+        // Update the actions section in the AppBar
+        AppBar(
           title: Consumer<TechnicalVisitReportViewModel>(
             builder: (context, viewModel, _) {
               final report = viewModel.currentReport;
@@ -276,22 +315,6 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
                   report == null || report.clientName.isEmpty
                       ? 'Nouveau rapport'
                       : 'Rapport: ${report.clientName}';
-
-              // Show floor selector in app bar only on the components step (step 2)
-              final actions = <Widget>[
-                // Save button always visible
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: TextButton.icon(
-                    onPressed:
-                        viewModel.isLoading
-                            ? null
-                            : () => viewModel.saveDraft(),
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Enregistrer'),
-                  ),
-                ),
-              ];
 
               return Row(
                 mainAxisSize: MainAxisSize.min,
@@ -326,13 +349,48 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
               builder: (context, viewModel, _) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: TextButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed:
-                        viewModel.isLoading
+                        _isSaving || viewModel.isLoading
                             ? null
-                            : () => viewModel.saveDraft(),
-                    icon: const Icon(Icons.save_outlined),
+                            : () async {
+                              setState(() => _isSaving = true);
+                              await viewModel.saveDraft();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Brouillon enregistré avec succès',
+                                    ),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                                setState(() => _isSaving = false);
+                              }
+                            },
+                    icon:
+                        _isSaving
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                            : const Icon(Icons.save_outlined, size: 18),
                     label: const Text('Enregistrer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
                   ),
                 );
               },

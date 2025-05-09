@@ -152,6 +152,11 @@ class DynamicListSection<T> extends StatelessWidget {
                     ),
 
                     // Only show the buttons at the bottom of the last item
+                    // In lib/views/widgets/report_form/dynamic_list_section.dart
+                    // Update the Add Component buttons to use the blue theme
+
+                    // Update the buttons at the bottom of the list
+                    // Only show the buttons at the bottom of the last item
                     if (index == items.length - 1) ...[
                       Divider(color: Colors.blue.shade200),
                       Padding(
@@ -167,7 +172,9 @@ class DynamicListSection<T> extends StatelessWidget {
                                 label: Text('Ajouter un autre $componentType'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.blue,
-                                  side: BorderSide(color: Colors.blue.shade300),
+                                  side: const BorderSide(
+                                    color: Colors.blue,
+                                  ), // Use solid blue color
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12.0,
                                     horizontal: 16.0,
@@ -187,7 +194,8 @@ class DynamicListSection<T> extends StatelessWidget {
                                 icon: const Icon(Icons.category_outlined),
                                 label: const Text('Ajouter un autre composant'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
+                                  backgroundColor:
+                                      Colors.blue, // Use solid blue color
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12.0,

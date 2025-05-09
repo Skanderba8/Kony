@@ -105,6 +105,11 @@ class FloorSelector extends StatelessWidget {
               ),
 
               // Add floor button (if enabled)
+              // In lib/views/widgets/report_form/floor_selector.dart
+              // Update the Add Floor button to use the blue theme
+
+              // In the build method, update the Add Floor button
+              // Add floor button (if enabled)
               if (showAddFloor)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
@@ -115,16 +120,10 @@ class FloorSelector extends StatelessWidget {
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 10.0),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blue.shade400,
-                              Colors.blue.shade500,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: const BorderRadius.only(
+                        decoration: const BoxDecoration(
+                          color:
+                              Colors.blue, // Use solid blue instead of gradient
+                          borderRadius: BorderRadius.only(
                             bottomLeft: Radius.circular(8.0),
                             bottomRight: Radius.circular(8.0),
                           ),

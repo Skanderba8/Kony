@@ -1,5 +1,7 @@
 // lib/views/screens/report_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:kony/app/routes.dart';
+import 'package:kony/services/pdf_generation_service.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../view_models/technical_visit_report_view_model.dart';
@@ -265,7 +267,8 @@ class _ReportListScreenState extends State<ReportListScreen>
       backgroundColor: Colors.grey.shade100,
       floatingActionButton: FloatingActionButton(
         onPressed: _createNewReport,
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.blue,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: TabBarView(
         controller: _tabController,
@@ -573,13 +576,26 @@ class _ReportListScreenState extends State<ReportListScreen>
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               label: const Text('Continuer'),
                               style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue,
+                                side: const BorderSide(color: Colors.blue),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                   vertical: 8,
                                 ),
                               ),
                             ),
-                          ] else
+                          ] else ...[
+                            // View PDF button for submitted reports
+                            IconButton(
+                              icon: const Icon(
+                                Icons.picture_as_pdf,
+                                color: Colors.blue,
+                                size: 20,
+                              ),
+                              onPressed: () => _viewReportPdf(report),
+                              tooltip: 'Voir PDF',
+                              visualDensity: VisualDensity.compact,
+                            ),
                             OutlinedButton.icon(
                               onPressed: () => _openReport(report),
                               icon: const Icon(
@@ -588,12 +604,15 @@ class _ReportListScreenState extends State<ReportListScreen>
                               ),
                               label: const Text('Consulter'),
                               style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue,
+                                side: const BorderSide(color: Colors.blue),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                   vertical: 8,
                                 ),
                               ),
                             ),
+                          ],
                         ],
                       ),
                     ],
@@ -605,5 +624,54 @@ class _ReportListScreenState extends State<ReportListScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _viewReportPdf(TechnicalVisitReport report) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Get the service to generate PDF
+      final pdfService = Provider.of<PdfGenerationService>(
+        context,
+        listen: false,
+      );
+
+      // Generate PDF
+      final pdfFile = await pdfService.generateTechnicalReportPdf(report);
+
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      // Navigate to PDF viewer
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.pdfViewer,
+          arguments: {
+            'pdfFile': pdfFile,
+            'reportName':
+                report.clientName.isNotEmpty
+                    ? report.clientName
+                    : 'Rapport de visite technique',
+          },
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if still showing
+      if (mounted) Navigator.of(context).pop();
+
+      // Show error
+      if (mounted) {
+        NotificationUtils.showError(
+          context,
+          'Erreur lors de la génération du PDF: $e',
+        );
+      }
+    }
   }
 }
