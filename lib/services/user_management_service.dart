@@ -2,11 +2,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path/path.dart' as path;
 import '../models/user_model.dart';
 
 class UserManagementService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   /// Creates a new user with custom ID format (tech1, tech2, etc.)
   Future<UserModel?> createUser({
@@ -122,11 +126,30 @@ class UserManagementService {
     }
   }
 
-  /// Retrieves all users with "technician" role
+  /// Upload and get URL for profile picture
+  Future<String?> uploadProfilePicture(String authUid, File imageFile) async {
+    try {
+      final String extension = path.extension(imageFile.path);
+      final Reference storageRef = _storage
+          .ref()
+          .child('profile_pictures')
+          .child('$authUid$extension');
+
+      final UploadTask uploadTask = storageRef.putFile(imageFile);
+      final TaskSnapshot taskSnapshot = await uploadTask;
+      final String downloadUrl = await taskSnapshot.ref.getDownloadURL();
+
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('Error uploading profile picture: $e');
+      return null;
+    }
+  }
+
   /// Retrieves all users with "technician" role with improved error handling and logging
   Future<List<UserModel>> getUsers() async {
     try {
-      debugPrint('Fetching technicians...');
+      debugPrint('Fetching users...');
 
       // Get all users documents instead of filtering by role
       final QuerySnapshot snapshot = await _firestore.collection('users').get();
@@ -159,8 +182,15 @@ class UserManagementService {
                   name: data['name'] ?? '',
                   email: data['email'] ?? '',
                   role: role,
-                  authUid:
-                      doc.id, // Use the document ID as authUid if not present
+                  authUid: data['authUid'] ?? doc.id,
+                  profilePictureUrl: data['profilePictureUrl'],
+                  phoneNumber: data['phoneNumber'],
+                  address: data['address'],
+                  department: data['department'],
+                  additionalInfo:
+                      data['additionalInfo'] != null
+                          ? Map<String, dynamic>.from(data['additionalInfo'])
+                          : null,
                 );
               })
               .where((user) => user != null)
@@ -210,6 +240,52 @@ class UserManagementService {
     }
   }
 
+  /// Updates user profile with additional fields
+  Future<bool> updateUserProfile({
+    required String authUid,
+    String? name,
+    String? email,
+    String? profilePictureUrl,
+    String? phoneNumber,
+    String? address,
+    String? department,
+    Map<String, dynamic>? additionalInfo,
+  }) async {
+    try {
+      // We use the authUid as the document ID in Firestore
+      final docRef = _firestore.collection('users').doc(authUid);
+
+      // First check if document exists
+      final doc = await docRef.get();
+      if (!doc.exists) {
+        debugPrint('Document does not exist: $authUid');
+        return false;
+      }
+
+      // Only update provided fields
+      Map<String, dynamic> updateData = {
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (name != null) updateData['name'] = name;
+      if (email != null) updateData['email'] = email;
+      if (profilePictureUrl != null)
+        updateData['profilePictureUrl'] = profilePictureUrl;
+      if (phoneNumber != null) updateData['phoneNumber'] = phoneNumber;
+      if (address != null) updateData['address'] = address;
+      if (department != null) updateData['department'] = department;
+      if (additionalInfo != null) updateData['additionalInfo'] = additionalInfo;
+
+      await docRef.update(updateData);
+
+      debugPrint('Updated user profile: $authUid');
+      return true;
+    } catch (e) {
+      debugPrint('Error updating user profile: $e');
+      return false;
+    }
+  }
+
   /// Deletes a user from both Firestore and Firebase Authentication
   Future<bool> deleteUserCompletely(String authUid) async {
     try {
@@ -242,7 +318,15 @@ class UserManagementService {
         name: data['name'] ?? '',
         email: data['email'] ?? '',
         role: data['role'] ?? 'technician',
-        authUid: data['authUid'] ?? '',
+        authUid: data['authUid'] ?? authUid,
+        profilePictureUrl: data['profilePictureUrl'],
+        phoneNumber: data['phoneNumber'],
+        address: data['address'],
+        department: data['department'],
+        additionalInfo:
+            data['additionalInfo'] != null
+                ? Map<String, dynamic>.from(data['additionalInfo'])
+                : null,
       );
     } catch (e) {
       debugPrint('Error fetching user: $e');

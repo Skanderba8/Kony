@@ -101,10 +101,18 @@ class _AppSidebarState extends State<AppSidebar> {
                   ),
 
                   // User avatar
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 40,
                     backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 60, color: Colors.blue),
+                    backgroundImage:
+                        _userModel?.profilePictureUrl != null
+                            ? NetworkImage(_userModel!.profilePictureUrl!)
+                                as ImageProvider
+                            : null,
+                    child:
+                        _userModel?.profilePictureUrl == null
+                            ? Icon(Icons.person, size: 60, color: Colors.blue)
+                            : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -193,6 +201,12 @@ class _AppSidebarState extends State<AppSidebar> {
                   ],
                   _buildMenuItem(
                     context,
+                    icon: Icons.person,
+                    title: 'Profil',
+                    onTap: () => _navigateToScreen(context, 'profile'),
+                  ),
+                  _buildMenuItem(
+                    context,
                     icon: Icons.settings,
                     title: 'Paramètres',
                     onTap: () => _navigateToScreen(context, 'settings'),
@@ -249,13 +263,19 @@ class _AppSidebarState extends State<AppSidebar> {
     }
 
     if (screen == 'users' && widget.userRole == 'admin') {
-      Navigator.pushReplacementNamed(context, '/user-management');
+      Navigator.pushNamed(context, '/user-management');
       return;
     }
 
     if (screen == 'reports') {
-      // Check if we need to navigate to the report form or report list
+      // Navigate to report form
       Navigator.pushNamed(context, '/report-form');
+      return;
+    }
+
+    if (screen == 'profile') {
+      // Navigate to profile screen
+      Navigator.pushNamed(context, '/profile');
       return;
     }
 

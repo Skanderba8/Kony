@@ -1,6 +1,7 @@
 // lib/view_models/user_management_view_model.dart
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
 import '../services/user_management_service.dart';
 import '../models/user_model.dart';
 
@@ -42,7 +43,7 @@ class UserManagementViewModel extends ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
-      _errorMessage = 'An unexpected error occurred: $e';
+      _errorMessage = 'Une erreur inattendue est survenue: $e';
       notifyListeners();
       return false;
     } finally {
@@ -60,7 +61,7 @@ class UserManagementViewModel extends ChangeNotifier {
     try {
       _users = await _service.getUsers();
     } catch (e) {
-      _errorMessage = 'Error loading users: $e';
+      _errorMessage = 'Erreur lors du chargement des utilisateurs: $e';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -78,7 +79,7 @@ class UserManagementViewModel extends ChangeNotifier {
       await loadUsers();
       return true;
     } catch (e) {
-      _errorMessage = 'Error deleting user: $e';
+      _errorMessage = 'Erreur lors de la suppression de l\'utilisateur: $e';
       notifyListeners();
       return false;
     } finally {
@@ -97,7 +98,7 @@ class UserManagementViewModel extends ChangeNotifier {
       final user = await _service.getUserByAuthUid(authUid);
       return user;
     } catch (e) {
-      _errorMessage = 'Error fetching user: $e';
+      _errorMessage = 'Erreur lors de la récupération de l\'utilisateur: $e';
       notifyListeners();
       return null;
     } finally {
@@ -128,13 +129,75 @@ class UserManagementViewModel extends ChangeNotifier {
       if (success) {
         await loadUsers();
       } else {
-        _errorMessage = 'Failed to update user';
+        _errorMessage = 'Échec de la mise à jour de l\'utilisateur';
         notifyListeners();
       }
 
       return success;
     } catch (e) {
-      _errorMessage = 'Error updating user: $e';
+      _errorMessage = 'Erreur lors de la mise à jour de l\'utilisateur: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Update user profile including profile picture
+  Future<bool> updateUserProfile({
+    required String authUid,
+    String? name,
+    String? email,
+    File? profilePicture,
+    String? phoneNumber,
+    String? address,
+    String? department,
+    Map<String, dynamic>? additionalInfo,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      String? profilePictureUrl;
+
+      // Upload profile picture if provided
+      if (profilePicture != null) {
+        profilePictureUrl = await _service.uploadProfilePicture(
+          authUid,
+          profilePicture,
+        );
+        if (profilePictureUrl == null) {
+          _errorMessage = 'Échec de l\'upload de l\'image de profil';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+
+      // Update user profile
+      final success = await _service.updateUserProfile(
+        authUid: authUid,
+        name: name,
+        email: email,
+        profilePictureUrl: profilePictureUrl,
+        phoneNumber: phoneNumber,
+        address: address,
+        department: department,
+        additionalInfo: additionalInfo,
+      );
+
+      if (success) {
+        await loadUsers();
+      } else {
+        _errorMessage = 'Échec de la mise à jour du profil';
+        notifyListeners();
+      }
+
+      return success;
+    } catch (e) {
+      _errorMessage = 'Erreur lors de la mise à jour du profil: $e';
       notifyListeners();
       return false;
     } finally {
@@ -155,13 +218,13 @@ class UserManagementViewModel extends ChangeNotifier {
       if (success) {
         await loadUsers();
       } else {
-        _errorMessage = 'Failed to delete user completely';
+        _errorMessage = 'Échec de la suppression complète de l\'utilisateur';
         notifyListeners();
       }
 
       return success;
     } catch (e) {
-      _errorMessage = 'Error deleting user: $e';
+      _errorMessage = 'Erreur lors de la suppression de l\'utilisateur: $e';
       notifyListeners();
       return false;
     } finally {
@@ -174,13 +237,13 @@ class UserManagementViewModel extends ChangeNotifier {
   String _getFirebaseErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'email-already-in-use':
-        return 'Email is already in use';
+        return 'Cet email est déjà utilisé';
       case 'invalid-email':
-        return 'Invalid email format';
+        return 'Format d\'email invalide';
       case 'weak-password':
-        return 'Password is too weak';
+        return 'Le mot de passe est trop faible';
       default:
-        return e.message ?? 'Authentication error';
+        return e.message ?? 'Erreur d\'authentification';
     }
   }
 }
