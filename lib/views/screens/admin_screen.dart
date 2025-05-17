@@ -237,14 +237,7 @@ class _AdminScreenState extends State<AdminScreen>
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         automaticallyImplyLeading: false,
-        actions: [
-          // Logout button
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-            tooltip: 'Déconnexion',
-          ),
-        ],
+
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).primaryColor,

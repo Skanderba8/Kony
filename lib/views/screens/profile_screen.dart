@@ -166,6 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Handle email change
+  // In lib/views/screens/profile_screen.dart - modify the _handleEmailChange method
   void _handleEmailChange() async {
     final String oldEmail = _userModel?.email ?? '';
     final String newEmail = _emailController.text.trim();
@@ -226,16 +227,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (success && mounted) {
           NotificationUtils.showSuccess(
             context,
-            'Email mis à jour. Veuillez vous reconnecter.',
+            'Email mis à jour dans notre système. Si une vérification est requise, veuillez vérifier votre boîte de réception pour confirmer le changement.',
           );
-
-          Future.delayed(Duration(seconds: 3), () {
-            Provider.of<AuthService>(context, listen: false).signOut().then((
-              _,
-            ) {
-              Navigator.pushReplacementNamed(context, '/');
-            });
-          });
         } else if (mounted) {
           _emailController.text = oldEmail;
           NotificationUtils.showError(

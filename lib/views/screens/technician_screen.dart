@@ -1,5 +1,6 @@
 // lib/views/screens/technician_screen.dart
 import 'package:flutter/material.dart';
+import 'package:kony/models/user_model.dart';
 import 'package:kony/services/auth_service.dart';
 import 'package:kony/services/user_management_service.dart';
 import 'package:kony/views/widgets/app_sidebar.dart';
@@ -108,13 +109,6 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
             automaticallyImplyLeading: false,
             elevation: 0,
             backgroundColor: Colors.white,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.blue),
-                onPressed: () => _logout(context),
-                tooltip: 'Déconnexion',
-              ),
-            ],
           ),
           body: SafeArea(
             child: Column(
@@ -158,29 +152,51 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Bienvenue',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Technicien Kony',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+
+                          // 🔁 REPLACE the following Column with the FutureBuilder
+                          FutureBuilder<UserModel?>(
+                            future: Provider.of<UserManagementService>(
+                              context,
+                              listen: false,
+                            ).getUserByAuthUid(
+                              Provider.of<AuthService>(
+                                    context,
+                                    listen: false,
+                                  ).currentUser?.uid ??
+                                  '',
+                            ),
+                            builder: (context, snapshot) {
+                              String userName = "Technicien";
+                              if (snapshot.hasData && snapshot.data != null) {
+                                userName = snapshot.data!.name;
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Bienvenue',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    userName,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 12),
                       const Text(
                         'Choisissez le type de documentation à gérer',

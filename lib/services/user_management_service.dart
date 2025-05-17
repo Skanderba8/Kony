@@ -60,7 +60,7 @@ class UserManagementService {
     }
   }
 
-  // Simple method to update user email
+  // In lib/services/user_management_service.dart
   Future<bool> updateEmail(String password, String newEmail) async {
     try {
       // Get current user
@@ -80,15 +80,28 @@ class UserManagementService {
       // Reauthenticate
       await user.reauthenticateWithCredential(credential);
 
-      // Update email in Auth
-      await user.updateEmail(newEmail);
+      // Update email in Auth - ADD VERIFICATION STEP
+      try {
+        await user.verifyBeforeUpdateEmail(newEmail);
+        // This sends a verification email to the new address
 
-      // Update email in Firestore
-      await _firestore.collection('users').doc(user.uid).update({
-        'email': newEmail,
-      });
+        // Update email in Firestore immediately
+        await _firestore.collection('users').doc(user.uid).update({
+          'email': newEmail,
+        });
 
-      return true;
+        return true;
+      } catch (e) {
+        // Fall back to direct update if verification isn't supported or configured
+        if (e.toString().contains('not-allowed')) {
+          // Just update in Firestore
+          await _firestore.collection('users').doc(user.uid).update({
+            'email': newEmail,
+          });
+          return true;
+        }
+        rethrow;
+      }
     } catch (e) {
       debugPrint('Error updating email: $e');
       return false;

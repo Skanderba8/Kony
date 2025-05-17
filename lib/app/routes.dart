@@ -1,11 +1,10 @@
 // lib/app/routes.dart
 import 'package:flutter/material.dart';
+import 'package:kony/views/screens/report_list_screen.dart';
 import '../views/screens/login_screen.dart';
 import '../views/screens/admin_screen.dart';
 import '../views/screens/technician_screen.dart';
 import '../views/screens/user_management_screen.dart';
-import '../views/screens/report_form/report_form_screen.dart';
-import '../views/screens/pdf_viewer_screen.dart';
 import '../views/screens/profile_screen.dart';
 
 class AppRoutes {
@@ -13,9 +12,9 @@ class AppRoutes {
   static const String admin = '/admin';
   static const String technician = '/technician';
   static const String userManagement = '/user-management';
-  static const String reportForm = '/report-form';
   static const String pdfViewer = '/pdf-viewer';
   static const String profile = '/profile';
+  static const String reportList = '/report-list';
 
   // Define routes for navigator
   static Map<String, WidgetBuilder> getRoutes() {
@@ -24,7 +23,7 @@ class AppRoutes {
       admin: (context) => const AdminScreen(),
       technician: (context) => const TechnicianScreen(),
       userManagement: (context) => const UserManagementScreen(),
-      reportForm: (context) => const ReportFormScreen(),
+      reportList: (context) => const ReportListScreen(),
       profile: (context) => const ProfileScreen(),
       // PDF viewer route is handled dynamically since it requires file parameters
     };

@@ -268,8 +268,29 @@ class _AppSidebarState extends State<AppSidebar> {
     }
 
     if (screen == 'reports') {
-      // Navigate to report form
-      Navigator.pushNamed(context, '/report-form');
+      // For technicians: go to the list of reports
+      if (widget.userRole == 'technician') {
+        Navigator.pushNamed(context, '/report-list');
+      } else {
+        // For admin: show a popup (feature under development)
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Information'),
+              content: const Text(
+                'Cette section est en cours de développement.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
       return;
     }
 
