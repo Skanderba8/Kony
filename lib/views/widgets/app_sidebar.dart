@@ -226,7 +226,7 @@ class _AppSidebarState extends State<AppSidebar> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'Kony v1.0.2',
+                'Kony v1.0.3',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
             ),
