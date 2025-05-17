@@ -1,5 +1,7 @@
 // lib/views/screens/technician_screen.dart
 import 'package:flutter/material.dart';
+import 'package:kony/services/auth_service.dart';
+import 'package:kony/services/user_management_service.dart';
 import 'package:kony/views/widgets/app_sidebar.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/technician_view_model.dart';
@@ -19,6 +21,9 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIncompleteProfile();
+    });
   }
 
   // Navigate to the technical visit reports list
@@ -37,6 +42,28 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
       'La section "Interventions" est en cours de développement.',
       duration: const Duration(seconds: 4),
     );
+  }
+
+  Future<void> _checkIncompleteProfile() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user != null) {
+      final userManagementService = Provider.of<UserManagementService>(
+        context,
+        listen: false,
+      );
+      final userModel = await userManagementService.getUserByAuthUid(user.uid);
+
+      if ((userModel?.phoneNumber == null || userModel!.phoneNumber!.isEmpty) &&
+          mounted) {
+        NotificationUtils.showInfo(
+          context,
+          'Veuillez compléter votre profil en ajoutant votre numéro de téléphone.',
+          duration: const Duration(seconds: 5),
+        );
+      }
+    }
   }
 
   Future<void> _logout(BuildContext context) async {

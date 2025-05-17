@@ -85,10 +85,28 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Navigation basée sur le rôle utilisateur avec une meilleure journalisation
-  void navigateBasedOnRole(BuildContext context, String? role) {
+  // In lib/views/screens/login_screen.dart - modify the navigateBasedOnRole method
+
+  void navigateBasedOnRole(BuildContext context, String? role) async {
     debugPrint('LoginScreen: Navigation basée sur le rôle: $role');
     try {
+      // Navigate to the right screen
       AppRoutes.navigateBasedOnRole(context, role);
+
+      // Check if phone number is missing and show notification if needed
+      final viewModel = Provider.of<LoginViewModel>(context, listen: false);
+      final isPhoneMissing = await viewModel.isPhoneNumberMissing();
+
+      if (isPhoneMissing && mounted) {
+        // Wait a bit to ensure the new screen is loaded
+        Future.delayed(const Duration(seconds: 1), () {
+          NotificationUtils.showInfo(
+            context,
+            'Veuillez compléter votre profil en ajoutant votre numéro de téléphone.',
+            duration: const Duration(seconds: 5),
+          );
+        });
+      }
     } catch (e) {
       debugPrint('LoginScreen: Erreur de navigation: $e');
       NotificationUtils.showError(

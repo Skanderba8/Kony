@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:kony/services/user_management_service.dart';
 import '../services/auth_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
@@ -92,6 +93,23 @@ class LoginViewModel extends ChangeNotifier {
       _lastErrorMessage = 'Error fetching user role: $e';
       _setError('Error fetching user role');
       return null;
+    }
+  }
+
+  Future<bool> isPhoneNumberMissing() async {
+    final user = _authService.currentUser;
+    if (user == null) return false;
+
+    try {
+      // Get the user service from the user management service
+      final userManagementService = UserManagementService();
+      final userModel = await userManagementService.getUserByAuthUid(user.uid);
+
+      // Check if phone number is missing
+      return userModel?.phoneNumber == null || userModel!.phoneNumber!.isEmpty;
+    } catch (e) {
+      debugPrint('Error checking profile completion: $e');
+      return false;
     }
   }
 

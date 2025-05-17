@@ -12,235 +12,110 @@ class UserManagementService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  /// Creates a new user with custom ID format (tech1, tech2, etc.)
+  // Create a new user with email and password
   Future<UserModel?> createUser({
     required String email,
     required String password,
     required String name,
   }) async {
-    UserCredential? userCredential;
-    String? customUserId;
-
     try {
-      // 1. Check if email already exists
-      final signInMethods = await _auth.fetchSignInMethodsForEmail(email);
-      if (signInMethods.isNotEmpty) {
-        throw FirebaseAuthException(
-          code: 'email-already-in-use',
-          message: 'The email address is already registered.',
-        );
-      }
-
-      // 2. Generate custom user ID (tech1, tech2, etc.)
-      customUserId = await _generateNextTechnicianId();
-      debugPrint('Generated custom ID: $customUserId');
-
-      // 3. Create authentication user
-      userCredential = await _auth.createUserWithEmailAndPassword(
+      // Create auth user
+      final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      final firebaseUser = userCredential.user;
-      if (firebaseUser == null) {
-        throw Exception('Failed to create authentication record');
+      if (userCredential.user == null) {
+        throw Exception('Failed to create user');
       }
 
-      debugPrint('Auth user created with UID: ${firebaseUser.uid}');
+      final user = userCredential.user!;
 
-      // 4. Create user document with custom ID format
-      final Map<String, dynamic> userData = {
-        'id': customUserId, // Custom ID (tech1, tech2, etc.)
-        'authUid': firebaseUser.uid, // Store Auth UID as a reference
-        'name': name, // From the name parameter
-        'email': email, // From the email parameter
-        'role': 'technician', // Hardcoded as 'technician'
-        'createdAt': FieldValue.serverTimestamp(), // Server-generated timestamp
+      // Create user document in Firestore
+      final userData = {
+        'id': 'tech${DateTime.now().millisecondsSinceEpoch}',
+        'authUid': user.uid,
+        'name': name,
+        'email': email,
+        'role': 'technician',
+        'createdAt': FieldValue.serverTimestamp(),
+        'phoneNumber': '',
+        'profilePictureUrl': '',
+        'address': '',
+        'department': '',
       };
 
-      // Using the Firebase Auth UID as doc ID for security/consistency
-      await _firestore.collection('users').doc(firebaseUser.uid).set(userData);
-
-      debugPrint(
-        'Firestore document created for: ${firebaseUser.uid} with custom ID: $customUserId',
-      );
+      await _firestore.collection('users').doc(user.uid).set(userData);
 
       return UserModel(
-        id: customUserId,
+        id: userData['id'] as String,
+        authUid: user.uid,
         name: name,
         email: email,
         role: 'technician',
-        authUid: firebaseUser.uid,
       );
     } catch (e) {
-      debugPrint('Error in user creation: $e');
-
-      // Clean up process if needed
-      if (userCredential?.user != null) {
-        try {
-          await userCredential!.user!.delete();
-          debugPrint('Cleaned up auth user after error');
-        } catch (cleanupError) {
-          debugPrint('Cleanup error: $cleanupError');
-        }
-      }
-
+      debugPrint('Error creating user: $e');
       rethrow;
     }
   }
 
-  /// Generates the next technician ID in sequence (tech1, tech2, etc.)
-  Future<String> _generateNextTechnicianId() async {
+  // Simple method to update user email
+  Future<bool> updateEmail(String password, String newEmail) async {
     try {
-      // Get the current highest technician ID
-      final QuerySnapshot snapshot =
-          await _firestore
-              .collection('users')
-              .where('role', isEqualTo: 'technician')
-              .orderBy('id', descending: true)
-              .limit(1)
-              .get();
-
-      int nextNumber = 1; // Default start
-
-      if (snapshot.docs.isNotEmpty) {
-        final Map<String, dynamic> data =
-            snapshot.docs.first.data() as Map<String, dynamic>;
-
-        final String currentId = data['id'] as String;
-
-        // Extract number from "tech123" format
-        final RegExp regex = RegExp(r'tech(\d+)');
-        final match = regex.firstMatch(currentId);
-
-        if (match != null && match.groupCount >= 1) {
-          nextNumber = int.parse(match.group(1)!) + 1;
-        }
+      // Get current user
+      final User? user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        return false;
       }
 
-      return 'tech$nextNumber';
+      final String currentEmail = user.email!;
+
+      // Create credential for reauthentication
+      final AuthCredential credential = EmailAuthProvider.credential(
+        email: currentEmail,
+        password: password,
+      );
+
+      // Reauthenticate
+      await user.reauthenticateWithCredential(credential);
+
+      // Update email in Auth
+      await user.updateEmail(newEmail);
+
+      // Update email in Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'email': newEmail,
+      });
+
+      return true;
     } catch (e) {
-      debugPrint('Error generating next technician ID: $e');
-      // Fallback to timestamp-based ID if sequence generation fails
-      return 'tech${DateTime.now().millisecondsSinceEpoch}';
+      debugPrint('Error updating email: $e');
+      return false;
     }
   }
 
-  /// Upload and get URL for profile picture
+  // Upload profile picture
   Future<String?> uploadProfilePicture(String authUid, File imageFile) async {
     try {
-      final String extension = path.extension(imageFile.path);
+      final String filename = 'profile_$authUid.jpg';
       final Reference storageRef = _storage
           .ref()
           .child('profile_pictures')
-          .child('$authUid$extension');
+          .child(filename);
 
       final UploadTask uploadTask = storageRef.putFile(imageFile);
-      final TaskSnapshot taskSnapshot = await uploadTask;
-      final String downloadUrl = await taskSnapshot.ref.getDownloadURL();
+      final TaskSnapshot snapshot = await uploadTask;
+      final String url = await snapshot.ref.getDownloadURL();
 
-      return downloadUrl;
+      return url;
     } catch (e) {
       debugPrint('Error uploading profile picture: $e');
       return null;
     }
   }
 
-  /// Retrieves all users with "technician" role with improved error handling and logging
-  Future<List<UserModel>> getUsers() async {
-    try {
-      debugPrint('Fetching users...');
-
-      // Get all users documents instead of filtering by role
-      final QuerySnapshot snapshot = await _firestore.collection('users').get();
-
-      debugPrint('Fetched ${snapshot.docs.length} user documents');
-
-      // Transform and filter in memory instead
-      final users =
-          snapshot.docs
-              .map((DocumentSnapshot doc) {
-                debugPrint('Processing document: ${doc.id}');
-
-                final Map<String, dynamic> data;
-                try {
-                  data = doc.data() as Map<String, dynamic>;
-                } catch (e) {
-                  debugPrint('Error casting document data: $e');
-                  return null;
-                }
-
-                // Debug print the data structure
-                debugPrint('Document data: ${data.toString()}');
-
-                final String role = data['role'] as String? ?? '';
-                // Include all users for now to see what's in the database
-                // We can filter by role later if needed
-
-                return UserModel(
-                  id: data['id'] ?? '',
-                  name: data['name'] ?? '',
-                  email: data['email'] ?? '',
-                  role: role,
-                  authUid: data['authUid'] ?? doc.id,
-                  profilePictureUrl: data['profilePictureUrl'],
-                  phoneNumber: data['phoneNumber'],
-                  address: data['address'],
-                  department: data['department'],
-                  additionalInfo:
-                      data['additionalInfo'] != null
-                          ? Map<String, dynamic>.from(data['additionalInfo'])
-                          : null,
-                );
-              })
-              .where((user) => user != null)
-              .cast<UserModel>()
-              .toList();
-
-      debugPrint('Returning ${users.length} user models');
-      return users;
-    } catch (e, stackTrace) {
-      debugPrint('Error fetching users: $e');
-      debugPrint('Stack trace: $stackTrace');
-      return [];
-    }
-  }
-
-  /// Updates user information in Firestore
-  Future<bool> updateUser({
-    required String authUid,
-    required String name,
-    required String email,
-    required String role,
-  }) async {
-    try {
-      // We use the authUid as the document ID in Firestore
-      final docRef = _firestore.collection('users').doc(authUid);
-
-      // First check if document exists
-      final doc = await docRef.get();
-      if (!doc.exists) {
-        debugPrint('Document does not exist: $authUid');
-        return false;
-      }
-
-      // Only update allowed fields, preserving id and authUid
-      await docRef.update({
-        'name': name,
-        'email': email,
-        'role': role,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      debugPrint('Updated user document: $authUid');
-      return true;
-    } catch (e) {
-      debugPrint('Error updating user: $e');
-      return false;
-    }
-  }
-
-  /// Updates user profile with additional fields
+  // Update user profile info
   Future<bool> updateUserProfile({
     required String authUid,
     String? name,
@@ -249,23 +124,9 @@ class UserManagementService {
     String? phoneNumber,
     String? address,
     String? department,
-    Map<String, dynamic>? additionalInfo,
   }) async {
     try {
-      // We use the authUid as the document ID in Firestore
-      final docRef = _firestore.collection('users').doc(authUid);
-
-      // First check if document exists
-      final doc = await docRef.get();
-      if (!doc.exists) {
-        debugPrint('Document does not exist: $authUid');
-        return false;
-      }
-
-      // Only update provided fields
-      Map<String, dynamic> updateData = {
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+      final Map<String, dynamic> updateData = {};
 
       if (name != null) updateData['name'] = name;
       if (email != null) updateData['email'] = email;
@@ -274,36 +135,16 @@ class UserManagementService {
       if (phoneNumber != null) updateData['phoneNumber'] = phoneNumber;
       if (address != null) updateData['address'] = address;
       if (department != null) updateData['department'] = department;
-      if (additionalInfo != null) updateData['additionalInfo'] = additionalInfo;
 
-      await docRef.update(updateData);
-
-      debugPrint('Updated user profile: $authUid');
+      await _firestore.collection('users').doc(authUid).update(updateData);
       return true;
     } catch (e) {
-      debugPrint('Error updating user profile: $e');
+      debugPrint('Error updating profile: $e');
       return false;
     }
   }
 
-  /// Deletes a user from both Firestore and Firebase Authentication
-  Future<bool> deleteUserCompletely(String authUid) async {
-    try {
-      // Delete from Firestore
-      await _firestore.collection('users').doc(authUid).delete();
-      debugPrint('Deleted user document from Firestore: $authUid');
-
-      // Note: Deleting from Authentication requires Admin SDK
-      // This would typically be done via a Cloud Function
-
-      return true;
-    } catch (e) {
-      debugPrint('Error deleting user: $e');
-      return false;
-    }
-  }
-
-  /// Retrieves a single user by authUid
+  // Get user by auth UID
   Future<UserModel?> getUserByAuthUid(String authUid) async {
     try {
       final doc = await _firestore.collection('users').doc(authUid).get();
@@ -315,46 +156,55 @@ class UserManagementService {
       final data = doc.data() as Map<String, dynamic>;
       return UserModel(
         id: data['id'] ?? '',
+        authUid: data['authUid'] ?? authUid,
         name: data['name'] ?? '',
         email: data['email'] ?? '',
         role: data['role'] ?? 'technician',
-        authUid: data['authUid'] ?? authUid,
         profilePictureUrl: data['profilePictureUrl'],
         phoneNumber: data['phoneNumber'],
         address: data['address'],
         department: data['department'],
-        additionalInfo:
-            data['additionalInfo'] != null
-                ? Map<String, dynamic>.from(data['additionalInfo'])
-                : null,
       );
     } catch (e) {
-      debugPrint('Error fetching user: $e');
+      debugPrint('Error getting user: $e');
       return null;
     }
   }
 
-  /// Deletes a user document from Firestore
-  Future<void> deleteUser(String userId) async {
+  // Get all users
+  Future<List<UserModel>> getUsers() async {
     try {
-      // Need to find the document by custom ID first
-      final QuerySnapshot snapshot =
-          await _firestore
-              .collection('users')
-              .where('id', isEqualTo: userId)
-              .limit(1)
-              .get();
+      final snapshot = await _firestore.collection('users').get();
 
-      if (snapshot.docs.isNotEmpty) {
-        final String docId = snapshot.docs.first.id;
-        await _firestore.collection('users').doc(docId).delete();
-        debugPrint('Deleted Firestore document for user: $userId');
-      } else {
-        throw Exception('User document not found for ID: $userId');
-      }
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+
+        return UserModel(
+          id: data['id'] ?? '',
+          authUid: data['authUid'] ?? doc.id,
+          name: data['name'] ?? '',
+          email: data['email'] ?? '',
+          role: data['role'] ?? 'technician',
+          profilePictureUrl: data['profilePictureUrl'],
+          phoneNumber: data['phoneNumber'],
+          address: data['address'],
+          department: data['department'],
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error fetching users: $e');
+      return [];
+    }
+  }
+
+  // Delete user
+  Future<bool> deleteUserCompletely(String authUid) async {
+    try {
+      await _firestore.collection('users').doc(authUid).delete();
+      return true;
     } catch (e) {
       debugPrint('Error deleting user: $e');
-      rethrow;
+      return false;
     }
   }
 }

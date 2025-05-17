@@ -48,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  // Load user data
   Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
@@ -84,10 +85,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           setState(() {
             _isLoading = false;
           });
-          NotificationUtils.showError(
-            context,
-            'Erreur lors du chargement du profil: $e',
-          );
         }
       }
     } else {
@@ -95,19 +92,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _isLoading = false;
         });
-        NotificationUtils.showError(context, 'Utilisateur non connecté');
       }
     }
   }
 
+  // Pick image
   Future<void> _pickImage(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? pickedFile = await picker.pickImage(
         source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
+        maxWidth: 500,
+        maxHeight: 500,
+        imageQuality: 70,
       );
 
       if (pickedFile != null) {
@@ -116,47 +113,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (e) {
-      print('Error picking image: $e');
       if (mounted) {
         NotificationUtils.showError(
           context,
-          'Erreur lors de la sélection de l\'image: $e',
+          'Erreur lors de la sélection de l\'image',
         );
       }
     }
   }
 
+  // Show image picker options
   void _showImagePickerOptions() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder:
           (context) => SafeArea(
-            child: Wrap(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(Icons.photo_library, color: Colors.blue),
-                  title: const Text('Choisir depuis la galerie'),
+                  leading: Icon(Icons.photo_library, color: Colors.blue),
+                  title: Text('Galerie'),
                   onTap: () {
                     Navigator.of(context).pop();
                     _pickImage(ImageSource.gallery);
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.photo_camera, color: Colors.blue),
-                  title: const Text('Prendre une photo'),
+                  leading: Icon(Icons.camera_alt, color: Colors.blue),
+                  title: Text('Appareil photo'),
                   onTap: () {
                     Navigator.of(context).pop();
                     _pickImage(ImageSource.camera);
                   },
                 ),
-                if (_userModel?.profilePictureUrl != null ||
-                    _profileImage != null)
+                if (_profileImage != null ||
+                    _userModel?.profilePictureUrl != null)
                   ListTile(
-                    leading: const Icon(Icons.delete, color: Colors.red),
-                    title: const Text('Supprimer la photo'),
+                    leading: Icon(Icons.delete, color: Colors.red),
+                    title: Text('Supprimer'),
                     onTap: () {
                       Navigator.of(context).pop();
                       setState(() {
@@ -170,8 +165,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Handle email change
+  void _handleEmailChange() async {
+    final String oldEmail = _userModel?.email ?? '';
+    final String newEmail = _emailController.text.trim();
+
+    if (oldEmail == newEmail) return;
+
+    final passwordController = TextEditingController();
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text('Mot de passe requis'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Entrez votre mot de passe pour changer l\'email:'),
+                SizedBox(height: 10),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Mot de passe',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('Confirmer'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true && passwordController.text.isNotEmpty) {
+      setState(() {
+        _isSaving = true;
+      });
+
+      try {
+        final viewModel = Provider.of<UserManagementViewModel>(
+          context,
+          listen: false,
+        );
+
+        final success = await viewModel.updateEmail(
+          passwordController.text,
+          newEmail,
+        );
+
+        if (success && mounted) {
+          NotificationUtils.showSuccess(
+            context,
+            'Email mis à jour. Veuillez vous reconnecter.',
+          );
+
+          Future.delayed(Duration(seconds: 3), () {
+            Provider.of<AuthService>(context, listen: false).signOut().then((
+              _,
+            ) {
+              Navigator.pushReplacementNamed(context, '/');
+            });
+          });
+        } else if (mounted) {
+          _emailController.text = oldEmail;
+          NotificationUtils.showError(
+            context,
+            viewModel.errorMessage ?? 'Erreur de mise à jour',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          _emailController.text = oldEmail;
+          NotificationUtils.showError(context, 'Erreur: $e');
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isSaving = false;
+          });
+        }
+      }
+    }
+  }
+
+  // Update profile
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final String oldEmail = _userModel?.email ?? '';
+    final String newEmail = _emailController.text.trim();
+
+    if (oldEmail != newEmail) {
+      _handleEmailChange();
+      return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -189,16 +286,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final success = await viewModel.updateUserProfile(
           authUid: user.uid,
           name: _nameController.text,
-          email: _emailController.text,
           profilePicture: _profileImage,
-          phoneNumber:
-              _phoneController.text.isEmpty ? null : _phoneController.text,
-          address:
-              _addressController.text.isEmpty ? null : _addressController.text,
-          department:
-              _departmentController.text.isEmpty
-                  ? null
-                  : _departmentController.text,
+          phoneNumber: _phoneController.text,
+          address: _addressController.text,
+          department: _departmentController.text,
         );
 
         if (success && mounted) {
@@ -206,7 +297,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             context,
             'Profil mis à jour avec succès',
           );
-          _loadUserData(); // Reload user data
+          _loadUserData();
         } else if (mounted && viewModel.errorMessage != null) {
           NotificationUtils.showError(context, viewModel.errorMessage!);
         }
@@ -214,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           NotificationUtils.showError(
             context,
-            'Erreur lors de la mise à jour du profil: $e',
+            'Erreur lors de la mise à jour: $e',
           );
         }
       } finally {
@@ -224,17 +315,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           });
         }
       }
-    } else {
-      setState(() {
-        _isSaving = false;
-      });
-      if (mounted) {
-        NotificationUtils.showError(
-          context,
-          'Informations utilisateur non disponibles',
-        );
-      }
     }
+  }
+
+  // Exit profile screen
+  void _exitProfileScreen() {
+    Navigator.of(context).pop();
   }
 
   @override
@@ -248,24 +334,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onClose: () => _scaffoldKey.currentState?.closeDrawer(),
       ),
       appBar: AppBar(
-        title: const Text(
-          'Profil',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Text('Profil', style: TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
-          icon: const Icon(Icons.menu),
+          icon: Icon(Icons.menu),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.exit_to_app),
+            tooltip: 'Quitter',
+            onPressed: _exitProfileScreen,
+          ),
+        ],
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
       body:
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(child: CircularProgressIndicator(color: Colors.blue))
               : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Profile picture section
+                    // Profile picture
                     GestureDetector(
                       onTap: _showImagePickerOptions,
                       child: Stack(
@@ -288,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ? Icon(
                                       Icons.person,
                                       size: 80,
-                                      color: Colors.blue.shade700,
+                                      color: Colors.blue,
                                     )
                                     : null,
                           ),
@@ -296,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             bottom: 0,
                             right: 0,
                             child: Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 color: Colors.blue,
                                 shape: BoxShape.circle,
@@ -305,7 +397,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   width: 2,
                                 ),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.camera_alt,
                                 color: Colors.white,
                                 size: 20,
@@ -315,19 +407,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
 
-                    // User name and role
+                    // Name and role
                     Text(
                       _userModel?.name ?? 'Utilisateur',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 4,
                       ),
@@ -343,19 +435,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32),
 
-                    // Edit profile form
+                    // Profile form
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue.shade200),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.blue.withOpacity(0.1),
                             blurRadius: 10,
-                            offset: const Offset(0, 5),
+                            offset: Offset(0, 5),
                           ),
                         ],
                       ),
@@ -364,22 +457,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Informations personnelles',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade800,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
 
                             // Name field
                             TextFormField(
                               controller: _nameController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Nom complet',
-                                prefixIcon: Icon(Icons.person),
+                                prefixIcon: Icon(
+                                  Icons.person,
+                                  color: Colors.blue,
+                                ),
                                 border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.blue,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -388,15 +491,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
 
                             // Email field
                             TextFormField(
                               controller: _emailController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Email',
-                                prefixIcon: Icon(Icons.email),
+                                prefixIcon: Icon(
+                                  Icons.email,
+                                  color: Colors.blue,
+                                ),
                                 border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.blue,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -406,46 +518,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                                 );
                                 return !emailRegex.hasMatch(value)
-                                    ? 'Veuillez entrer un email valide'
+                                    ? 'Email invalide'
                                     : null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
 
                             // Phone field
                             TextFormField(
                               controller: _phoneController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Téléphone',
-                                prefixIcon: Icon(Icons.phone),
+                                prefixIcon: Icon(
+                                  Icons.phone,
+                                  color: Colors.blue,
+                                ),
                                 border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.blue,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
                               keyboardType: TextInputType.phone,
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
 
                             // Department field
                             TextFormField(
                               controller: _departmentController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Département',
-                                prefixIcon: Icon(Icons.business),
+                                prefixIcon: Icon(
+                                  Icons.business,
+                                  color: Colors.blue,
+                                ),
                                 border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.blue,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
 
                             // Address field
                             TextFormField(
                               controller: _addressController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Adresse',
-                                prefixIcon: Icon(Icons.location_on),
+                                prefixIcon: Icon(
+                                  Icons.location_on,
+                                  color: Colors.blue,
+                                ),
                                 border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.blue,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
                               maxLines: 2,
                             ),
-                            const SizedBox(height: 24),
+                            SizedBox(height: 24),
 
                             // Submit button
                             SizedBox(
@@ -455,16 +594,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
+                                  padding: EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                                 child:
                                     _isSaving
-                                        ? const SizedBox(
+                                        ? SizedBox(
                                           width: 20,
                                           height: 20,
                                           child: CircularProgressIndicator(
@@ -472,7 +609,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             strokeWidth: 3,
                                           ),
                                         )
-                                        : const Text(
+                                        : Text(
                                           'Mettre à jour le profil',
                                           style: TextStyle(
                                             fontSize: 16,

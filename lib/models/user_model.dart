@@ -39,6 +39,9 @@ class UserModel {
     };
   }
 
+  // In lib/models/user_model.dart
+  // Make sure the constructor and fromMap method include all fields:
+
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       id: map['id'] ?? '',
@@ -47,13 +50,13 @@ class UserModel {
       email: map['email'] ?? '',
       role: map['role'] ?? 'technician',
       profilePictureUrl: map['profilePictureUrl'],
-      phoneNumber: map['phoneNumber'],
-      address: map['address'],
-      department: map['department'],
+      phoneNumber: map['phoneNumber'] ?? '', // Default to empty string
+      address: map['address'] ?? '', // Default to empty string
+      department: map['department'] ?? '', // Default to empty string
       additionalInfo:
           map['additionalInfo'] != null
               ? Map<String, dynamic>.from(map['additionalInfo'])
-              : null,
+              : {}, // Default to empty map
     );
   }
 
