@@ -1,5 +1,6 @@
 // lib/views/screens/admin_screen.dart
 import 'package:flutter/material.dart';
+import 'package:kony/views/widgets/app_sidebar.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
@@ -21,6 +22,7 @@ class _AdminScreenState extends State<AdminScreen>
   late TabController _tabController;
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
   final DateFormat _timeFormat = DateFormat('HH:mm');
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -220,20 +222,23 @@ class _AdminScreenState extends State<AdminScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: AppSidebar(
+        userRole: 'admin',
+        onClose: () => _scaffoldKey.currentState?.closeDrawer(),
+      ),
       appBar: AppBar(
         title: const Text(
           'Tableau de Bord Admin',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
         automaticallyImplyLeading: false,
         actions: [
-          // Bouton de gestion des utilisateurs
-          IconButton(
-            icon: const Icon(Icons.people),
-            onPressed: _navigateToUserManagement,
-            tooltip: 'Gestion des Utilisateurs',
-          ),
-          // Bouton de déconnexion
+          // Logout button
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -242,15 +247,10 @@ class _AdminScreenState extends State<AdminScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor:
-              Theme.of(
-                context,
-              ).primaryColor, // Texte bleu pour l'onglet sélectionné
-          unselectedLabelColor:
-              Colors.grey, // Texte gris pour les onglets non sélectionnés
-          indicatorColor:
-              Theme.of(context).primaryColor, // Ligne indicatrice bleue
-          indicatorWeight: 3, // Rend la ligne indicatrice plus visible
+          labelColor: Theme.of(context).primaryColor,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Theme.of(context).primaryColor,
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: 'Soumis'),
             Tab(text: 'Examinés'),

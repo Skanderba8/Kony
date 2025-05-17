@@ -1,5 +1,6 @@
 // lib/views/screens/technician_screen.dart
 import 'package:flutter/material.dart';
+import 'package:kony/views/widgets/app_sidebar.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/technician_view_model.dart';
 import 'report_list_screen.dart';
@@ -13,6 +14,8 @@ class TechnicianScreen extends StatefulWidget {
 }
 
 class _TechnicianScreenState extends State<TechnicianScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -60,11 +63,20 @@ class _TechnicianScreenState extends State<TechnicianScreen> {
     return Consumer<TechnicianViewModel>(
       builder: (context, viewModel, child) {
         return Scaffold(
+          key: _scaffoldKey,
+          drawer: AppSidebar(
+            userRole: 'technician',
+            onClose: () => _scaffoldKey.currentState?.closeDrawer(),
+          ),
           backgroundColor: Colors.grey.shade100,
           appBar: AppBar(
             title: const Text(
               'Tableau de Bord',
               style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
             automaticallyImplyLeading: false,
             elevation: 0,

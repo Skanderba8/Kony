@@ -1,0 +1,68 @@
+@startuml
+class User {
+  String id
+  String email
+  String name
+  String role
+  String photoUrl
+}
+
+class TechnicalVisitReport {
+  String id
+  String clientName
+  String location
+  DateTime date
+  String status
+  String technicianId
+  List<Floor> floors
+  String conclusion
+  DateTime createdAt
+  DateTime updatedAt
+}
+
+class Floor {
+  String id
+  String name
+  String notes
+  List<Component> components
+}
+
+abstract class Component {
+  String id
+  String type
+  String name
+  String location
+  DateTime createdAt
+}
+
+class NetworkCabinet extends Component {
+  String state
+  int capacity
+}
+
+class Perforation extends Component {
+  String wallType
+  double thickness
+}
+
+class CablePath extends Component {
+  String type
+  double length
+  String fixation
+}
+
+class CopperCabling extends Component {
+  String category
+  double length
+  String path
+}
+
+class FiberOpticCabling extends Component {
+  String fiberType
+  int drawerCount
+}
+
+User "1" -- "n" TechnicalVisitReport : creates
+TechnicalVisitReport "1" *-- "n" Floor : contains
+Floor "1" *-- "n" Component : contains
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+skinparam BackgroundColor transparent
+skinparam ArrowColor #5D7FFF
+
+state "Écran de connexion" as Login
+state "Page d'accueil" as Home
+state "Liste des rapports" as ReportList
+state "Création de rapport" as ReportCreation {
+  state "Infos générales" as Step1
+  state "Contexte du projet" as Step2
+  state "Composants par étage" as Step3
+  state "Conclusion" as Step4
+}
+state "Détail d'un rapport" as ReportDetail
+state "Profil utilisateur" as Profile
+
+[*] --> Login
+Login --> Home
+Home --> ReportList
+Home --> ReportCreation
+Home --> Profile
+
+ReportList --> ReportDetail
+ReportDetail --> ReportCreation : Modifier
+
+ReportCreation --> Step1
+Step1 --> Step2
+Step2 --> Step3
+Step3 --> Step4
+Step4 --> ReportList : Soumettre
+@enduml

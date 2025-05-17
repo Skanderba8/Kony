@@ -1,0 +1,47 @@
+@startuml
+entity "User" as user {
+  * id : string <<PK>>
+  --
+  * email : string
+  * name : string
+  * role : string
+  photoUrl : string
+  createdAt : timestamp
+}
+
+entity "TechnicalVisitReport" as report {
+  * id : string <<PK>>
+  --
+  * clientName : string
+  * location : string
+  * date : date
+  * status : string
+  * technicianId : string <<FK>>
+  conclusion : string
+  * createdAt : timestamp
+  updatedAt : timestamp
+}
+
+entity "Floor" as floor {
+  * id : string <<PK>>
+  --
+  * reportId : string <<FK>>
+  * name : string
+  notes : string
+}
+
+entity "Component" as component {
+  * id : string <<PK>>
+  --
+  * floorId : string <<FK>>
+  * type : string
+  * name : string
+  location : string
+  properties : map
+  * createdAt : timestamp
+}
+
+user ||--o{ report : crée
+report ||--o{ floor : contient
+floor ||--o{ component : contient
+@enduml

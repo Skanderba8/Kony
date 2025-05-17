@@ -1,9 +1,11 @@
+// lib/views/screens/user_management_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/user_management_view_model.dart';
 import '../../models/user_model.dart';
 import '../../utils/notification_utils.dart';
 import '../widgets/user_edit_dialog.dart';
+import '../widgets/app_sidebar.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -12,7 +14,8 @@ class UserManagementScreen extends StatefulWidget {
   _UserManagementScreenState createState() => _UserManagementScreenState();
 }
 
-class _UserManagementScreenState extends State<UserManagementScreen> {
+class _UserManagementScreenState extends State<UserManagementScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -20,13 +23,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final _nameFocusNode = FocusNode();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   bool _showPassword = false;
-  int _selectedTabIndex = 0;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<UserManagementViewModel>(context, listen: false).loadUsers();
     });
@@ -40,6 +45,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     _nameFocusNode.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -59,7 +65,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (success && mounted) {
       _clearForm();
-      setState(() => _selectedTabIndex = 1);
+      _tabController.animateTo(1); // Switch to user list tab
       NotificationUtils.showInfo(context, 'Compte technicien créé avec succès');
     } else if (mounted && viewModel.errorMessage != null) {
       NotificationUtils.showError(context, viewModel.errorMessage!);
@@ -75,85 +81,35 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: AppSidebar(
+        userRole: 'admin',
+        onClose: () => _scaffoldKey.currentState?.closeDrawer(),
+      ),
       appBar: AppBar(
         title: const Text(
           'Gestion des Utilisateurs',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Row(
-                children: [
-                  _buildSegmentedControlButton(
-                    context,
-                    index: 0,
-                    label: 'Créer un Technicien',
-                    icon: Icons.person_add_outlined,
-                  ),
-                  _buildSegmentedControlButton(
-                    context,
-                    index: 1,
-                    label: 'Liste des Techniciens',
-                    icon: Icons.list_outlined,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child:
-                _selectedTabIndex == 0
-                    ? _buildCreateUserForm()
-                    : _buildUserList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegmentedControlButton(
-    BuildContext context, {
-    required int index,
-    required String label,
-    required IconData icon,
-  }) {
-    final isSelected = _selectedTabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedTabIndex = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.blue : Colors.transparent,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.white : Colors.blue,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.blue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Theme.of(context).primaryColor,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Theme.of(context).primaryColor,
+          indicatorWeight: 3,
+          tabs: const [
+            Tab(text: 'Créer un Technicien'),
+            Tab(text: 'Liste des Techniciens'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [_buildCreateUserForm(), _buildUserList()],
       ),
     );
   }
@@ -395,7 +351,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48, color: Colors.red),
                 const SizedBox(height: 16),
-                Text(viewModel.errorMessage!),
+                Text(
+                  viewModel.errorMessage!,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => viewModel.loadUsers(),
@@ -414,45 +375,54 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
         if (viewModel.users.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text('Aucun utilisateur trouvé'),
-                const SizedBox(height: 8),
-                Text(
-                  'Essayez d\'actualiser ou vérifiez la console Firebase',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => viewModel.loadUsers(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24.0),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.people_outline,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Aucun utilisateur trouvé'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Essayez d\'actualiser ou vérifiez la console Firebase',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => viewModel.loadUsers(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24.0),
+                          ),
                         ),
+                        child: const Text('Actualiser la Liste'),
                       ),
-                      child: const Text('Actualiser la Liste'),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () => setState(() => _selectedTabIndex = 0),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24.0),
+                      ElevatedButton(
+                        onPressed: () => _tabController.animateTo(0),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24.0),
+                          ),
                         ),
+                        child: const Text('Créer un Nouvel Utilisateur'),
                       ),
-                      child: const Text('Créer un Nouvel Utilisateur'),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -466,44 +436,53 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final user = viewModel.users[index];
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(user.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(user.email),
-                      Text(
-                        'ID: ${user.id}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      if (user.authUid.isNotEmpty)
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: ListTile(
+                    title: Text(user.name, overflow: TextOverflow.ellipsis),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.email, overflow: TextOverflow.ellipsis),
                         Text(
-                          'Auth UID: ${user.authUid}',
+                          'ID: ${user.id}',
                           style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                    ],
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Text(
-                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                      style: TextStyle(color: Colors.blue.shade800),
+                        if (user.authUid.isNotEmpty)
+                          Text(
+                            'Auth UID: ${user.authUid.substring(0, min(10, user.authUid.length))}...',
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _showEditUserDialog(user),
-                        tooltip: 'Modifier l\'Utilisateur',
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.blue.shade100,
+                      child: Text(
+                        user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                        style: TextStyle(color: Colors.blue.shade800),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.delete, color: Colors.red.shade400),
-                        onPressed: () => _confirmDeleteUser(user),
-                        tooltip: 'Supprimer l\'Utilisateur',
-                      ),
-                    ],
+                    ),
+                    trailing: Wrap(
+                      spacing: 0,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showEditUserDialog(user),
+                          tooltip: 'Modifier l\'Utilisateur',
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete, color: Colors.red.shade400),
+                          onPressed: () => _confirmDeleteUser(user),
+                          tooltip: 'Supprimer l\'Utilisateur',
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -534,22 +513,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   role: user.role,
                 );
 
-                if (success) {
+                if (success && mounted) {
                   NotificationUtils.showInfo(
                     context,
                     'Utilisateur ${user.name} mis à jour avec succès',
                   );
-                } else {
+                } else if (mounted) {
                   NotificationUtils.showError(
                     context,
                     'Échec de la mise à jour de l\'utilisateur ${user.name}',
                   );
                 }
               } catch (e) {
-                NotificationUtils.showError(
-                  context,
-                  'Une erreur s\'est produite lors de la mise à jour de l\'utilisateur: ${e.toString()}',
-                );
+                if (mounted) {
+                  NotificationUtils.showError(
+                    context,
+                    'Une erreur s\'est produite lors de la mise à jour de l\'utilisateur: ${e.toString()}',
+                  );
+                }
               }
             },
           ),
@@ -620,22 +601,28 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final success = await viewModel.deleteUserCompletely(user.authUid);
 
-      if (success) {
+      if (success && mounted) {
         NotificationUtils.showInfo(
           context,
           'Utilisateur ${user.name} supprimé avec succès',
         );
-      } else {
+      } else if (mounted) {
         NotificationUtils.showError(
           context,
           'Échec de la suppression de l\'utilisateur ${user.name}',
         );
       }
     } catch (e) {
-      NotificationUtils.showError(
-        context,
-        'Une erreur s\'est produite lors de la suppression de l\'utilisateur: ${e.toString()}',
-      );
+      if (mounted) {
+        NotificationUtils.showError(
+          context,
+          'Une erreur s\'est produite lors de la suppression de l\'utilisateur: ${e.toString()}',
+        );
+      }
     }
+  }
+
+  int min(int a, int b) {
+    return a < b ? a : b;
   }
 }

@@ -1,0 +1,59 @@
+@startuml "Current vs Proposed Process"
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #666666
+skinparam ActivityBorderColor #666666
+skinparam ActivityBackgroundColor #FEFEFE
+skinparam ActivityDiamondBackgroundColor #FEFEFE
+
+
+partition "Processus Actuel" #LightBlue {
+  (*) --> "Intervention technique sur site"
+  --> "Prise de notes manuscrites"
+  --> "Retour au bureau/domicile"
+  --> "Rédaction manuelle du rapport"
+  --> "Envoi par email à l'administration"
+  
+  if "Rapport complet?" then
+    --> [Non] "Demande de corrections"
+    --> "Correction du rapport"
+    --> "Nouvel envoi par email"
+    --> "Validation du rapport"
+  else
+    --> [Oui] "Validation du rapport"
+  endif
+  
+  --> "Archivage manuel"
+  --> "Extraction manuelle des données"
+  --> (*)
+}
+
+partition "Processus Proposé" #LightGreen {
+  (*) --> "Intervention technique sur site"
+  --> "Saisie directe sur l'application mobile"
+  
+  if "Connexion internet?" then
+    --> [Oui] "Synchronisation en temps réel"
+    --> "Validation administrative via le dashboard"
+  else
+    --> [Non] "Sauvegarde en mode hors-ligne"
+    --> "Synchronisation automatique dès retour de connexion"
+    --> "Validation administrative via le dashboard"
+  endif
+  
+  if "Rapport complet?" then
+    --> [Non] "Retour au statut brouillon"
+    --> "Complétion du rapport"
+    --> "Resoumission"
+    --> "Génération automatique du PDF"
+  else
+    --> [Oui] "Génération automatique du PDF"
+  endif
+  
+  --> "Archivage numérique"
+  --> "Intégration automatique des données"
+  --> (*)
+}
+
+@enduml

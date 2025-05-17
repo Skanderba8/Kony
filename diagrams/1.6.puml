@@ -1,0 +1,38 @@
+@startuml
+package "Architecture MVVM" {
+    package "Models" {
+        [User]
+        [TechnicalVisitReport]
+        [Floor]
+        [Component]
+    }
+    
+    package "ViewModels" {
+        [LoginViewModel]
+        [TechnicalVisitReportViewModel]
+        [TechnicianViewModel]
+    }
+    
+    package "Views" {
+        [LoginScreen]
+        [ReportFormScreen]
+        [ReportListScreen]
+    }
+    
+    package "Services" {
+        [AuthService]
+        [ReportService]
+        [SynchronizationService]
+        [PDFGenerationService]
+    }
+}
+
+[Views] --> [ViewModels]
+[ViewModels] --> [Models]
+[ViewModels] --> [Services]
+[Services] --> [Models]
+
+note bottom of [Services]
+  Communication avec Firebase
+end note
+@enduml
