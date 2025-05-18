@@ -1,6 +1,7 @@
 // lib/views/screens/report_form/floor_components_form.dart
 import 'package:flutter/material.dart';
 import 'package:kony/models/report_sections/custom_component.dart';
+import 'package:kony/views/widgets/report_form/component_photo_section.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/technical_visit_report_view_model.dart';
 import '../../../models/floor.dart';
@@ -1187,6 +1188,9 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
 // In lib/views/screens/report_form/floor_components_form.dart
 // Add this as a new method alongside other component form methods
 
+// In lib/views/screens/report_form/floor_components_form.dart
+// Update the _buildCustomComponentForm method
+
 Widget _buildCustomComponentForm(
   CustomComponent component,
   int index,
@@ -1243,6 +1247,14 @@ Widget _buildCustomComponentForm(
           editingComponent = editingComponent.copyWith(notes: value);
           viewModel.updateCustomComponent(index, editingComponent);
         },
+      ),
+
+      // Add the photo section
+      const Divider(height: 32),
+      ComponentPhotoSection(
+        componentIndex: index,
+        photos: component.photos,
+        componentType: 'Composant personnalisé',
       ),
     ],
   );

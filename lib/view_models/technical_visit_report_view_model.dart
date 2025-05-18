@@ -1,6 +1,8 @@
 // lib/view_models/technical_visit_report_view_model.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:kony/models/photo.dart';
 import 'package:kony/models/report_sections/custom_component.dart';
 import 'dart:io';
 import '../models/technical_visit_report.dart';
@@ -60,6 +62,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     'Conduit',
     'Câblage cuivre',
     'Câblage fibre optique',
+    'Composant personnalisé', // Make sure this line is added
   ];
 
   // Getters to expose state to the UI layer
@@ -1127,6 +1130,161 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     );
 
     notifyListeners();
+  }
+
+  // Add to lib/view_models/technical_visit_report_view_model.dart
+
+  // Add a photo to a custom component
+  Future<void> addPhotoToCustomComponent(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    if (_currentReport == null ||
+        currentFloor == null ||
+        componentIndex < 0 ||
+        componentIndex >= currentFloor!.customComponents.length)
+      return;
+
+    _setLoading(true);
+
+    try {
+      // Create temporary photo object with local path
+      final photo = Photo.create(localPath: imageFile.path, comment: comment);
+
+      // Clone the objects we're going to modify
+      final floors = List<Floor>.from(_currentReport!.floors);
+      final customComponents = List<CustomComponent>.from(
+        currentFloor!.customComponents,
+      );
+      var component = customComponents[componentIndex];
+
+      // Generate a storage path for the image
+      final String fileName =
+          'reports/${_currentReport!.id}/components/${component.id}/photos/${photo.id}.jpg';
+
+      // Upload to Firebase Storage
+      final storageRef = FirebaseStorage.instance.ref().child(fileName);
+      await storageRef.putFile(imageFile);
+
+      // Get the download URL
+      final url = await storageRef.getDownloadURL();
+
+      // Create updated photo with URL
+      final updatedPhoto = photo.copyWith(url: url);
+
+      // Add the photo to the component
+      component = component.addPhoto(updatedPhoto);
+      customComponents[componentIndex] = component;
+
+      // Update floor and report
+      floors[_currentFloorIndex] = currentFloor!.copyWith(
+        customComponents: customComponents,
+      );
+
+      _currentReport = _currentReport!.copyWith(
+        floors: floors,
+        lastModified: DateTime.now(),
+      );
+
+      notifyListeners();
+    } catch (e) {
+      _setError('Failed to upload photo: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Update a photo's comment
+  void updatePhotoComment(int componentIndex, int photoIndex, String comment) {
+    if (_currentReport == null ||
+        currentFloor == null ||
+        componentIndex < 0 ||
+        componentIndex >= currentFloor!.customComponents.length)
+      return;
+
+    final component = currentFloor!.customComponents[componentIndex];
+    if (photoIndex < 0 || photoIndex >= component.photos.length) return;
+
+    final floors = List<Floor>.from(_currentReport!.floors);
+    final customComponents = List<CustomComponent>.from(
+      currentFloor!.customComponents,
+    );
+
+    // Get the current photo and update its comment
+    final photo = component.photos[photoIndex];
+    final updatedPhoto = photo.copyWith(comment: comment);
+
+    // Update the component with the modified photo
+    customComponents[componentIndex] = component.updatePhoto(
+      photoIndex,
+      updatedPhoto,
+    );
+
+    floors[_currentFloorIndex] = currentFloor!.copyWith(
+      customComponents: customComponents,
+    );
+
+    _currentReport = _currentReport!.copyWith(
+      floors: floors,
+      lastModified: DateTime.now(),
+    );
+
+    notifyListeners();
+  }
+
+  // Remove a photo
+  Future<void> removePhotoFromCustomComponent(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    if (_currentReport == null ||
+        currentFloor == null ||
+        componentIndex < 0 ||
+        componentIndex >= currentFloor!.customComponents.length)
+      return;
+
+    final component = currentFloor!.customComponents[componentIndex];
+    if (photoIndex < 0 || photoIndex >= component.photos.length) return;
+
+    _setLoading(true);
+
+    try {
+      final photo = component.photos[photoIndex];
+
+      // Delete from storage if URL exists
+      if (photo.url.isNotEmpty) {
+        try {
+          final storageRef = FirebaseStorage.instance.refFromURL(photo.url);
+          await storageRef.delete();
+        } catch (e) {
+          debugPrint('Failed to delete photo from storage: $e');
+          // Continue even if storage deletion fails
+        }
+      }
+
+      // Update the component
+      final floors = List<Floor>.from(_currentReport!.floors);
+      final customComponents = List<CustomComponent>.from(
+        currentFloor!.customComponents,
+      );
+      customComponents[componentIndex] = component.removePhoto(photoIndex);
+
+      floors[_currentFloorIndex] = currentFloor!.copyWith(
+        customComponents: customComponents,
+      );
+
+      _currentReport = _currentReport!.copyWith(
+        floors: floors,
+        lastModified: DateTime.now(),
+      );
+
+      notifyListeners();
+    } catch (e) {
+      _setError('Failed to remove photo: $e');
+    } finally {
+      _setLoading(false);
+    }
   }
 
   /// Add a component based on the selected type

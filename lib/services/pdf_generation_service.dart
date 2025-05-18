@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:kony/models/photo.dart' show Photo;
 import 'package:kony/models/report_sections/custom_component.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -16,8 +17,65 @@ import '../models/report_sections/fiber_optic_cabling.dart';
 import '../models/floor.dart';
 import '../models/technical_visit_report.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 class PdfGenerationService {
+  // Add this method before generateTechnicalReportPdf
+  Future<Map<String, Uint8List>> _downloadImages(
+    TechnicalVisitReport report,
+  ) async {
+    final Map<String, Uint8List> imageCache = {};
+
+    // Helper function to download a single image
+    Future<void> downloadImage(String url, String id) async {
+      try {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          imageCache[id] = response.bodyBytes;
+        }
+      } catch (e) {}
+    }
+
+    // Process each floor and component
+    for (final floor in report.floors) {
+      // Download images for custom components
+      for (final component in floor.customComponents) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Add similar blocks for other component types when you implement photos for them
+      // For example:
+      // for (final cabinet in floor.networkCabinets) {
+      //   for (final photo in cabinet.photos) {
+      //     if (photo.url.isNotEmpty) {
+      //       await downloadImage(photo.url, photo.id);
+      //     }
+      //   }
+      // }
+    }
+
+    return imageCache;
+  }
+
+  // Add these helper methods for the PDF generation
+  pw.Widget _buildImagePlaceholder(int index, pw.Font? font) {
+    return pw.Container(
+      height: 120,
+      width: 250,
+      alignment: pw.Alignment.center,
+      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      child: pw.Text(
+        'Photo ${index + 1}\n(voir documentation numérique)',
+        textAlign: pw.TextAlign.center,
+        style: pw.TextStyle(font: font, fontSize: 10),
+      ),
+    );
+  }
+
   Future<File> generateTechnicalReportPdf(TechnicalVisitReport report) async {
     final pdf = pw.Document(version: PdfVersion.pdf_1_5, compress: true);
 
@@ -30,7 +88,8 @@ class PdfGenerationService {
       print('Could not load custom font: $e');
     }
 
-    // Format dates
+    final Map<String, Uint8List> imageCache = await _downloadImages(report);
+
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
 
     pdf.addPage(
@@ -55,7 +114,7 @@ class PdfGenerationService {
               pw.SizedBox(height: 20),
 
               // Technical Components by Type (not by floor)
-              ..._buildComponentSectionsByType(report, font),
+              ..._buildComponentSectionsByType(report, font, imageCache),
 
               // Conclusion Section
               _buildConclusionSection(report, font),
@@ -240,6 +299,7 @@ class PdfGenerationService {
   List<pw.Widget> _buildComponentSectionsByType(
     TechnicalVisitReport report,
     pw.Font? font,
+    Map<String, Uint8List> imageCache, // Add imageCache parameter
   ) {
     final List<pw.Widget> sections = [];
 
@@ -337,7 +397,10 @@ class PdfGenerationService {
     );
 
     if (allCustomComponents.isNotEmpty) {
-      sections.add(_buildCustomComponentSection(allCustomComponents, font));
+      // Update this line to pass imageCache as the third argument
+      sections.add(
+        _buildCustomComponentSection(allCustomComponents, font, imageCache),
+      );
       sections.add(pw.SizedBox(height: 20));
     }
 
@@ -997,9 +1060,13 @@ class PdfGenerationService {
     );
   }
 
+  // In lib/services/pdf_generation_service.dart
+  // Update the _buildCustomComponentSection method
+
   pw.Widget _buildCustomComponentSection(
     List<Map<String, dynamic>> components,
     pw.Font? font,
+    Map<String, Uint8List> imageCache,
   ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1051,12 +1118,127 @@ class PdfGenerationService {
                       _buildTableRow('Remarques', component.notes, font),
                   ],
                 ),
+
+                // Add photos section if there are photos
+                if (component.photos.isNotEmpty) ...[
+                  pw.SizedBox(height: 10),
+                  pw.Divider(color: PdfColors.grey300),
+                  pw.SizedBox(height: 10),
+                  pw.Text(
+                    'Photos (${component.photos.length})',
+                    style: pw.TextStyle(
+                      font: font,
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+
+                  // Create a grid of photos (2 columns)
+                  pw.Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _buildPhotosGrid(
+                      component.photos,
+                      font,
+                      imageCache,
+                    ),
+                  ),
+                ],
               ],
             ),
           );
         }),
       ],
     );
+  }
+
+  // Helper method to build a grid of photos for the PDF
+  List<pw.Widget> _buildPhotosGrid(
+    List<Photo> photos,
+    pw.Font? font,
+    Map<String, Uint8List> imageCache,
+  ) {
+    final List<pw.Widget> photoWidgets = [];
+
+    for (int i = 0; i < photos.length; i++) {
+      final photo = photos[i];
+
+      // Try to get the image from cache
+      pw.Widget imageWidget;
+      if (imageCache.containsKey(photo.id)) {
+        try {
+          // Use the cached image data
+          final imageData = imageCache[photo.id]!;
+          imageWidget = pw.Image(
+            pw.MemoryImage(imageData),
+            height: 120,
+            width: 250,
+            fit: pw.BoxFit.cover,
+          );
+        } catch (e) {
+          imageWidget = _buildImagePlaceholder(i, font);
+        }
+      } else {
+        imageWidget = _buildImagePlaceholder(i, font);
+      }
+
+      // Create a widget for each photo with its comment
+      photoWidgets.add(
+        pw.Container(
+          width: 250,
+          margin: const pw.EdgeInsets.only(bottom: 10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey400),
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Photo placeholder or actual image
+              imageWidget,
+
+              // Photo number and date
+              pw.Container(
+                color: PdfColors.grey300,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'Photo ${i + 1}',
+                      style: pw.TextStyle(
+                        font: font,
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Text(
+                      DateFormat('dd/MM/yyyy').format(photo.takenAt),
+                      style: pw.TextStyle(font: font, fontSize: 8),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Photo comment
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  photo.comment,
+                  style: pw.TextStyle(font: font, fontSize: 9),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return photoWidgets;
   }
 
   pw.Widget _buildConclusionSection(
