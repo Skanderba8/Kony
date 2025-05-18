@@ -1188,9 +1188,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
 // In lib/views/screens/report_form/floor_components_form.dart
 // Add this as a new method alongside other component form methods
 
-// In lib/views/screens/report_form/floor_components_form.dart
-// Update the _buildCustomComponentForm method
-
 Widget _buildCustomComponentForm(
   CustomComponent component,
   int index,
