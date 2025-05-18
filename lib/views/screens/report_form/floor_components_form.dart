@@ -1,5 +1,6 @@
 // lib/views/screens/report_form/floor_components_form.dart
 import 'package:flutter/material.dart';
+import 'package:kony/models/report_sections/custom_component.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/technical_visit_report_view_model.dart';
 import '../../../models/floor.dart';
@@ -326,6 +327,38 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
       sections.add(const SizedBox(height: 24));
     }
 
+    // In lib/views/screens/report_form/floor_components_form.dart
+    // In the _buildComponentSections method after other component sections
+
+    // Custom components
+    if (floor.customComponents.isNotEmpty) {
+      sections.add(
+        DynamicListSection<CustomComponent>(
+          title: 'Composants Personnalisés',
+          subtitle: 'Composants personnalisés ajoutés à cet étage.',
+          icon: Icons.add_box,
+          items: floor.customComponents,
+          onAddItem: () {
+            viewModel.addCustomComponent();
+          },
+          onRemoveItem: (index) {
+            viewModel.removeCustomComponent(index);
+          },
+          addButtonLabel: 'Ajouter un composant personnalisé',
+          emptyStateMessage: 'Aucun composant personnalisé ajouté',
+          componentType: 'composant personnalisé',
+          onAddOtherComponentType: () {
+            viewModel.setSelectedComponentType(null);
+            _showComponentTypeSelector(context, viewModel);
+          },
+          itemBuilder: (component, index) {
+            return _buildCustomComponentForm(component, index, viewModel);
+          },
+        ),
+      );
+      sections.add(const SizedBox(height: 24));
+    }
+
     if (sections.isEmpty) {
       return Center(
         child: Padding(
@@ -432,6 +465,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
         return Icons.cable;
       case 'Câblage fibre optique':
         return Icons.fiber_manual_record;
+      case 'Composant personnalisé': // Add this case
+        return Icons.add_box;
       default:
         return Icons.device_unknown;
     }
@@ -1147,6 +1182,70 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
       ],
     );
   }
+}
+
+// In lib/views/screens/report_form/floor_components_form.dart
+// Add this as a new method alongside other component form methods
+
+Widget _buildCustomComponentForm(
+  CustomComponent component,
+  int index,
+  TechnicalVisitReportViewModel viewModel,
+) {
+  // Create a local copy for editing
+  CustomComponent editingComponent = component;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      FormTextField(
+        label: 'Nom du composant',
+        hintText: 'Ex: Système d\'alarme, Tableau électrique, etc.',
+        initialValue: editingComponent.name,
+        required: true,
+        onChanged: (value) {
+          editingComponent = editingComponent.copyWith(name: value);
+          viewModel.updateCustomComponent(index, editingComponent);
+        },
+      ),
+
+      FormTextField(
+        label: 'Description',
+        hintText: 'Décrivez le composant et ses caractéristiques',
+        initialValue: editingComponent.description,
+        required: true,
+        multiline: true,
+        maxLines: 3,
+        onChanged: (value) {
+          editingComponent = editingComponent.copyWith(description: value);
+          viewModel.updateCustomComponent(index, editingComponent);
+        },
+      ),
+
+      FormTextField(
+        label: 'Emplacement',
+        hintText: 'Indiquez où se trouve ce composant',
+        initialValue: editingComponent.location,
+        required: true,
+        onChanged: (value) {
+          editingComponent = editingComponent.copyWith(location: value);
+          viewModel.updateCustomComponent(index, editingComponent);
+        },
+      ),
+
+      FormTextField(
+        label: 'Remarques',
+        hintText: 'Notes additionnelles sur ce composant',
+        initialValue: editingComponent.notes,
+        multiline: true,
+        maxLines: 3,
+        onChanged: (value) {
+          editingComponent = editingComponent.copyWith(notes: value);
+          viewModel.updateCustomComponent(index, editingComponent);
+        },
+      ),
+    ],
+  );
 }
 
 /// Adapted form item for network cabinet specifically for the floor-based layout

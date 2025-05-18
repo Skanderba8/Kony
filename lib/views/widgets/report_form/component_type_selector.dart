@@ -151,6 +151,8 @@ class ComponentTypeSelector extends StatelessWidget {
         return 'Câbles réseau en cuivre (Cat5e, Cat6, Cat6A, etc.)';
       case 'Câblage fibre optique':
         return 'Câbles à fibre optique pour transmissions haut débit';
+      case 'Composant personnalisé':
+        return 'Créez un composant personnalisé selon vos besoins';
       default:
         return 'Sélectionnez un type de composant à ajouter';
     }
@@ -175,6 +177,8 @@ class ComponentTypeSelector extends StatelessWidget {
         return Icons.cable;
       case 'Câblage fibre optique':
         return Icons.fiber_manual_record;
+      case 'Composant personnalisé':
+        return Icons.add_box;
       default:
         return Icons.device_unknown;
     }

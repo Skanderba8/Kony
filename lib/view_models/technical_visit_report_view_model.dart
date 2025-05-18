@@ -1,6 +1,7 @@
 // lib/view_models/technical_visit_report_view_model.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:kony/models/report_sections/custom_component.dart';
 import 'dart:io';
 import '../models/technical_visit_report.dart';
 import '../models/floor.dart';
@@ -1049,6 +1050,85 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Add methods to handle custom components in lib/view_models/technical_visit_report_view_model.dart
+
+  // Add a custom component to the current floor
+  void addCustomComponent() {
+    if (_currentReport == null || currentFloor == null) return;
+
+    final floors = List<Floor>.from(_currentReport!.floors);
+    final customComponents = List<CustomComponent>.from(
+      currentFloor!.customComponents,
+    );
+
+    customComponents.add(CustomComponent.create());
+
+    floors[_currentFloorIndex] = currentFloor!.copyWith(
+      customComponents: customComponents,
+    );
+
+    _currentReport = _currentReport!.copyWith(
+      floors: floors,
+      lastModified: DateTime.now(),
+    );
+
+    notifyListeners();
+  }
+
+  // Update a custom component in the current floor
+  void updateCustomComponent(int index, CustomComponent updatedComponent) {
+    if (_currentReport == null ||
+        currentFloor == null ||
+        index < 0 ||
+        index >= currentFloor!.customComponents.length)
+      return;
+
+    final floors = List<Floor>.from(_currentReport!.floors);
+    final customComponents = List<CustomComponent>.from(
+      currentFloor!.customComponents,
+    );
+
+    customComponents[index] = updatedComponent;
+
+    floors[_currentFloorIndex] = currentFloor!.copyWith(
+      customComponents: customComponents,
+    );
+
+    _currentReport = _currentReport!.copyWith(
+      floors: floors,
+      lastModified: DateTime.now(),
+    );
+
+    notifyListeners();
+  }
+
+  // Remove a custom component from the current floor
+  void removeCustomComponent(int index) {
+    if (_currentReport == null ||
+        currentFloor == null ||
+        index < 0 ||
+        index >= currentFloor!.customComponents.length)
+      return;
+
+    final floors = List<Floor>.from(_currentReport!.floors);
+    final customComponents = List<CustomComponent>.from(
+      currentFloor!.customComponents,
+    );
+
+    customComponents.removeAt(index);
+
+    floors[_currentFloorIndex] = currentFloor!.copyWith(
+      customComponents: customComponents,
+    );
+
+    _currentReport = _currentReport!.copyWith(
+      floors: floors,
+      lastModified: DateTime.now(),
+    );
+
+    notifyListeners();
+  }
+
   /// Add a component based on the selected type
   ///
   /// This method acts as a factory method pattern implementation that centralizes
@@ -1079,6 +1159,9 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
         break;
       case 'Câblage fibre optique':
         addFiberOpticCabling();
+        break;
+      case 'Composant personnalisé': // Add this new case
+        addCustomComponent();
         break;
       default:
         // Unknown component type, log error or handle appropriately

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:kony/models/report_sections/custom_component.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -328,6 +329,15 @@ class PdfGenerationService {
 
     if (allFiberOpticCablings.isNotEmpty) {
       sections.add(_buildFiberOpticCablingSection(allFiberOpticCablings, font));
+      sections.add(pw.SizedBox(height: 20));
+    }
+    final allCustomComponents = _collectAllComponentsOfType<CustomComponent>(
+      report.floors,
+      (floor) => floor.customComponents,
+    );
+
+    if (allCustomComponents.isNotEmpty) {
+      sections.add(_buildCustomComponentSection(allCustomComponents, font));
       sections.add(pw.SizedBox(height: 20));
     }
 
@@ -977,6 +987,68 @@ class PdfGenerationService {
                     ),
                     if (cabling.notes.isNotEmpty)
                       _buildTableRow('Remarques', cabling.notes, font),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  pw.Widget _buildCustomComponentSection(
+    List<Map<String, dynamic>> components,
+    pw.Font? font,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Composants Personnalisés',
+          style: pw.TextStyle(
+            font: font,
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColors.blue800,
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        ...components.asMap().entries.map((entry) {
+          final index = entry.key;
+          final componentData = entry.value;
+          final component = componentData['component'] as CustomComponent;
+          final floorName = componentData['floor'] as String;
+
+          return pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 10),
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey100,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Composant ${index + 1}: ${component.name} ($floorName)',
+                  style: pw.TextStyle(
+                    font: font,
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Table(
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(140),
+                    1: const pw.FlexColumnWidth(),
+                  },
+                  children: [
+                    _buildTableRow('Description', component.description, font),
+                    _buildTableRow('Emplacement', component.location, font),
+                    if (component.notes.isNotEmpty)
+                      _buildTableRow('Remarques', component.notes, font),
                   ],
                 ),
               ],

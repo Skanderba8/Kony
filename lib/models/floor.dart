@@ -1,6 +1,5 @@
 // lib/models/floor.dart
 import 'package:uuid/uuid.dart';
-import 'package:flutter/foundation.dart';
 import 'report_sections/network_cabinet.dart';
 import 'report_sections/perforation.dart';
 import 'report_sections/access_trap.dart';
@@ -9,6 +8,7 @@ import 'report_sections/cable_trunking.dart';
 import 'report_sections/conduit.dart';
 import 'report_sections/copper_cabling.dart';
 import 'report_sections/fiber_optic_cabling.dart';
+import 'report_sections/custom_component.dart';
 
 /// A model representing a building floor with all its technical components
 class Floor {
@@ -22,6 +22,8 @@ class Floor {
   final List<Conduit> conduits;
   final List<CopperCabling> copperCablings;
   final List<FiberOpticCabling> fiberOpticCablings;
+  final List<CustomComponent> customComponents;
+
   final String notes;
 
   Floor({
@@ -35,6 +37,7 @@ class Floor {
     this.conduits = const [],
     this.copperCablings = const [],
     this.fiberOpticCablings = const [],
+    this.customComponents = const [],
     this.notes = '',
   });
 
@@ -55,6 +58,7 @@ class Floor {
     List<Conduit>? conduits,
     List<CopperCabling>? copperCablings,
     List<FiberOpticCabling>? fiberOpticCablings,
+    List<CustomComponent>? customComponents,
     String? notes,
   }) {
     return Floor(
@@ -68,6 +72,7 @@ class Floor {
       conduits: conduits ?? this.conduits,
       copperCablings: copperCablings ?? this.copperCablings,
       fiberOpticCablings: fiberOpticCablings ?? this.fiberOpticCablings,
+      customComponents: customComponents ?? this.customComponents,
       notes: notes ?? this.notes,
     );
   }
@@ -85,6 +90,7 @@ class Floor {
       'conduits': conduits.map((c) => c.toJson()).toList(),
       'copperCablings': copperCablings.map((c) => c.toJson()).toList(),
       'fiberOpticCablings': fiberOpticCablings.map((c) => c.toJson()).toList(),
+      'customComponents': customComponents.map((c) => c.toJson()).toList(),
       'notes': notes,
     };
   }
@@ -126,6 +132,10 @@ class Floor {
         json['fiberOpticCablings'],
         FiberOpticCabling.fromJson,
       ),
+      customComponents: _parseComponentList<CustomComponent>(
+        json['customComponents'],
+        CustomComponent.fromJson,
+      ),
       notes: json['notes'] as String? ?? '',
     );
   }
@@ -154,7 +164,8 @@ class Floor {
         cableTrunkings.length +
         conduits.length +
         copperCablings.length +
-        fiberOpticCablings.length;
+        fiberOpticCablings.length +
+        customComponents.length;
   }
 
   /// Check if this floor has any components
