@@ -118,3 +118,90 @@ body {
 .cursor-pointer {
   cursor: pointer;
 }
+
+/* Add to src/style.css */
+
+/* Custom colors */
+.bg-purple {
+  background-color: #6f42c1;
+}
+
+.bg-indigo {
+  background-color: #6610f2;
+}
+
+.bg-teal {
+  background-color: #20c997;
+}
+
+.text-purple {
+  color: #6f42c1;
+}
+
+.text-indigo {
+  color: #6610f2;
+}
+
+.text-teal {
+  color: #20c997;
+}
+
+/* Icon circle for KPI cards */
+.icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+/* Sortable table headers */
+th.sortable {
+  cursor: pointer;
+  position: relative;
+  padding-right: 18px;
+}
+
+th.sortable:after {
+  content: '⇅';
+  position: absolute;
+  right: 4px;
+  color: #ccc;
+}
+
+th.sortable.sorted-asc:after {
+  content: '↑';
+  color: #333;
+}
+
+th.sortable.sorted-desc:after {
+  content: '↓';
+  color: #333;
+}
+
+/* Dashboard section */
+.dashboard-section {
+  margin-bottom: 2rem;
+}
+
+/* Card hover effects */
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+/* Chart tooltips */
+.chartjs-tooltip {
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 3px;
+  padding: 6px 12px;
+  font-size: 12px;
+  pointer-events: none;
+  position: absolute;
+}

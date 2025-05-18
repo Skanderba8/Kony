@@ -1,6 +1,7 @@
 import { showReportsList } from './reports.js';
 import { showUsersList } from './users.js';
 import { logOut } from '../utils/auth.js';
+import { initializeBIDashboard } from '../dashboard.js';
 
 /**
  * Shows the dashboard layout
@@ -24,6 +25,9 @@ export function showDashboard() {
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" id="usersLink">Users</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="biDashboardLink">BI Dashboard</a>
             </li>
           </ul>
           <button class="btn btn-outline-light" id="logoutButton">Logout</button>
@@ -49,6 +53,12 @@ export function showDashboard() {
     e.preventDefault();
     setActiveNavLink('usersLink');
     showUsersList();
+  });
+  
+  document.getElementById('biDashboardLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    setActiveNavLink('biDashboardLink');
+    initializeBIDashboard(document.getElementById('contentContainer'));
   });
   
   document.getElementById('logoutButton').addEventListener('click', async () => {
