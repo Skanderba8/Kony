@@ -249,6 +249,7 @@ class _AppSidebarState extends State<AppSidebar> {
     );
   }
 
+  // In lib/views/widgets/app_sidebar.dart, update the _navigateToScreen method
   void _navigateToScreen(BuildContext context, String screen) {
     Navigator.pop(context); // Close the drawer
 
@@ -264,6 +265,11 @@ class _AppSidebarState extends State<AppSidebar> {
 
     if (screen == 'users' && widget.userRole == 'admin') {
       Navigator.pushNamed(context, '/user-management');
+      return;
+    }
+
+    if (screen == 'stats' && widget.userRole == 'admin') {
+      Navigator.pushNamed(context, '/statistics');
       return;
     }
 

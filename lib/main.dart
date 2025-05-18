@@ -10,11 +10,13 @@ import 'services/technical_visit_report_service.dart';
 import 'services/user_management_service.dart';
 import 'services/firebase_initialization_service.dart';
 import 'services/pdf_generation_service.dart';
+import 'services/statistics_service.dart';
 import 'view_models/login_view_model.dart';
 import 'view_models/technician_view_model.dart';
 import 'view_models/admin_view_model.dart';
 import 'view_models/user_management_view_model.dart';
 import 'view_models/technical_visit_report_view_model.dart';
+import 'view_models/statistics_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +46,7 @@ class KonyApp extends StatelessWidget {
         ),
         Provider<UserManagementService>(create: (_) => UserManagementService()),
         Provider<PdfGenerationService>(create: (_) => PdfGenerationService()),
+        Provider<StatisticsService>(create: (_) => StatisticsService()),
 
         // ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -78,6 +81,13 @@ class KonyApp extends StatelessWidget {
                 reportService: context.read<TechnicalVisitReportService>(),
                 authService: context.read<AuthService>(),
                 pdfService: context.read<PdfGenerationService>(),
+              ),
+        ),
+        ChangeNotifierProvider<StatisticsViewModel>(
+          create:
+              (context) => StatisticsViewModel(
+                statisticsService: context.read<StatisticsService>(),
+                userService: context.read<UserManagementService>(),
               ),
         ),
       ],
