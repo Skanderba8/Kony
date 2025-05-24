@@ -121,117 +121,134 @@ class _FormNumberFieldState extends State<FormNumberField> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _controller,
-                keyboardType:
-                    widget.decimal
-                        ? const TextInputType.numberWithOptions(decimal: true)
-                        : TextInputType.number,
-                inputFormatters: [
-                  widget.decimal
-                      ? FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d*\.?\d*$'),
-                      )
-                      : FilteringTextInputFormatter.digitsOnly,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _controller,
+                    keyboardType:
+                        widget.decimal
+                            ? const TextInputType.numberWithOptions(
+                              decimal: true,
+                            )
+                            : TextInputType.number,
+                    inputFormatters: [
+                      widget.decimal
+                          ? FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d*$'),
+                          )
+                          : FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    onChanged: (text) {
+                      if (text.isEmpty) {
+                        widget.onChanged(null);
+                        return;
+                      }
+
+                      num? parsedValue;
+                      try {
+                        parsedValue =
+                            widget.decimal
+                                ? double.parse(text)
+                                : int.parse(text);
+                      } catch (e) {
+                        return;
+                      }
+
+                      // Enforce min/max constraints
+                      if (parsedValue < widget.min) {
+                        parsedValue = widget.min;
+                        _controller.text = parsedValue.toString();
+                        _controller.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _controller.text.length),
+                        );
+                      } else if (parsedValue > widget.max) {
+                        parsedValue = widget.max;
+                        _controller.text = parsedValue.toString();
+                        _controller.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _controller.text.length),
+                        );
+                      }
+
+                      widget.onChanged(parsedValue);
+                    },
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.all(16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    validator:
+                        widget.required
+                            ? (value) =>
+                                (value == null || value.isEmpty)
+                                    ? 'Ce champ est obligatoire'
+                                    : null
+                            : null,
+                  ),
+                ),
+                if (widget.showControls && constraints.maxWidth > 200) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: IconButton(
+                            icon: const Icon(Icons.add, size: 16),
+                            onPressed: _increment,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Augmenter',
+                          ),
+                        ),
+                        Container(
+                          width: 36,
+                          height: 1,
+                          color: Colors.grey.shade300,
+                        ),
+                        SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: IconButton(
+                            icon: const Icon(Icons.remove, size: 16),
+                            onPressed: _decrement,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Diminuer',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-                onChanged: (text) {
-                  if (text.isEmpty) {
-                    widget.onChanged(null);
-                    return;
-                  }
-
-                  num? parsedValue;
-                  try {
-                    parsedValue =
-                        widget.decimal ? double.parse(text) : int.parse(text);
-                  } catch (e) {
-                    return;
-                  }
-
-                  // Enforce min/max constraints
-                  if (parsedValue < widget.min) {
-                    parsedValue = widget.min;
-                    _controller.text = parsedValue.toString();
-                    _controller.selection = TextSelection.fromPosition(
-                      TextPosition(offset: _controller.text.length),
-                    );
-                  } else if (parsedValue > widget.max) {
-                    parsedValue = widget.max;
-                    _controller.text = parsedValue.toString();
-                    _controller.selection = TextSelection.fromPosition(
-                      TextPosition(offset: _controller.text.length),
-                    );
-                  }
-
-                  widget.onChanged(parsedValue);
-                },
-                decoration: InputDecoration(
-                  hintText: widget.hintText,
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.all(16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).primaryColor,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                validator:
-                    widget.required
-                        ? (value) =>
-                            (value == null || value.isEmpty)
-                                ? 'Ce champ est obligatoire'
-                                : null
-                        : null,
-              ),
-            ),
-            if (widget.showControls) ...[
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Column(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: _increment,
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(),
-                      iconSize: 20,
-                    ),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Colors.grey.shade300,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.remove),
-                      onPressed: _decrement,
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(),
-                      iconSize: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
       ],

@@ -1,7 +1,7 @@
 // lib/views/widgets/report_form/component_type_selector.dart
 import 'package:flutter/material.dart';
 
-/// A widget for selecting a component type with a more user-friendly UI
+/// An improved component type selector with better UI that matches the app design
 class ComponentTypeSelector extends StatelessWidget {
   final List<String> componentTypes;
   final String? selectedType;
@@ -13,213 +13,47 @@ class ComponentTypeSelector extends StatelessWidget {
     required this.componentTypes,
     required this.selectedType,
     required this.onTypeSelected,
-    this.label = 'Type de composant',
+    this.label = 'Ajouter un composant',
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14.0), // Slightly smaller padding
+      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10.0), // Smaller radius
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade50, Colors.indigo.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(color: Colors.blue.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03), // Lighter shadow
-            blurRadius: 4.0,
+            color: Colors.blue.withOpacity(0.1),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: Colors.blue.shade50),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15.0, // Slightly smaller font
-              color: Colors.blue.shade800,
-            ),
-          ),
-          const SizedBox(height: 10.0), // Tighter spacing
-
-          if (selectedType == null)
-            ElevatedButton.icon(
-              onPressed: () => _showComponentTypeDialog(context),
-              icon: const Icon(
-                Icons.add_circle_outline,
-                size: 18,
-              ), // Smaller icon
-              label: const Text('Ajouter un composant'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14.0,
-                  vertical: 10.0, // Smaller button
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20.0), // Smaller radius
-                ),
-                elevation: 1, // Less elevation
-              ),
-            )
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10), // Smaller padding
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(10), // Smaller radius
-                    border: Border.all(color: Colors.blue.shade100),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(
-                          8,
-                        ), // Smaller icon container
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.withOpacity(
-                                0.15,
-                              ), // Lighter shadow
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _getComponentIcon(selectedType!),
-                          color: Colors.blue.shade700,
-                          size: 20, // Smaller icon
-                        ),
-                      ),
-                      const SizedBox(width: 10), // Tighter spacing
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              selectedType!,
-                              style: TextStyle(
-                                fontSize: 16, // Smaller font size
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade800,
-                              ),
-                            ),
-                            const SizedBox(height: 2), // Tighter spacing
-                            Text(
-                              _getComponentDescription(selectedType!),
-                              style: TextStyle(
-                                fontSize: 13.0, // Slightly larger description
-                                fontWeight: FontWeight.normal, // Normal weight
-                                color:
-                                    Colors
-                                        .blue
-                                        .shade900, // Darker blue for better readability
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 18), // Smaller icon
-                        onPressed: () => _showComponentTypeDialog(context),
-                        tooltip: 'Changer le type',
-                        color: Colors.blue.shade600,
-                        padding: EdgeInsets.zero, // Remove padding
-                        constraints:
-                            const BoxConstraints(), // Remove constraints
-                        visualDensity: VisualDensity.compact, // Compact button
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  // In lib/views/widgets/report_form/component_type_selector.dart
-
-  Widget _buildComponentTypeCard(
-    BuildContext context,
-    String type,
-    bool isHighlighted,
-  ) {
-    final Color cardColor =
-        isHighlighted
-            ? Colors.blue.withOpacity(0.05) // Lighter blue background
-            : Colors.white; // White instead of gray for other options
-
-    final Color textColor = isHighlighted ? Colors.blue : Colors.black87;
-
-    final Color iconColor =
-        isHighlighted
-            ? Colors.blue
-            : Colors.blue.shade700; // More consistent icon colors
-
-    final Color descriptionColor =
-        isHighlighted
-            ? Colors.blue.shade700
-            : Colors.grey.shade700; // Darker text for better readability
-
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 4,
-      ), // Smaller margins
-      elevation: isHighlighted ? 1 : 0, // Less shadow
-      color: cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10), // Smaller radius
-        side: BorderSide(
-          color:
-              isHighlighted
-                  ? Colors.blue.shade200
-                  : Colors.grey.shade100, // Lighter border
-        ),
-      ),
-      child: InkWell(
-        onTap: () {
-          onTypeSelected(type);
-          Navigator.pop(context);
-        },
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ), // Smaller padding
-          child: Row(
+          // Header with icon and title
+          Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8), // Smaller icon container
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color:
-                      isHighlighted
-                          ? Colors.blue.withOpacity(0.1)
-                          : Colors.blue.withOpacity(
-                            0.05,
-                          ), // Lighter backgrounds
-                  shape: BoxShape.circle,
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  _getComponentIcon(type),
-                  color: iconColor,
-                  size: 20, // Smaller icon
+                  Icons.add_circle_outline,
+                  color: Colors.blue.shade700,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 12),
@@ -228,34 +62,299 @@ class ComponentTypeSelector extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      type,
+                      label,
                       style: TextStyle(
-                        fontSize: 15, // Slightly smaller text
-                        fontWeight:
-                            isHighlighted ? FontWeight.bold : FontWeight.w500,
-
-                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.blue.shade800,
                       ),
                     ),
-                    const SizedBox(height: 3), // Tighter spacing
                     Text(
-                      _getComponentDescription(type),
+                      'Sélectionnez le type de composant à documenter',
                       style: TextStyle(
-                        fontSize: 13, // Increased font size for description
-                        fontWeight: FontWeight.normal,
-                        color:
-                            descriptionColor, // Darker color for better contrast
+                        fontSize: 13,
+                        color: Colors.blue.shade600,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 14, // Smaller arrow
-                color:
-                    isHighlighted ? Colors.blue.shade300 : Colors.grey.shade400,
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Add component button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showImprovedComponentDialog(context),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Choisir un composant'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImprovedComponentDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => DraggableScrollableSheet(
+            initialChildSize: 0.8,
+            maxChildSize: 0.9,
+            minChildSize: 0.5,
+            builder:
+                (context, scrollController) => Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Handle bar
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+
+                      // Header
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.blue.shade400,
+                                    Colors.blue.shade600,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.category,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Choisir un Composant',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Sélectionnez le type d\'élément à ajouter',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.grey.shade100,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const Divider(height: 1),
+
+                      // Featured component (Custom component)
+                      Container(
+                        margin: const EdgeInsets.all(16),
+                        child: _buildFeaturedComponentCard(
+                          'Composant personnalisé',
+                          'Créer un composant sur mesure selon vos besoins',
+                          Icons.add_box,
+                          Colors.pink,
+                          context,
+                        ),
+                      ),
+
+                      // Section title for standard components
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'COMPOSANTS STANDARDS',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Standard components list
+                      Expanded(
+                        child: ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          itemCount:
+                              componentTypes.length -
+                              1, // Exclude custom component
+                          itemBuilder: (context, index) {
+                            // Skip custom component as it's featured above
+                            final componentType =
+                                componentTypes
+                                    .where(
+                                      (type) =>
+                                          type != 'Composant personnalisé',
+                                    )
+                                    .toList()[index];
+
+                            return _buildStandardComponentCard(
+                              componentType,
+                              _getComponentDescription(componentType),
+                              _getComponentIcon(componentType),
+                              _getComponentColor(componentType),
+                              context,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          ),
+    );
+  }
+
+  Widget _buildFeaturedComponentCard(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    BuildContext context,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          onTypeSelected(title);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.3), width: 2),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: color, size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'RECOMMANDÉ',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: color.withOpacity(0.8),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, color: color, size: 18),
             ],
           ),
         ),
@@ -263,113 +362,89 @@ class ComponentTypeSelector extends StatelessWidget {
     );
   }
 
-  void _showComponentTypeDialog(BuildContext context) {
-    // Create a sorted list with "Composant personnalisé" first
-    final sortedTypes = List<String>.from(componentTypes);
-    // Remove it from current position if it exists
-    sortedTypes.remove('Composant personnalisé');
-    // Add it to the beginning
-    sortedTypes.insert(0, 'Composant personnalisé');
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                20,
-              ), // Slightly smaller radius
+  Widget _buildStandardComponentCard(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    BuildContext context,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            onTypeSelected(title);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    20,
-                    20,
-                    20,
-                    6,
-                  ), // Tighter padding
-                  child: Row(
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Choisir un type de composant',
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
                         style: TextStyle(
-                          fontSize: 17, // Slightly smaller title
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          height: 1.2,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-                    child: Column(
-                      children: [
-                        // Custom component highlighted at the top
-                        _buildComponentTypeCard(
-                          context,
-                          'Composant personnalisé',
-                          true,
-                        ),
-
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            16,
-                            12,
-                            16,
-                            4,
-                          ), // Tighter padding
-                          child: Row(
-                            children: [
-                              Text(
-                                'TYPES STANDARD',
-                                style: TextStyle(
-                                  fontSize: 11, // Smaller label
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Other component types
-                        for (int i = 1; i < sortedTypes.length; i++)
-                          _buildComponentTypeCard(
-                            context,
-                            sortedTypes[i],
-                            false,
-                          ),
-                      ],
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12.0), // Smaller padding
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey.shade700,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8, // Smaller button
-                          ),
-                        ),
-                        child: const Text('Annuler'),
-                      ),
-                    ],
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.grey.shade500,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
     );
   }
 
@@ -398,7 +473,6 @@ class ComponentTypeSelector extends StatelessWidget {
     }
   }
 
-  /// Get an icon for a component type
   IconData _getComponentIcon(String type) {
     switch (type) {
       case 'Baie Informatique':
@@ -421,6 +495,31 @@ class ComponentTypeSelector extends StatelessWidget {
         return Icons.add_box;
       default:
         return Icons.device_unknown;
+    }
+  }
+
+  Color _getComponentColor(String type) {
+    switch (type) {
+      case 'Baie Informatique':
+        return Colors.blue;
+      case 'Percement':
+        return Colors.orange;
+      case 'Trappe d\'accès':
+        return Colors.purple;
+      case 'Chemin de câbles':
+        return Colors.green;
+      case 'Goulotte':
+        return Colors.teal;
+      case 'Conduit':
+        return Colors.indigo;
+      case 'Câblage cuivre':
+        return Colors.amber;
+      case 'Câblage fibre optique':
+        return Colors.red;
+      case 'Composant personnalisé':
+        return Colors.pink;
+      default:
+        return Colors.grey;
     }
   }
 }

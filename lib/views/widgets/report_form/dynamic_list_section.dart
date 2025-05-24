@@ -35,188 +35,276 @@ class DynamicListSection<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade50, Colors.indigo.shade50],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 20, color: Colors.blue.shade700),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${items.length}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Items list or empty state
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: items.isEmpty ? _buildEmptyState() : _buildItemsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          Icon(Icons.info_outline, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            emptyStateMessage,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          _buildActionButtons(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemsList() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
+        // Items
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          separatorBuilder:
+              (context, index) =>
+                  Divider(color: Colors.grey.shade200, height: 1),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return Container(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Item header with name and delete button
                   Row(
                     children: [
-                      Icon(
-                        icon,
-                        size: 24,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade100),
+                        ),
                         child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 18,
+                          '${_getComponentShortName(componentType)} ${index + 1}',
+                          style: TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 36.0),
-                      child: Text(
-                        subtitle!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red.shade400,
+                          size: 20,
                         ),
+                        onPressed: () => onRemoveItem(index),
+                        tooltip: 'Supprimer',
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        visualDensity: VisualDensity.compact,
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (items.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32.0),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 48,
-                    color: Colors.grey.shade400,
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    emptyStateMessage,
-                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                  ),
+                  // Item content
+                  itemBuilder(item, index),
                 ],
               ),
+            );
+          },
+        ),
+
+        // Action buttons at bottom
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(16),
             ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                elevation: 1,
-                color: Colors.blue.shade50, // Light blue background
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.blue.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Élément ${index + 1}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade800,
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: Colors.red.shade400,
-                            ),
-                            onPressed: () => onRemoveItem(index),
-                            tooltip: 'Supprimer',
-                          ),
-                        ],
-                      ),
-                    ),
-                    Divider(color: Colors.blue.shade200),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: itemBuilder(item, index),
-                    ),
-
-                    // Only show the buttons at the bottom of the last item
-                    // In lib/views/widgets/report_form/dynamic_list_section.dart
-                    // Update the Add Component buttons to use the blue theme
-
-                    // Update the buttons at the bottom of the list
-                    // Only show the buttons at the bottom of the last item
-                    if (index == items.length - 1) ...[
-                      Divider(color: Colors.blue.shade200),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            // Add same component type button
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: onAddItem,
-                                icon: const Icon(Icons.add),
-                                label: Text('Ajouter un autre $componentType'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.blue,
-                                  side: const BorderSide(
-                                    color: Colors.blue,
-                                  ), // Use solid blue color
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12.0,
-                                    horizontal: 16.0,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24.0),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Add different component type button
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: onAddOtherComponentType,
-                                icon: const Icon(Icons.category_outlined),
-                                label: const Text('Ajouter un autre composant'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.blue, // Use solid blue color
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12.0,
-                                    horizontal: 16.0,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24.0),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
           ),
+          child: _buildActionButtons(),
+        ),
       ],
     );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        // Add same component type button
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onAddItem,
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(
+              'Ajouter un autre ${_getComponentShortName(componentType)}',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue.shade700,
+              side: BorderSide(color: Colors.blue.shade300),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        if (onAddOtherComponentType != null) ...[
+          const SizedBox(height: 8),
+          // Add different component type button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onAddOtherComponentType,
+              icon: const Icon(Icons.category_outlined, size: 18),
+              label: const Text('Ajouter un autre composant'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 1,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _getComponentShortName(String componentType) {
+    switch (componentType) {
+      case 'Baie Informatique':
+        return 'Baie';
+      case 'Percement':
+        return 'Percement';
+      case 'Trappe d\'accès':
+        return 'Trappe';
+      case 'Chemin de câbles':
+        return 'Chemin';
+      case 'Goulotte':
+        return 'Goulotte';
+      case 'Conduit':
+        return 'Conduit';
+      case 'Câblage cuivre':
+        return 'Câblage Cu';
+      case 'Câblage fibre optique':
+        return 'Câblage FO';
+      case 'Composant personnalisé':
+        return 'Composant';
+      default:
+        return 'Élément';
+    }
   }
 }

@@ -7,8 +7,13 @@ import '../../../models/floor.dart';
 /// A widget that displays a selector for floors in the report form
 class FloorSelector extends StatelessWidget {
   final bool showAddFloor;
+  final bool isCompact;
 
-  const FloorSelector({super.key, this.showAddFloor = true});
+  const FloorSelector({
+    super.key,
+    this.showAddFloor = true,
+    this.isCompact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,135 +23,173 @@ class FloorSelector extends StatelessWidget {
         final currentFloorIndex = viewModel.currentFloorIndex;
 
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: EdgeInsets.symmetric(
+            vertical: isCompact ? 8.0 : 12.0,
+            horizontal: 16.0,
+          ),
           width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8.0),
+            borderRadius: BorderRadius.circular(12.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 2,
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
             ],
+            border: Border.all(color: Colors.blue.shade100),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Floor selection dropdown
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.layers_outlined, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: currentFloorIndex,
-                          isExpanded: true,
-                          icon: const Icon(Icons.arrow_drop_down),
-                          onChanged: (int? index) {
-                            if (index != null) {
-                              viewModel.setCurrentFloorIndex(index);
-                            }
-                          },
-                          items:
-                              floors.asMap().entries.map<DropdownMenuItem<int>>(
-                                (entry) {
-                                  return DropdownMenuItem<int>(
-                                    value: entry.key,
-                                    child: Text(
-                                      entry.value.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ).toList(),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.layers_outlined,
+                      size: isCompact ? 16 : 18,
+                      color: Colors.blue.shade600,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: currentFloorIndex,
+                        isExpanded: true,
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.blue.shade600,
                         ),
+                        style: TextStyle(
+                          fontSize: isCompact ? 14 : 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade800,
+                        ),
+                        onChanged: (int? index) {
+                          if (index != null) {
+                            viewModel.setCurrentFloorIndex(index);
+                          }
+                        },
+                        items:
+                            floors.asMap().entries.map<DropdownMenuItem<int>>((
+                              entry,
+                            ) {
+                              return DropdownMenuItem<int>(
+                                value: entry.key,
+                                child: Text(entry.value.name),
+                              );
+                            }).toList(),
                       ),
                     ),
-                    // Edit floor name button
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed:
-                          () => _showEditFloorNameDialog(
-                            context,
-                            viewModel,
-                            floors[currentFloorIndex],
-                          ),
-                      tooltip: 'Renommer l\'étage',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 8),
-                    // Delete floor button (only if more than one floor)
-                    if (floors.length > 1)
+                  ),
+                  // Action buttons
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Edit floor name button
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18),
+                        icon: const Icon(Icons.edit, size: 16),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
                         onPressed:
-                            () => _showDeleteFloorConfirmation(
+                            () => _showEditFloorNameDialog(
                               context,
                               viewModel,
-                              currentFloorIndex,
+                              floors[currentFloorIndex],
                             ),
-                        tooltip: 'Supprimer l\'étage',
-                        visualDensity: VisualDensity.compact,
-                        color: Colors.red.shade400,
+                        tooltip: 'Renommer l\'étage',
+                        color: Colors.blue.shade600,
                       ),
-                  ],
-                ),
+                      // Delete floor button (only if more than one floor)
+                      if (floors.length > 1)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          onPressed:
+                              () => _showDeleteFloorConfirmation(
+                                context,
+                                viewModel,
+                                currentFloorIndex,
+                              ),
+                          tooltip: 'Supprimer l\'étage',
+                          color: Colors.red.shade400,
+                        ),
+                    ],
+                  ),
+                ],
               ),
 
-              // Add floor button (if enabled)
-              // In lib/views/widgets/report_form/floor_selector.dart
-              // Update the Add Floor button to use the blue theme
-
-              // In the build method, update the Add Floor button
-              // Add floor button (if enabled)
-              if (showAddFloor)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => viewModel.addFloor(),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 10.0),
-                        decoration: const BoxDecoration(
-                          color:
-                              Colors.blue, // Use solid blue instead of gradient
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(8.0),
-                            bottomRight: Radius.circular(8.0),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add, size: 18, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text(
-                              'Ajouter un étage',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
+              // Add floor button (if enabled and not compact)
+              if (showAddFloor && !isCompact) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => viewModel.addFloor(),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Ajouter un étage'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue.shade700,
+                      side: BorderSide(color: Colors.blue.shade300),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
                 ),
+              ],
+
+              // Compact add floor button
+              if (showAddFloor && isCompact) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => viewModel.addFloor(),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, size: 14, color: Colors.blue.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Ajouter un étage',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -168,12 +211,16 @@ class FloorSelector extends StatelessWidget {
       context: context,
       builder:
           (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Text('Renommer l\'étage'),
             content: TextField(
               controller: controller,
               decoration: const InputDecoration(
                 labelText: 'Nom de l\'étage',
                 hintText: 'Ex: Rez-de-chaussée, Étage 1, Sous-sol, etc.',
+                border: OutlineInputBorder(),
               ),
               autofocus: true,
             ),
@@ -210,6 +257,9 @@ class FloorSelector extends StatelessWidget {
       context: context,
       builder:
           (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Text('Supprimer l\'étage ?'),
             content: const Text(
               'Cette action est irréversible et supprimera tous les éléments associés à cet étage. '

@@ -36,12 +36,17 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     with TickerProviderStateMixin {
   late PageController _pageController;
   late AnimationController _animationController;
+  late AnimationController _highlightController;
   late Animation<double> _fadeAnimation;
+  late Animation<Color?> _highlightAnimation;
   late ScrollController _componentsScrollController;
 
   int _currentStep = 0;
   final int _totalSteps = 4;
   bool _isLoading = false;
+  bool _hasUnsavedChanges = false;
+  GlobalKey?
+  _lastAddedComponentKey; // Track last added component for highlighting
 
   // Form controllers
   final _clientNameController = TextEditingController();
@@ -52,7 +57,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   final _conclusionController = TextEditingController();
   final _assumptionController = TextEditingController();
 
-  final List<String> _technicians = [];
   final List<String> _assumptions = [];
   int _estimatedDays = 1;
 
@@ -65,8 +69,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    _highlightController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _highlightAnimation = ColorTween(
+      begin: Colors.blue.withOpacity(0.3),
+      end: Colors.transparent,
+    ).animate(
+      CurvedAnimation(parent: _highlightController, curve: Curves.easeInOut),
     );
 
     _initializeReport();
@@ -78,6 +92,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     _pageController.dispose();
     _componentsScrollController.dispose();
     _animationController.dispose();
+    _highlightController.dispose();
     _clientNameController.dispose();
     _locationController.dispose();
     _projectManagerController.dispose();
@@ -117,12 +132,55 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       _accompanyingPersonController.text = report.accompanyingPerson;
       _projectContextController.text = report.projectContext;
       _conclusionController.text = report.conclusion;
-      _technicians.clear();
-      _technicians.addAll(report.technicians);
       _assumptions.clear();
       _assumptions.addAll(report.assumptions);
       _estimatedDays = report.estimatedDurationDays;
     }
+  }
+
+  void _markAsChanged() {
+    if (!_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
+    }
+  }
+
+  // Auto-save function that runs periodically
+  Future<void> _autoSave() async {
+    if (_hasUnsavedChanges) {
+      final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+        context,
+        listen: false,
+      );
+
+      final success = await viewModel.saveDraft();
+      if (success) {
+        setState(() => _hasUnsavedChanges = false);
+      }
+    }
+  }
+
+  // Highlight newly added component and scroll to it
+  void _highlightAndScrollToNewComponent() {
+    // Small delay to ensure the component is rendered
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (_componentsScrollController.hasClients) {
+        // Scroll to the bottom where new components are added
+        _componentsScrollController.animateTo(
+          _componentsScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutCubic,
+        );
+
+        // Start highlight animation after scrolling
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _highlightController.forward().then((_) {
+              _highlightController.reset();
+            });
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -136,33 +194,36 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
     return Consumer<TechnicalVisitReportViewModel>(
       builder: (context, viewModel, child) {
-        return Scaffold(
-          backgroundColor: Colors.grey.shade50,
-          body: SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(viewModel),
-                _buildProgressIndicator(),
-                Expanded(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() => _currentStep = index);
-                        viewModel.navigateToStep(index);
-                      },
-                      children: [
-                        _buildBasicInfoStep(viewModel),
-                        _buildProjectContextStep(viewModel),
-                        _buildComponentsStep(viewModel),
-                        _buildConclusionStep(viewModel),
-                      ],
+        return WillPopScope(
+          onWillPop: () => _onWillPop(),
+          child: Scaffold(
+            backgroundColor: Colors.grey.shade50,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(viewModel),
+                  _buildProgressIndicator(),
+                  Expanded(
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() => _currentStep = index);
+                          viewModel.navigateToStep(index);
+                        },
+                        children: [
+                          _buildBasicInfoStep(viewModel),
+                          _buildProjectContextStep(viewModel),
+                          _buildComponentsStep(viewModel),
+                          _buildConclusionStep(viewModel),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                _buildBottomNavigation(viewModel),
-              ],
+                  _buildBottomNavigation(viewModel),
+                ],
+              ),
             ),
           ),
         );
@@ -206,30 +267,40 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'Étape ${_currentStep + 1} sur $_totalSteps',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                Row(
+                  children: [
+                    Text(
+                      'Étape ${_currentStep + 1} sur $_totalSteps',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    if (_hasUnsavedChanges) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Non sauvegardé',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          if (viewModel.currentReport?.status == 'draft')
-            TextButton.icon(
-              onPressed: viewModel.isLoading ? null : _saveDraft,
-              icon: const Icon(Icons.save_outlined, size: 18),
-              label: const Text('Sauvegarder'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue.shade700,
-                backgroundColor: Colors.blue.shade50,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -273,7 +344,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             controller: _clientNameController,
             required: true,
             hintText: 'Entrez le nom du client ou de l\'entreprise',
-            onChanged: (value) => _updateBasicInfo(),
+            onChanged: (value) {
+              _markAsChanged();
+              _updateBasicInfo();
+            },
           ),
 
           FormTextField(
@@ -281,7 +355,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             controller: _locationController,
             required: true,
             hintText: 'Adresse complète du site',
-            onChanged: (value) => _updateBasicInfo(),
+            onChanged: (value) {
+              _markAsChanged();
+              _updateBasicInfo();
+            },
           ),
 
           Row(
@@ -292,7 +369,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                   controller: _projectManagerController,
                   required: true,
                   hintText: 'Nom du responsable',
-                  onChanged: (value) => _updateBasicInfo(),
+                  onChanged: (value) {
+                    _markAsChanged();
+                    _updateBasicInfo();
+                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -300,13 +380,16 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             ],
           ),
 
-          _buildTechniciansSection(),
+          _buildTechnicianDisplay(viewModel),
 
           FormTextField(
             label: 'Personne accompagnatrice',
             controller: _accompanyingPersonController,
             hintText: 'Nom de la personne présente sur site (optionnel)',
-            onChanged: (value) => _updateBasicInfo(),
+            onChanged: (value) {
+              _markAsChanged();
+              _updateBasicInfo();
+            },
           ),
         ],
       ),
@@ -335,7 +418,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             maxLines: 8,
             hintText:
                 'Décrivez en détail le contexte, les objectifs et les enjeux de ce projet...',
-            onChanged: (value) => _updateProjectContext(),
+            onChanged: (value) {
+              _markAsChanged();
+              _updateProjectContext();
+            },
           ),
 
           const SizedBox(height: 24),
@@ -391,99 +477,474 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   Widget _buildComponentsStep(TechnicalVisitReportViewModel viewModel) {
     return Column(
       children: [
+        // Fixed header section
         Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildStepHeader(
-                'Composants techniques',
-                'Documentez les équipements et installations',
-                Icons.category_outlined,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
-              const SizedBox(height: 16),
-              const FloorSelector(),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Main header - will be hidden when scrolling
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                child: _buildStepHeader(
+                  'Composants techniques',
+                  'Documentez les équipements et installations',
+                  Icons.category_outlined,
+                ),
+              ),
+
+              // Sticky floor selector bar
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade200, width: 1),
+                  ),
+                ),
+                child: const FloorSelector(),
+              ),
             ],
           ),
         ),
 
+        // Scrollable content
         Expanded(
-          child: SingleChildScrollView(
+          child: CustomScrollView(
             controller: _componentsScrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                ComponentTypeSelector(
-                  componentTypes: viewModel.componentTypes,
-                  selectedType: viewModel.selectedComponentType,
-                  onTypeSelected: (type) {
-                    _hideKeyboard();
-                    viewModel.setSelectedComponentType(type);
-                    if (type != null) {
-                      viewModel.addComponentByType(type);
-                      viewModel.setSelectedComponentType(null);
-                      // Scroll to bottom after adding component
-                      Future.delayed(const Duration(milliseconds: 300), () {
-                        _scrollToBottom();
-                      });
-                    }
-                  },
+            slivers: [
+              // Component selector
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildImprovedComponentSelector(viewModel),
                 ),
+              ),
 
-                const SizedBox(height: 24),
+              // Components list
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child:
+                      viewModel.currentFloor != null
+                          ? _buildComponentsList(viewModel)
+                          : const SizedBox.shrink(),
+                ),
+              ),
 
-                if (viewModel.currentFloor != null)
-                  _buildComponentsList(viewModel),
-
-                const SizedBox(height: 100), // Bottom padding
-              ],
-            ),
+              // Bottom padding
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildComponentsList(TechnicalVisitReportViewModel viewModel) {
-    final floor = viewModel.currentFloor!;
+  Widget _buildImprovedComponentSelector(
+    TechnicalVisitReportViewModel viewModel,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade50, Colors.indigo.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.add_circle_outline,
+                  color: Colors.blue.shade700,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ajouter un composant',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Choisissez le type de composant à documenter',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showImprovedComponentDialog(viewModel),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Sélectionner un composant'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImprovedComponentDialog(TechnicalVisitReportViewModel viewModel) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.category,
+                          color: Colors.blue.shade600,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Choisir un composant',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Sélectionnez le type de composant à ajouter',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        color: Colors.grey.shade600,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Component options
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        // Highlighted: Custom component first
+                        _buildComponentOption(
+                          'Composant personnalisé',
+                          'Créer un composant sur mesure selon vos besoins',
+                          Icons.add_box,
+                          Colors.blue,
+                          true,
+                          () => _addComponent(
+                            viewModel,
+                            'Composant personnalisé',
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Divider(color: Colors.grey.shade300),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Text(
+                                  'COMPOSANTS STANDARD',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade500,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Divider(color: Colors.grey.shade300),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Standard components
+                        ...viewModel.componentTypes
+                            .where((type) => type != 'Composant personnalisé')
+                            .map(
+                              (type) => _buildComponentOption(
+                                type,
+                                _getComponentDescription(type),
+                                _getComponentIcon(type),
+                                _getComponentColor(type),
+                                false,
+                                () => _addComponent(viewModel, type),
+                              ),
+                            ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
+  Widget _buildComponentOption(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    bool isHighlighted,
+    VoidCallback onTap,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color:
+                  isHighlighted ? color.withOpacity(0.05) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color:
+                    isHighlighted
+                        ? color.withOpacity(0.3)
+                        : Colors.grey.shade200,
+                width: isHighlighted ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isHighlighted ? color : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey.shade400,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addComponent(TechnicalVisitReportViewModel viewModel, String type) {
+    Navigator.pop(context);
+    _hideKeyboard();
+    _markAsChanged();
+
+    viewModel.addComponentByType(type);
+
+    // Scroll to new component after a brief delay
+    _highlightAndScrollToNewComponent();
+  }
+
+  Widget _buildTechnicianDisplay(TechnicalVisitReportViewModel viewModel) {
+    final technicianName =
+        viewModel.currentReport?.technicianName ?? 'Technicien';
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Network Cabinets
-        if (floor.networkCabinets.isNotEmpty)
-          _buildNetworkCabinetsSection(viewModel, floor.networkCabinets),
+        Row(
+          children: [
+            const Text(
+              'Technicien responsable',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              '*',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
 
-        // Perforations
-        if (floor.perforations.isNotEmpty)
-          _buildPerforationsSection(viewModel, floor.perforations),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.blue.shade600,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  technicianName,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+              ),
+              Icon(Icons.verified_user, color: Colors.blue.shade600, size: 18),
+            ],
+          ),
+        ),
 
-        // Access Traps
-        if (floor.accessTraps.isNotEmpty)
-          _buildAccessTrapsSection(viewModel, floor.accessTraps),
-
-        // Cable Paths
-        if (floor.cablePaths.isNotEmpty)
-          _buildCablePathsSection(viewModel, floor.cablePaths),
-
-        // Cable Trunkings
-        if (floor.cableTrunkings.isNotEmpty)
-          _buildCableTrunkingsSection(viewModel, floor.cableTrunkings),
-
-        // Conduits
-        if (floor.conduits.isNotEmpty)
-          _buildConduitsSection(viewModel, floor.conduits),
-
-        // Copper Cablings
-        if (floor.copperCablings.isNotEmpty)
-          _buildCopperCablingsSection(viewModel, floor.copperCablings),
-
-        // Fiber Optic Cablings
-        if (floor.fiberOpticCablings.isNotEmpty)
-          _buildFiberOpticCablingsSection(viewModel, floor.fiberOpticCablings),
-
-        // Custom Components
-        if (floor.customComponents.isNotEmpty)
-          _buildCustomComponentsSection(viewModel, floor.customComponents),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -510,7 +971,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             maxLines: 6,
             hintText:
                 'Résumez vos observations, recommandations et conclusions...',
-            onChanged: (value) => _updateConclusion(),
+            onChanged: (value) {
+              _markAsChanged();
+              _updateConclusion();
+            },
           ),
 
           const SizedBox(height: 24),
@@ -527,6 +991,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             required: true,
             onChanged: (value) {
               setState(() => _estimatedDays = value?.toInt() ?? 1);
+              _markAsChanged();
               _updateConclusion();
             },
           ),
@@ -667,92 +1132,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             ),
           ),
         ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-
-  Widget _buildTechniciansSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'Techniciens présents',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              '*',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // List of technicians
-        if (_technicians.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade100),
-            ),
-            child: Column(
-              children:
-                  _technicians.asMap().entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.person,
-                            color: Colors.blue.shade600,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(entry.value)),
-                          IconButton(
-                            onPressed: () => _removeTechnician(entry.key),
-                            icon: const Icon(
-                              Icons.remove_circle_outline,
-                              size: 18,
-                            ),
-                            color: Colors.red.shade400,
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ),
-
-        const SizedBox(height: 8),
-
-        OutlinedButton.icon(
-          onPressed: _addTechnician,
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Ajouter un technicien'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.blue.shade700,
-            side: BorderSide(color: Colors.blue.shade300),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-
         const SizedBox(height: 16),
       ],
     );
@@ -1035,6 +1414,58 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     );
   }
 
+  Widget _buildComponentsList(TechnicalVisitReportViewModel viewModel) {
+    final floor = viewModel.currentFloor!;
+
+    return AnimatedBuilder(
+      animation: _highlightAnimation,
+      builder: (context, child) {
+        return Column(
+          children: [
+            // Network Cabinets
+            if (floor.networkCabinets.isNotEmpty)
+              _buildNetworkCabinetsSection(viewModel, floor.networkCabinets),
+
+            // Perforations
+            if (floor.perforations.isNotEmpty)
+              _buildPerforationsSection(viewModel, floor.perforations),
+
+            // Access Traps
+            if (floor.accessTraps.isNotEmpty)
+              _buildAccessTrapsSection(viewModel, floor.accessTraps),
+
+            // Cable Paths
+            if (floor.cablePaths.isNotEmpty)
+              _buildCablePathsSection(viewModel, floor.cablePaths),
+
+            // Cable Trunkings
+            if (floor.cableTrunkings.isNotEmpty)
+              _buildCableTrunkingsSection(viewModel, floor.cableTrunkings),
+
+            // Conduits
+            if (floor.conduits.isNotEmpty)
+              _buildConduitsSection(viewModel, floor.conduits),
+
+            // Copper Cablings
+            if (floor.copperCablings.isNotEmpty)
+              _buildCopperCablingsSection(viewModel, floor.copperCablings),
+
+            // Fiber Optic Cablings
+            if (floor.fiberOpticCablings.isNotEmpty)
+              _buildFiberOpticCablingsSection(
+                viewModel,
+                floor.fiberOpticCablings,
+              ),
+
+            // Custom Components
+            if (floor.customComponents.isNotEmpty)
+              _buildCustomComponentsSection(viewModel, floor.customComponents),
+          ],
+        );
+      },
+    );
+  }
+
   // Helper methods
   VoidCallback? _getNextButtonAction(TechnicalVisitReportViewModel viewModel) {
     if (viewModel.isLoading) return null;
@@ -1052,11 +1483,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   }
 
   void _nextStep() {
-    // Hide keyboard when moving to next step
     _hideKeyboard();
 
     if (_currentStep < _totalSteps - 1) {
-      // Validate current step before proceeding
       if (_validateCurrentStep()) {
         _pageController.nextPage(
           duration: const Duration(milliseconds: 300),
@@ -1081,16 +1510,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     FocusScope.of(context).unfocus();
   }
 
-  void _scrollToBottom() {
-    if (_componentsScrollController.hasClients) {
-      _componentsScrollController.animateTo(
-        _componentsScrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0: // Basic info step
@@ -1106,10 +1525,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           _showValidationError('Veuillez renseigner le chef de projet');
           return false;
         }
-        if (_technicians.isEmpty) {
-          _showValidationError('Veuillez ajouter au moins un technicien');
-          return false;
-        }
         return true;
       case 1: // Project context step
         if (_projectContextController.text.trim().isEmpty) {
@@ -1118,7 +1533,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         }
         return true;
       case 2: // Components step
-        // Allow to proceed but encourage adding components
         return true;
       case 3: // Conclusion step
         if (_conclusionController.text.trim().isEmpty) {
@@ -1133,6 +1547,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
   void _showValidationError(String message) {
     NotificationUtils.showError(context, message);
+  }
+
+  Future<bool> _onWillPop() async {
+    await _autoSave();
+    _showExitDialog();
+    return false;
   }
 
   Future<void> _selectDate(
@@ -1160,53 +1580,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     );
 
     if (picked != null) {
+      _markAsChanged();
       _updateBasicInfo();
     }
-  }
-
-  void _addTechnician() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('Ajouter un technicien'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'Nom du technicien',
-              border: OutlineInputBorder(),
-            ),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  setState(() {
-                    _technicians.add(controller.text.trim());
-                  });
-                  _updateBasicInfo();
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Ajouter'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _removeTechnician(int index) {
-    setState(() {
-      _technicians.removeAt(index);
-    });
-    _updateBasicInfo();
   }
 
   void _addAssumption() {
@@ -1215,6 +1591,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       builder: (context) {
         final controller = TextEditingController();
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text('Ajouter une hypothèse'),
           content: TextField(
             controller: controller,
@@ -1236,6 +1615,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                   setState(() {
                     _assumptions.add(controller.text.trim());
                   });
+                  _markAsChanged();
                   _updateConclusion();
                   Navigator.pop(context);
                 }
@@ -1252,6 +1632,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     setState(() {
       _assumptions.removeAt(index);
     });
+    _markAsChanged();
     _updateConclusion();
   }
 
@@ -1265,7 +1646,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       clientName: _clientNameController.text,
       location: _locationController.text,
       projectManager: _projectManagerController.text,
-      technicians: List.from(_technicians),
+      technicians: [viewModel.currentReport?.technicianName ?? 'Technicien'],
       accompanyingPerson: _accompanyingPersonController.text,
     );
   }
@@ -1292,21 +1673,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     );
   }
 
-  Future<void> _saveDraft() async {
-    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
-      context,
-      listen: false,
-    );
-
-    final success = await viewModel.saveDraft();
-
-    if (success && mounted) {
-      NotificationUtils.showSuccess(context, 'Brouillon sauvegardé');
-    } else if (mounted && viewModel.errorMessage != null) {
-      NotificationUtils.showError(context, viewModel.errorMessage!);
-    }
-  }
-
   Future<void> _submitReport(TechnicalVisitReportViewModel viewModel) async {
     if (!viewModel.validateAllSections()) {
       NotificationUtils.showError(
@@ -1328,37 +1694,234 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   void _showExitDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Quitter le rapport ?'),
-            content: const Text(
-              'Vos modifications seront automatiquement sauvegardées comme brouillon.',
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Continuer l\'édition'),
+            elevation: 8,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header with icon
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.blue.shade50, Colors.indigo.shade50],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.save_outlined,
+                            color: Colors.blue.shade700,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Sauvegarder et quitter ?',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade800,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Votre travail sera automatiquement sauvegardé comme brouillon.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.shade100),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade600,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Vous pourrez reprendre votre rapport plus tard depuis la liste des brouillons.',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Action buttons
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey.shade700,
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Continuer l\'édition'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await _autoSave();
+                              if (mounted) Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.save, size: 18),
+                            label: const Text('Sauvegarder'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  // Auto-save as draft before leaving
-                  await _saveDraft();
-                  if (mounted) Navigator.pop(context);
-                },
-                child: const Text('Sauvegarder et quitter'),
-              ),
-            ],
+            ),
           ),
     );
   }
 
-  // Component sections builders
+  // Helper methods for component icons and colors
+  String _getComponentDescription(String type) {
+    switch (type) {
+      case 'Baie Informatique':
+        return 'Armoire contenant les équipements réseau';
+      case 'Percement':
+        return 'Passage pour câbles dans murs ou planchers';
+      case 'Trappe d\'accès':
+        return 'Ouverture pour accéder aux zones techniques';
+      case 'Chemin de câbles':
+        return 'Support pour acheminer les câbles';
+      case 'Goulotte':
+        return 'Canal pour protéger et dissimuler les câbles';
+      case 'Conduit':
+        return 'Tube pour protéger les câbles';
+      case 'Câblage cuivre':
+        return 'Câbles réseau en cuivre (Cat5e, Cat6, etc.)';
+      case 'Câblage fibre optique':
+        return 'Câbles à fibre optique haute performance';
+      case 'Composant personnalisé':
+        return 'Créer un composant sur mesure selon vos besoins';
+      default:
+        return 'Sélectionnez un type de composant';
+    }
+  }
+
+  IconData _getComponentIcon(String type) {
+    switch (type) {
+      case 'Baie Informatique':
+        return Icons.dns_outlined;
+      case 'Percement':
+        return Icons.architecture;
+      case 'Trappe d\'accès':
+        return Icons.door_sliding_outlined;
+      case 'Chemin de câbles':
+        return Icons.linear_scale;
+      case 'Goulotte':
+        return Icons.power_input;
+      case 'Conduit':
+        return Icons.rotate_90_degrees_ccw;
+      case 'Câblage cuivre':
+        return Icons.cable;
+      case 'Câblage fibre optique':
+        return Icons.fiber_manual_record;
+      case 'Composant personnalisé':
+        return Icons.add_box;
+      default:
+        return Icons.device_unknown;
+    }
+  }
+
+  Color _getComponentColor(String type) {
+    switch (type) {
+      case 'Baie Informatique':
+        return Colors.purple;
+      case 'Percement':
+        return Colors.brown;
+      case 'Trappe d\'accès':
+        return Colors.teal;
+      case 'Chemin de câbles':
+        return Colors.green;
+      case 'Goulotte':
+        return Colors.orange;
+      case 'Conduit':
+        return Colors.indigo;
+      case 'Câblage cuivre':
+        return Colors.amber;
+      case 'Câblage fibre optique':
+        return Colors.cyan;
+      case 'Composant personnalisé':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Component sections builders with highlight support
   Widget _buildNetworkCabinetsSection(
     TechnicalVisitReportViewModel viewModel,
     List<NetworkCabinet> cabinets,
   ) {
-    return DynamicListSection<NetworkCabinet>(
+    return _buildDynamicListSectionWithHighlight<NetworkCabinet>(
       title: 'Baies Informatiques',
       subtitle: 'Armoires contenant les équipements réseau',
       icon: Icons.dns_outlined,
@@ -1369,22 +1932,52 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               _buildNetworkCabinetForm(viewModel, cabinet, index),
       onAddItem: () {
         _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
         viewModel.addNetworkCabinet();
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _scrollToBottom();
-        });
+        _highlightAndScrollToNewComponent();
       },
-      onRemoveItem: (index) => viewModel.removeNetworkCabinet(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        viewModel.setSelectedComponentType(null);
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _scrollToBottom();
-        });
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeNetworkCabinet(index);
       },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
+  Widget _buildDynamicListSectionWithHighlight<T>({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<T> items,
+    required String componentType,
+    required Widget Function(T item, int index) itemBuilder,
+    required VoidCallback onAddItem,
+    required Function(int index) onRemoveItem,
+    required VoidCallback onAddOtherComponentType,
+  }) {
+    return Container(
+      key: _lastAddedComponentKey,
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: _highlightAnimation.value,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DynamicListSection<T>(
+        title: title,
+        subtitle: subtitle,
+        icon: icon,
+        items: items,
+        componentType: componentType,
+        itemBuilder: itemBuilder,
+        onAddItem: onAddItem,
+        onRemoveItem: onRemoveItem,
+        onAddOtherComponentType: onAddOtherComponentType,
+      ),
+    );
+  }
+
+  // Component form builders (keeping the existing implementations)
   Widget _buildNetworkCabinetForm(
     TechnicalVisitReportViewModel viewModel,
     NetworkCabinet cabinet,
@@ -1398,12 +1991,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Nom de la baie',
                 initialValue: cabinet.name,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(name: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateNetworkCabinet(
+                    viewModel,
+                    index,
+                    cabinet.copyWith(name: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1411,12 +2006,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: cabinet.location,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateNetworkCabinet(
+                    viewModel,
+                    index,
+                    cabinet.copyWith(location: value),
+                  );
+                },
               ),
             ),
           ],
@@ -1432,12 +2029,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                         DropdownMenuItem(value: state, child: Text(state)),
                   )
                   .toList(),
-          onChanged:
-              (value) => _updateNetworkCabinet(
-                viewModel,
-                index,
-                cabinet.copyWith(cabinetState: value ?? ''),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateNetworkCabinet(
+              viewModel,
+              index,
+              cabinet.copyWith(cabinetState: value ?? ''),
+            );
+          },
         ),
 
         Row(
@@ -1448,12 +2047,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 value: cabinet.totalRackUnits,
                 min: 1,
                 max: 100,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(totalRackUnits: value?.toInt() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateNetworkCabinet(
+                    viewModel,
+                    index,
+                    cabinet.copyWith(totalRackUnits: value?.toInt() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1463,12 +2064,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 value: cabinet.availableRackUnits,
                 min: 0,
                 max: 100,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(availableRackUnits: value?.toInt() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateNetworkCabinet(
+                    viewModel,
+                    index,
+                    cabinet.copyWith(availableRackUnits: value?.toInt() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -1479,12 +2082,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           value: cabinet.availableOutlets,
           min: 0,
           max: 50,
-          onChanged:
-              (value) => _updateNetworkCabinet(
-                viewModel,
-                index,
-                cabinet.copyWith(availableOutlets: value?.toInt() ?? 0),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateNetworkCabinet(
+              viewModel,
+              index,
+              cabinet.copyWith(availableOutlets: value?.toInt() ?? 0),
+            );
+          },
         ),
 
         FormTextField(
@@ -1492,12 +2097,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: cabinet.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateNetworkCabinet(
-                viewModel,
-                index,
-                cabinet.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateNetworkCabinet(
+              viewModel,
+              index,
+              cabinet.copyWith(notes: value),
+            );
+          },
         ),
       ],
     );
@@ -1515,7 +2122,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<Perforation> perforations,
   ) {
-    return DynamicListSection<Perforation>(
+    return _buildDynamicListSectionWithHighlight<Perforation>(
       title: 'Percements',
       subtitle: 'Passages pour câbles dans murs ou planchers',
       icon: Icons.architecture,
@@ -1524,9 +2131,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       itemBuilder:
           (perforation, index) =>
               _buildPerforationForm(viewModel, perforation, index),
-      onAddItem: () => viewModel.addPerforation(),
-      onRemoveItem: (index) => viewModel.removePerforation(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addPerforation();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removePerforation(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -1540,12 +2156,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         FormTextField(
           label: 'Emplacement',
           initialValue: perforation.location,
-          onChanged:
-              (value) => _updatePerforation(
-                viewModel,
-                index,
-                perforation.copyWith(location: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updatePerforation(
+              viewModel,
+              index,
+              perforation.copyWith(location: value),
+            );
+          },
         ),
 
         Row(
@@ -1554,12 +2172,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Type de mur/plancher',
                 initialValue: perforation.wallType,
-                onChanged:
-                    (value) => _updatePerforation(
-                      viewModel,
-                      index,
-                      perforation.copyWith(wallType: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updatePerforation(
+                    viewModel,
+                    index,
+                    perforation.copyWith(wallType: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1570,12 +2190,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 1,
                 max: 200,
                 decimal: true,
-                onChanged:
-                    (value) => _updatePerforation(
-                      viewModel,
-                      index,
-                      perforation.copyWith(wallDepth: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updatePerforation(
+                    viewModel,
+                    index,
+                    perforation.copyWith(wallDepth: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -1586,12 +2208,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: perforation.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updatePerforation(
-                viewModel,
-                index,
-                perforation.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updatePerforation(
+              viewModel,
+              index,
+              perforation.copyWith(notes: value),
+            );
+          },
         ),
       ],
     );
@@ -1609,7 +2233,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<AccessTrap> traps,
   ) {
-    return DynamicListSection<AccessTrap>(
+    return _buildDynamicListSectionWithHighlight<AccessTrap>(
       title: 'Trappes d\'accès',
       subtitle: 'Ouvertures pour accéder aux zones techniques',
       icon: Icons.door_sliding_outlined,
@@ -1617,9 +2241,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       componentType: 'Trappe d\'accès',
       itemBuilder:
           (trap, index) => _buildAccessTrapForm(viewModel, trap, index),
-      onAddItem: () => viewModel.addAccessTrap(),
-      onRemoveItem: (index) => viewModel.removeAccessTrap(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addAccessTrap();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeAccessTrap(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -1636,12 +2269,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: trap.location,
-                onChanged:
-                    (value) => _updateAccessTrap(
-                      viewModel,
-                      index,
-                      trap.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateAccessTrap(
+                    viewModel,
+                    index,
+                    trap.copyWith(location: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1649,12 +2284,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Dimensions',
                 initialValue: trap.trapSize,
-                onChanged:
-                    (value) => _updateAccessTrap(
-                      viewModel,
-                      index,
-                      trap.copyWith(trapSize: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateAccessTrap(
+                    viewModel,
+                    index,
+                    trap.copyWith(trapSize: value),
+                  );
+                },
               ),
             ),
           ],
@@ -1665,12 +2302,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: trap.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateAccessTrap(
-                viewModel,
-                index,
-                trap.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateAccessTrap(viewModel, index, trap.copyWith(notes: value));
+          },
         ),
       ],
     );
@@ -1688,16 +2323,25 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<CablePath> paths,
   ) {
-    return DynamicListSection<CablePath>(
+    return _buildDynamicListSectionWithHighlight<CablePath>(
       title: 'Chemins de câbles',
       subtitle: 'Supports pour acheminer les câbles',
       icon: Icons.linear_scale,
       items: paths,
       componentType: 'Chemin de câbles',
       itemBuilder: (path, index) => _buildCablePathForm(viewModel, path, index),
-      onAddItem: () => viewModel.addCablePath(),
-      onRemoveItem: (index) => viewModel.removeCablePath(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addCablePath();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeCablePath(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -1714,12 +2358,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: path.location,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCablePath(
+                    viewModel,
+                    index,
+                    path.copyWith(location: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1727,12 +2373,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Dimensions',
                 initialValue: path.size,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(size: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCablePath(
+                    viewModel,
+                    index,
+                    path.copyWith(size: value),
+                  );
+                },
               ),
             ),
           ],
@@ -1747,12 +2395,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 1000,
                 decimal: true,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCablePath(
+                    viewModel,
+                    index,
+                    path.copyWith(lengthInMeters: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1763,12 +2413,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 50,
                 decimal: true,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(heightInMeters: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCablePath(
+                    viewModel,
+                    index,
+                    path.copyWith(heightInMeters: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -1777,12 +2429,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         FormTextField(
           label: 'Type de fixation',
           initialValue: path.fixationType,
-          onChanged:
-              (value) => _updateCablePath(
-                viewModel,
-                index,
-                path.copyWith(fixationType: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCablePath(
+              viewModel,
+              index,
+              path.copyWith(fixationType: value),
+            );
+          },
         ),
 
         FormTextField(
@@ -1790,12 +2444,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: path.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateCablePath(
-                viewModel,
-                index,
-                path.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCablePath(viewModel, index, path.copyWith(notes: value));
+          },
         ),
       ],
     );
@@ -1813,7 +2465,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<CableTrunking> trunkings,
   ) {
-    return DynamicListSection<CableTrunking>(
+    return _buildDynamicListSectionWithHighlight<CableTrunking>(
       title: 'Goulottes',
       subtitle: 'Canaux pour protéger et dissimuler les câbles',
       icon: Icons.power_input,
@@ -1822,9 +2474,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       itemBuilder:
           (trunking, index) =>
               _buildCableTrunkingForm(viewModel, trunking, index),
-      onAddItem: () => viewModel.addCableTrunking(),
-      onRemoveItem: (index) => viewModel.removeCableTrunking(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addCableTrunking();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeCableTrunking(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -1841,12 +2502,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: trunking.location,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(location: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1854,12 +2517,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Dimensions',
                 initialValue: trunking.size,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(size: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(size: value),
+                  );
+                },
               ),
             ),
           ],
@@ -1874,12 +2539,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 1000,
                 decimal: true,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(lengthInMeters: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -1890,12 +2557,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 50,
                 decimal: true,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(workHeight: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(workHeight: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -1909,12 +2578,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 value: trunking.innerAngles,
                 min: 0,
                 max: 100,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(innerAngles: value?.toInt() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(innerAngles: value?.toInt() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -1924,12 +2595,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 value: trunking.outerAngles,
                 min: 0,
                 max: 100,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(outerAngles: value?.toInt() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(outerAngles: value?.toInt() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -1939,12 +2612,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 value: trunking.flatAngles,
                 min: 0,
                 max: 100,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(flatAngles: value?.toInt() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCableTrunking(
+                    viewModel,
+                    index,
+                    trunking.copyWith(flatAngles: value?.toInt() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -1955,12 +2630,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: trunking.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateCableTrunking(
-                viewModel,
-                index,
-                trunking.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCableTrunking(
+              viewModel,
+              index,
+              trunking.copyWith(notes: value),
+            );
+          },
         ),
       ],
     );
@@ -1978,7 +2655,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<Conduit> conduits,
   ) {
-    return DynamicListSection<Conduit>(
+    return _buildDynamicListSectionWithHighlight<Conduit>(
       title: 'Conduits',
       subtitle: 'Tubes pour protéger les câbles',
       icon: Icons.rotate_90_degrees_ccw,
@@ -1986,9 +2663,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       componentType: 'Conduit',
       itemBuilder:
           (conduit, index) => _buildConduitForm(viewModel, conduit, index),
-      onAddItem: () => viewModel.addConduit(),
-      onRemoveItem: (index) => viewModel.removeConduit(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addConduit();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeConduit(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -2005,12 +2691,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: conduit.location,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateConduit(
+                    viewModel,
+                    index,
+                    conduit.copyWith(location: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2018,12 +2706,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Diamètre',
                 initialValue: conduit.size,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(size: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateConduit(
+                    viewModel,
+                    index,
+                    conduit.copyWith(size: value),
+                  );
+                },
               ),
             ),
           ],
@@ -2038,12 +2728,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 1000,
                 decimal: true,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateConduit(
+                    viewModel,
+                    index,
+                    conduit.copyWith(lengthInMeters: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2054,12 +2746,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 50,
                 decimal: true,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(workHeight: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateConduit(
+                    viewModel,
+                    index,
+                    conduit.copyWith(workHeight: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -2070,12 +2764,10 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: conduit.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateConduit(
-                viewModel,
-                index,
-                conduit.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateConduit(viewModel, index, conduit.copyWith(notes: value));
+          },
         ),
       ],
     );
@@ -2093,7 +2785,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<CopperCabling> cablings,
   ) {
-    return DynamicListSection<CopperCabling>(
+    return _buildDynamicListSectionWithHighlight<CopperCabling>(
       title: 'Câblages cuivre',
       subtitle: 'Câbles réseau en cuivre (Cat5e, Cat6, etc.)',
       icon: Icons.cable,
@@ -2102,9 +2794,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       itemBuilder:
           (cabling, index) =>
               _buildCopperCablingForm(viewModel, cabling, index),
-      onAddItem: () => viewModel.addCopperCabling(),
-      onRemoveItem: (index) => viewModel.removeCopperCabling(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addCopperCabling();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeCopperCabling(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -2118,12 +2819,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         FormTextField(
           label: 'Emplacement',
           initialValue: cabling.location,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(location: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCopperCabling(
+              viewModel,
+              index,
+              cabling.copyWith(location: value),
+            );
+          },
         ),
 
         FormTextField(
@@ -2131,12 +2834,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: cabling.pathDescription,
           multiline: true,
           maxLines: 2,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(pathDescription: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCopperCabling(
+              viewModel,
+              index,
+              cabling.copyWith(pathDescription: value),
+            );
+          },
         ),
 
         Row(
@@ -2152,12 +2857,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                               DropdownMenuItem(value: cat, child: Text(cat)),
                         )
                         .toList(),
-                onChanged:
-                    (value) => _updateCopperCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(category: value ?? ''),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCopperCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(category: value ?? ''),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2168,12 +2875,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 1000,
                 decimal: true,
-                onChanged:
-                    (value) => _updateCopperCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCopperCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(lengthInMeters: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -2185,12 +2894,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           min: 0,
           max: 50,
           decimal: true,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(workHeight: value?.toDouble() ?? 0),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCopperCabling(
+              viewModel,
+              index,
+              cabling.copyWith(workHeight: value?.toDouble() ?? 0),
+            );
+          },
         ),
 
         FormTextField(
@@ -2198,12 +2909,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: cabling.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCopperCabling(
+              viewModel,
+              index,
+              cabling.copyWith(notes: value),
+            );
+          },
         ),
       ],
     );
@@ -2221,7 +2934,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<FiberOpticCabling> cablings,
   ) {
-    return DynamicListSection<FiberOpticCabling>(
+    return _buildDynamicListSectionWithHighlight<FiberOpticCabling>(
       title: 'Câblages fibre optique',
       subtitle: 'Câbles à fibre optique haute performance',
       icon: Icons.fiber_manual_record,
@@ -2230,9 +2943,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       itemBuilder:
           (cabling, index) =>
               _buildFiberOpticCablingForm(viewModel, cabling, index),
-      onAddItem: () => viewModel.addFiberOpticCabling(),
-      onRemoveItem: (index) => viewModel.removeFiberOpticCabling(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addFiberOpticCabling();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeFiberOpticCabling(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -2249,12 +2971,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: cabling.location,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateFiberOpticCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(location: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2274,12 +2998,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                               DropdownMenuItem(value: type, child: Text(type)),
                         )
                         .toList(),
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(fiberType: value ?? ''),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateFiberOpticCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(fiberType: value ?? ''),
+                  );
+                },
               ),
             ),
           ],
@@ -2290,15 +3016,17 @@ class _ReportFormScreenState extends State<ReportFormScreen>
             Expanded(
               child: FormNumberField(
                 label: 'Nombre de tiroirs',
+                value: cabling.drawerCount,
                 min: 1,
                 max: 50,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(drawerCount: value?.toInt() ?? 1),
-                    ),
-                value: null,
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateFiberOpticCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(drawerCount: value?.toInt() ?? 1),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2308,12 +3036,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 value: cabling.conduitCount,
                 min: 1,
                 max: 100,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(conduitCount: value?.toInt() ?? 1),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateFiberOpticCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(conduitCount: value?.toInt() ?? 1),
+                  );
+                },
               ),
             ),
           ],
@@ -2328,12 +3058,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 10000,
                 decimal: true,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateFiberOpticCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(lengthInMeters: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2344,12 +3076,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 min: 0,
                 max: 50,
                 decimal: true,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(workHeight: value?.toDouble() ?? 0),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateFiberOpticCabling(
+                    viewModel,
+                    index,
+                    cabling.copyWith(workHeight: value?.toDouble() ?? 0),
+                  );
+                },
               ),
             ),
           ],
@@ -2360,12 +3094,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           initialValue: cabling.notes,
           multiline: true,
           maxLines: 3,
-          onChanged:
-              (value) => _updateFiberOpticCabling(
-                viewModel,
-                index,
-                cabling.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateFiberOpticCabling(
+              viewModel,
+              index,
+              cabling.copyWith(notes: value),
+            );
+          },
         ),
       ],
     );
@@ -2383,7 +3119,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     TechnicalVisitReportViewModel viewModel,
     List<CustomComponent> components,
   ) {
-    return DynamicListSection<CustomComponent>(
+    return _buildDynamicListSectionWithHighlight<CustomComponent>(
       title: 'Composants personnalisés',
       subtitle: 'Éléments sur mesure selon vos besoins',
       icon: Icons.add_box,
@@ -2392,9 +3128,18 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       itemBuilder:
           (component, index) =>
               _buildCustomComponentForm(viewModel, component, index),
-      onAddItem: () => viewModel.addCustomComponent(),
-      onRemoveItem: (index) => viewModel.removeCustomComponent(index),
-      onAddOtherComponentType: () => viewModel.setSelectedComponentType(null),
+      onAddItem: () {
+        _hideKeyboard();
+        _markAsChanged();
+        _lastAddedComponentKey = GlobalKey();
+        viewModel.addCustomComponent();
+        _highlightAndScrollToNewComponent();
+      },
+      onRemoveItem: (index) {
+        _markAsChanged();
+        viewModel.removeCustomComponent(index);
+      },
+      onAddOtherComponentType: () => _showImprovedComponentDialog(viewModel),
     );
   }
 
@@ -2412,12 +3157,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                 label: 'Nom du composant',
                 initialValue: component.name,
                 required: true,
-                onChanged:
-                    (value) => _updateCustomComponent(
-                      viewModel,
-                      index,
-                      component.copyWith(name: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCustomComponent(
+                    viewModel,
+                    index,
+                    component.copyWith(name: value),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -2425,12 +3172,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               child: FormTextField(
                 label: 'Emplacement',
                 initialValue: component.location,
-                onChanged:
-                    (value) => _updateCustomComponent(
-                      viewModel,
-                      index,
-                      component.copyWith(location: value),
-                    ),
+                onChanged: (value) {
+                  _markAsChanged();
+                  _updateCustomComponent(
+                    viewModel,
+                    index,
+                    component.copyWith(location: value),
+                  );
+                },
               ),
             ),
           ],
@@ -2442,12 +3191,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           multiline: true,
           maxLines: 3,
           hintText: 'Décrivez ce composant et ses caractéristiques...',
-          onChanged:
-              (value) => _updateCustomComponent(
-                viewModel,
-                index,
-                component.copyWith(description: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCustomComponent(
+              viewModel,
+              index,
+              component.copyWith(description: value),
+            );
+          },
         ),
 
         FormTextField(
@@ -2456,12 +3207,14 @@ class _ReportFormScreenState extends State<ReportFormScreen>
           multiline: true,
           maxLines: 3,
           hintText: 'Observations, recommandations ou remarques spécifiques...',
-          onChanged:
-              (value) => _updateCustomComponent(
-                viewModel,
-                index,
-                component.copyWith(notes: value),
-              ),
+          onChanged: (value) {
+            _markAsChanged();
+            _updateCustomComponent(
+              viewModel,
+              index,
+              component.copyWith(notes: value),
+            );
+          },
         ),
 
         const SizedBox(height: 16),
