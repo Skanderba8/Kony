@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:kony/views/screens/report_list_screen.dart';
 import 'package:kony/views/screens/statistics_screen.dart';
+import 'package:kony/views/screens/admin_reports_screen.dart';
 import '../views/screens/login_screen.dart';
 import '../views/screens/admin_screen.dart';
 import '../views/screens/technician_screen.dart';
@@ -17,6 +18,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String reportList = '/report-list';
   static const String statistics = '/statistics';
+  static const String adminReports = '/admin-reports'; // Add this line
 
   // Define routes for navigator
   static Map<String, WidgetBuilder> getRoutes() {
@@ -25,8 +27,8 @@ class AppRoutes {
       admin: (context) => const AdminScreen(),
       technician: (context) => const TechnicianScreen(),
       userManagement: (context) => const UserManagementScreen(),
-      statistics: (context) => const StatisticsScreen(), // Add this line
-
+      statistics: (context) => const StatisticsScreen(),
+      adminReports: (context) => const AdminReportsScreen(), // Add this line
       reportList: (context) => const ReportListScreen(),
       profile: (context) => const ProfileScreen(),
       // PDF viewer route is handled dynamically since it requires file parameters
@@ -44,5 +46,10 @@ class AppRoutes {
         const SnackBar(content: Text('Rôle utilisateur invalide ou manquant')),
       );
     }
+  }
+
+  // Helper method to navigate to admin reports with optional filter
+  static void navigateToAdminReports(BuildContext context, {String? filter}) {
+    Navigator.pushNamed(context, adminReports, arguments: {'filter': filter});
   }
 }

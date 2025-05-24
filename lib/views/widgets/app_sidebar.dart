@@ -120,7 +120,9 @@ class _AppSidebarState extends State<AppSidebar>
                   _buildHeaderSection(userName, userEmail, userRoleText),
 
                   // Menu Items
-                  Expanded(child: _buildMenuSection()),
+                  Expanded(
+                    child: SingleChildScrollView(child: _buildMenuSection()),
+                  ),
 
                   // Footer
                   _buildFooterSection(),
@@ -140,7 +142,7 @@ class _AppSidebarState extends State<AppSidebar>
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors:
@@ -151,15 +153,15 @@ class _AppSidebarState extends State<AppSidebar>
           end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
         boxShadow: [
           BoxShadow(
             color: (widget.userRole == 'admin' ? Colors.indigo : Colors.blue)
                 .withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -170,16 +172,17 @@ class _AppSidebarState extends State<AppSidebar>
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                icon: const Icon(Icons.close, color: Colors.white, size: 18),
                 onPressed: widget.onClose,
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withOpacity(0.2),
+                  padding: const EdgeInsets.all(8),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // User avatar and info
           _isLoading
@@ -188,20 +191,20 @@ class _AppSidebarState extends State<AppSidebar>
                 children: [
                   // Avatar
                   Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                     child: CircleAvatar(
-                      radius: 36,
+                      radius: 30,
                       backgroundColor: Colors.grey.shade100,
                       backgroundImage:
                           _userModel?.profilePictureUrl != null
@@ -212,7 +215,7 @@ class _AppSidebarState extends State<AppSidebar>
                           _userModel?.profilePictureUrl == null
                               ? Icon(
                                 Icons.person,
-                                size: 40,
+                                size: 32,
                                 color:
                                     widget.userRole == 'admin'
                                         ? Colors.indigo.shade600
@@ -222,44 +225,56 @@ class _AppSidebarState extends State<AppSidebar>
                     ),
                   ),
 
-                  const SizedBox(height: 16),
-
-                  // User name
-                  Text(
-                    userName.split(' ').first, // Show first name only
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  // User email
-                  Text(
-                    userEmail,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-
                   const SizedBox(height: 12),
+
+                  // User name - Fixed overflow
+                  SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      userName.length > 20
+                          ? '${userName.substring(0, 20)}...'
+                          : userName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  const SizedBox(height: 3),
+
+                  // User email - Fixed overflow
+                  SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      userEmail.length > 25
+                          ? '${userEmail.substring(0, 25)}...'
+                          : userEmail,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
 
                   // Role badge
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 5,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.3),
                         width: 1,
@@ -273,14 +288,14 @@ class _AppSidebarState extends State<AppSidebar>
                               ? Icons.admin_panel_settings
                               : Icons.engineering,
                           color: Colors.white,
-                          size: 16,
+                          size: 14,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Text(
                           userRoleText,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -295,21 +310,21 @@ class _AppSidebarState extends State<AppSidebar>
   }
 
   Widget _buildMenuSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Navigation section
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Text(
               'Navigation',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,
-                letterSpacing: 1.2,
+                letterSpacing: 1.1,
               ),
             ),
           ),
@@ -328,16 +343,16 @@ class _AppSidebarState extends State<AppSidebar>
           ),
 
           if (widget.userRole == 'admin') ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Text(
                 'Administration',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Colors.grey.shade600,
-                  letterSpacing: 1.2,
+                  letterSpacing: 1.1,
                 ),
               ),
             ),
@@ -355,16 +370,16 @@ class _AppSidebarState extends State<AppSidebar>
             ),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Text(
               'Compte',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,
-                letterSpacing: 1.2,
+                letterSpacing: 1.1,
               ),
             ),
           ),
@@ -381,10 +396,9 @@ class _AppSidebarState extends State<AppSidebar>
             onTap: () => _navigateToScreen(context, 'settings'),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 20),
 
-          // Logout section
-          const SizedBox(height: 16),
+          // Logout section - RESTORED
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
@@ -423,14 +437,14 @@ class _AppSidebarState extends State<AppSidebar>
     final Color defaultTextColor = Colors.grey.shade800;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color:
                   showBackground && isHighlighted
@@ -453,37 +467,38 @@ class _AppSidebarState extends State<AppSidebar>
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color:
                         showBackground
                             ? (iconColor ?? defaultIconColor).withOpacity(0.1)
                             : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
                     icon,
                     color: iconColor ?? defaultIconColor,
-                    size: 20,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight:
                           isHighlighted ? FontWeight.w600 : FontWeight.w500,
                       color: textColor ?? defaultTextColor,
                     ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (isHighlighted)
                   Icon(
                     Icons.arrow_forward_ios,
-                    size: 14,
+                    size: 12,
                     color:
                         widget.userRole == 'admin'
                             ? Colors.indigo.shade400
@@ -499,35 +514,35 @@ class _AppSidebarState extends State<AppSidebar>
 
   Widget _buildFooterSection() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.grey.shade50, Colors.grey.shade100],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
                     Icons.info_outline,
                     color: Colors.blue.shade600,
-                    size: 16,
+                    size: 14,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,7 +550,7 @@ class _AppSidebarState extends State<AppSidebar>
                       Text(
                         'Kony Solutions',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: Colors.grey.shade800,
                         ),
@@ -543,7 +558,7 @@ class _AppSidebarState extends State<AppSidebar>
                       Text(
                         'Version 1.0.3',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9,
                           color: Colors.grey.shade600,
                         ),
                       ),
@@ -557,6 +572,9 @@ class _AppSidebarState extends State<AppSidebar>
       ),
     );
   }
+
+  // In lib/views/widgets/app_sidebar.dart
+  // Replace the existing _navigateToScreen method with this updated version:
 
   void _navigateToScreen(BuildContext context, String screen) {
     Navigator.pop(context); // Close the drawer
@@ -582,12 +600,13 @@ class _AppSidebarState extends State<AppSidebar>
     }
 
     if (screen == 'reports') {
-      // For technicians: go to the list of reports
-      if (widget.userRole == 'technician') {
-        Navigator.pushNamed(context, '/report-list');
+      // Updated reports navigation
+      if (widget.userRole == 'admin') {
+        // For admin: go to the comprehensive admin reports screen
+        Navigator.pushNamed(context, '/admin-reports');
       } else {
-        // For admin: show a popup (feature under development)
-        _showFeatureDialog(context, 'Rapports');
+        // For technicians: go to their personal report list
+        Navigator.pushNamed(context, '/report-list');
       }
       return;
     }

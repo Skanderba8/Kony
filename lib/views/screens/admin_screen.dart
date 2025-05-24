@@ -9,6 +9,7 @@ import '../../view_models/admin_view_model.dart';
 import '../../models/technical_visit_report.dart';
 import '../../utils/notification_utils.dart';
 import '../../app/routes.dart';
+import '../../services/notification_service.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -18,14 +19,14 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
   // Report filter state
-  String _selectedReportFilter = 'all';
+  final String _selectedReportFilter = 'all';
   final List<String> _reportFilters = [
     'all',
     'submitted',
@@ -38,11 +39,14 @@ class _AdminScreenState extends State<AdminScreen>
   int _reviewedCount = 0;
   int _approvedCount = 0;
   int _newSubmittedCount = 0;
-  DateTime? _lastOpenTime;
+  DateTime? _lastViewedSubmittedTime;
+  final bool _hasCheckedNotifications = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -60,49 +64,71 @@ class _AdminScreenState extends State<AdminScreen>
     );
 
     _animationController.forward();
-
-    // Load last open time from shared preferences or similar
-    _loadLastOpenTime();
+    _loadNotificationData();
     _loadReportCounts();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
-    _saveLastOpenTime();
+    // Save the current time when leaving the admin screen
+    NotificationService.saveLastOpenTime();
     super.dispose();
   }
 
-  // Load/Save methods for notification tracking
-  Future<void> _loadLastOpenTime() async {
-    // In a real app, you'd use SharedPreferences
-    // For now, we'll simulate it
-    _lastOpenTime = DateTime.now().subtract(const Duration(hours: 1));
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // App is going to background, save the time
+      NotificationService.saveLastOpenTime();
+    } else if (state == AppLifecycleState.resumed) {
+      // App is coming back to foreground, refresh notifications
+      _loadNotificationData();
+      _loadReportCounts();
+    }
   }
 
-  Future<void> _saveLastOpenTime() async {
-    // Save current time as last open time
-    // In a real app: SharedPreferences.getInstance().then((prefs) => prefs.setString('lastOpenTime', DateTime.now().toIso8601String()));
+  // Load notification data from SharedPreferences
+  Future<void> _loadNotificationData() async {
+    _lastViewedSubmittedTime =
+        await NotificationService.getLastViewedSubmittedTime();
+    if (_lastViewedSubmittedTime == null) {
+      // If no previous data, set it to now (first time user)
+      await NotificationService.saveLastViewedSubmittedTime();
+      _lastViewedSubmittedTime = DateTime.now();
+    }
+    setState(() {});
   }
 
   Future<void> _loadReportCounts() async {
     final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
-    // Listen to report streams and update counts
+    // Listen to submitted reports stream and calculate new reports
     viewModel.getSubmittedReportsStream().listen((reports) {
       if (mounted) {
+        final int oldSubmittedCount = _submittedCount;
+
         setState(() {
           _submittedCount = reports.length;
-          if (_lastOpenTime != null) {
+
+          // Calculate new submitted reports since last viewed time
+          if (_lastViewedSubmittedTime != null) {
             _newSubmittedCount =
-                reports
-                    .where(
-                      (report) => (report.submittedAt ?? report.createdAt)
-                          .isAfter(_lastOpenTime!),
-                    )
-                    .length;
+                reports.where((report) {
+                  final DateTime reportTime =
+                      report.submittedAt ?? report.createdAt;
+                  return reportTime.isAfter(_lastViewedSubmittedTime!);
+                }).length;
+          } else {
+            _newSubmittedCount = 0;
           }
         });
+
+        // Debug logging
+        debugPrint('Submitted reports count: $_submittedCount');
+        debugPrint('New submitted reports: $_newSubmittedCount');
+        debugPrint('Last viewed time: $_lastViewedSubmittedTime');
       }
     });
 
@@ -153,24 +179,22 @@ class _AdminScreenState extends State<AdminScreen>
 
   // Show reports for selected filter
   void _showReportsList(String filter) {
-    setState(() {
-      _selectedReportFilter = filter;
-    });
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildReportsBottomSheet(filter),
+    // Navigate to the dedicated reports screen with the selected filter
+    Navigator.pushNamed(
+      context,
+      '/admin-reports',
+      arguments: {'filter': filter},
     );
   }
 
-  void _markNotificationsAsRead() {
+  void _markSubmittedNotificationsAsRead() async {
+    // Save current time as last viewed submitted time
+    await NotificationService.saveLastViewedSubmittedTime();
+
     setState(() {
       _newSubmittedCount = 0;
-      _lastOpenTime = DateTime.now();
+      _lastViewedSubmittedTime = DateTime.now();
     });
-    _saveLastOpenTime();
 
     NotificationUtils.showSuccess(context, 'Notifications marquées comme lues');
   }
@@ -514,7 +538,7 @@ class _AdminScreenState extends State<AdminScreen>
                       ),
                     ),
                     Text(
-                      '$_newSubmittedCount rapport${_newSubmittedCount > 1 ? 's' : ''} soumis depuis votre dernière visite',
+                      '$_newSubmittedCount rapport${_newSubmittedCount > 1 ? 's' : ''} soumis depuis votre dernière consultation',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.orange.shade700,
@@ -563,7 +587,7 @@ class _AdminScreenState extends State<AdminScreen>
               ),
               const SizedBox(width: 12),
               OutlinedButton.icon(
-                onPressed: _markNotificationsAsRead,
+                onPressed: _markSubmittedNotificationsAsRead,
                 icon: const Icon(Icons.check, size: 18),
                 label: const Text('Marquer Lu'),
                 style: OutlinedButton.styleFrom(
@@ -842,6 +866,7 @@ class _AdminScreenState extends State<AdminScreen>
                       icon: Icons.assignment_turned_in,
                       color: Colors.orange,
                       onTap: () => _showReportsList('submitted'),
+                      hasNotification: _newSubmittedCount > 0,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -893,6 +918,7 @@ class _AdminScreenState extends State<AdminScreen>
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
+    bool hasNotification = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -901,30 +927,54 @@ class _AdminScreenState extends State<AdminScreen>
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(
+            color:
+                hasNotification
+                    ? color.withOpacity(0.6)
+                    : color.withOpacity(0.3),
+            width: hasNotification ? 2 : 1,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
+                Row(
+                  children: [
+                    Icon(icon, color: color, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                  description,
+                  style: TextStyle(fontSize: 11, color: color.withOpacity(0.8)),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: TextStyle(fontSize: 11, color: color.withOpacity(0.8)),
-            ),
+            if (hasNotification)
+              Positioned(
+                top: -5,
+                right: -5,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -933,7 +983,10 @@ class _AdminScreenState extends State<AdminScreen>
 
   Widget _buildAllReportsCard() {
     return GestureDetector(
-      onTap: () => _showReportsList('all'),
+      onTap:
+          () => _showReportsList(
+            'all',
+          ), // This will now navigate to the dedicated screen
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),

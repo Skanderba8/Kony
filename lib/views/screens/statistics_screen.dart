@@ -430,32 +430,32 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _buildSummaryCard(
-                'Taux de Completion',
+                'Rapports Terminés',
                 '$completionRate%',
                 Icons.check_circle_outline,
                 Colors.green,
-                subtitle: '$completedReports/$totalReports rapports',
+                subtitle: '$completedReports sur $totalReports',
               ),
               _buildSummaryCard(
-                'Composants Moyens',
+                'Composants par Rapport',
                 formatter.format(averageComponents),
                 Icons.category,
                 Colors.blue,
-                subtitle: 'par rapport',
+                subtitle: 'moyenne générale',
               ),
               _buildSummaryCard(
-                'Temps Moyen',
+                'Durée de Traitement',
                 '${formatter.format(avgDays)} jours',
                 Icons.timer,
                 Colors.purple,
-                subtitle: '${formatter.format(avgHours)} heures',
+                subtitle: 'temps moyen',
               ),
               _buildSummaryCard(
-                'Durée Estimée Moy.',
+                'Estimation Projet',
                 '${formatter.format(viewModel.durationStatistics['average'] ?? 0)} jours',
                 Icons.calendar_today,
                 Colors.orange,
-                subtitle: 'estimation projet',
+                subtitle: 'durée estimée',
               ),
             ],
           ),
@@ -501,39 +501,50 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
           ),
-
-          const SizedBox(height: 4),
-
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
-            ),
-          ),
-
-          if (subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-            ),
-          ],
         ],
       ),
     );
