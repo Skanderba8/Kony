@@ -95,25 +95,6 @@ class _TechnicianScreenState extends State<TechnicianScreen>
     }
   }
 
-  Future<void> _logout(BuildContext context) async {
-    final viewModel = Provider.of<TechnicianViewModel>(context, listen: false);
-
-    try {
-      await viewModel.logout();
-
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/');
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationUtils.showError(
-          context,
-          "Erreur lors de la déconnexion: ${viewModel.errorMessage ?? e}",
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<TechnicianViewModel>(
@@ -188,16 +169,12 @@ class _TechnicianScreenState extends State<TechnicianScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 15,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
@@ -205,14 +182,25 @@ class _TechnicianScreenState extends State<TechnicianScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome Text and User Info
+          // Welcome Text with user name
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Colors.indigo.shade600, Colors.indigo.shade500],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.indigo.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.person_outline,
@@ -220,43 +208,33 @@ class _TechnicianScreenState extends State<TechnicianScreen>
                   size: 28,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 20),
               Expanded(
-                child: FutureBuilder<UserModel?>(
-                  future: Provider.of<UserManagementService>(
-                    context,
-                    listen: false,
-                  ).getUserByAuthUid(
-                    Provider.of<AuthService>(
-                          context,
-                          listen: false,
-                        ).currentUser?.uid ??
-                        '',
-                  ),
-                  builder: (context, snapshot) {
-                    String userName = "Technicien";
-                    if (snapshot.hasData && snapshot.data != null) {
-                      userName = snapshot.data!.name;
-                    }
+                child: Consumer<TechnicianViewModel>(
+                  builder: (context, viewModel, child) {
+                    final firstName =
+                        viewModel.currentUserName.split(' ').first;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Bonjour,',
+                        Text(
+                          'Bonjour',
                           style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w400,
+                            fontSize: 15,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.3,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
-                          userName.split(' ').first, // Show first name only
-                          style: const TextStyle(
-                            fontSize: 24,
+                          firstName,
+                          style: TextStyle(
+                            fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: Colors.grey.shade800,
+                            letterSpacing: 0.2,
                           ),
                         ),
                       ],
@@ -264,34 +242,134 @@ class _TechnicianScreenState extends State<TechnicianScreen>
                   },
                 ),
               ),
+              // Status indicator
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green.shade200, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade500,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'En ligne',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          // Welcome message
+          // Professional stats row
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  'Rapports',
+                  '12',
+                  Icons.assignment_outlined,
+                  Colors.blue.shade600,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.grey.shade200,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  'En cours',
+                  '3',
+                  Icons.pending_outlined,
+                  Colors.orange.shade600,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.grey.shade200,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  'Terminés',
+                  '9',
+                  Icons.check_circle_outline,
+                  Colors.green.shade600,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Professional message
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.grey.shade50,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade100),
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.lightbulb_outline,
-                  color: Colors.yellow,
-                  size: 24,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.info_outline,
+                    color: Colors.indigo.shade600,
+                    size: 20,
+                  ),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Créez et gérez vos rapports de visite technique en quelques clics',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tableau de bord technicien',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Gérez vos rapports techniques et suivez vos interventions',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -299,6 +377,44 @@ class _TechnicianScreenState extends State<TechnicianScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 

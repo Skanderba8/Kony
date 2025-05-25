@@ -1,5 +1,6 @@
 // lib/views/screens/admin_reports_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
@@ -7,7 +8,7 @@ import 'package:open_file/open_file.dart';
 import '../../view_models/admin_view_model.dart';
 import '../../models/technical_visit_report.dart';
 import '../../utils/notification_utils.dart';
-import '../widgets/app_sidebar.dart';
+import '../../app/routes.dart';
 
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
@@ -17,33 +18,40 @@ class AdminReportsScreen extends StatefulWidget {
 }
 
 class _AdminReportsScreenState extends State<AdminReportsScreen>
-    with SingleTickerProviderStateMixin {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+    with TickerProviderStateMixin {
+  // Animation controllers
+  late AnimationController _headerAnimationController;
+  late AnimationController _contentAnimationController;
+  late AnimationController _searchAnimationController;
+
+  // Animations
+  late Animation<double> _headerFadeAnimation;
+  late Animation<Offset> _headerSlideAnimation;
+  late Animation<double> _contentFadeAnimation;
+  late Animation<Offset> _contentSlideAnimation;
+  late Animation<double> _searchScaleAnimation;
 
   String _selectedFilter = 'all';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Filter options with their display names and colors
+  // Filter options with refined colors
   final Map<String, Map<String, dynamic>> _filterOptions = {
     'all': {
       'label': 'Tous',
-      'color': Colors.purple,
+      'color': Colors.indigo,
       'icon': Icons.list_alt,
       'description': 'Tous les rapports',
     },
     'submitted': {
       'label': 'Soumis',
-      'color': Colors.orange,
+      'color': Colors.blue,
       'icon': Icons.assignment_turned_in,
       'description': 'En attente de révision',
     },
     'reviewed': {
       'label': 'Examinés',
-      'color': Colors.blue,
+      'color': Colors.teal,
       'icon': Icons.fact_check,
       'description': 'Révisés et validés',
     },
@@ -55,7 +63,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
     },
     'draft': {
       'label': 'Brouillons',
-      'color': Colors.grey,
+      'color': Colors.orange,
       'icon': Icons.edit_note,
       'description': 'Rapports en cours d\'édition',
     },
@@ -64,26 +72,89 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _setupSearch();
+    // Removed _getInitialFilter() from initState - it's too early
+  }
 
-    _animationController = AnimationController(
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Move the initial filter logic here - this is called after the route is available
+    _getInitialFilter();
+  }
+
+  void _initializeAnimations() {
+    // Header animation
+    _headerAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _headerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _headerAnimationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
+    _headerSlideAnimation = Tween<Offset>(
+      begin: const Offset(0, -0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _headerAnimationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Content animation
+    _contentAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    _contentFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _contentAnimationController,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+      ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+    _contentSlideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+        parent: _contentAnimationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
     );
 
-    _animationController.forward();
+    // Search animation
+    _searchAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
 
-    // Listen to search changes
+    _searchScaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _searchAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+
+    // Start animations
+    _headerAnimationController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _contentAnimationController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _searchAnimationController.forward();
+    });
+  }
+
+  void _setupSearch() {
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase();
@@ -91,25 +162,26 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
     });
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    // Get initial filter from route arguments
+  void _getInitialFilter() {
+    // This is now safe to call since the route is available
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null &&
         args['filter'] != null &&
         _filterOptions.containsKey(args['filter'])) {
-      setState(() {
-        _selectedFilter = args['filter'];
-      });
+      if (mounted) {
+        setState(() {
+          _selectedFilter = args['filter'];
+        });
+      }
     }
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _headerAnimationController.dispose();
+    _contentAnimationController.dispose();
+    _searchAnimationController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -120,52 +192,135 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
     });
   }
 
+  void _navigateBack() {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.admin,
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: AppSidebar(
-        userRole: 'admin',
-        onClose: () => _scaffoldKey.currentState?.closeDrawer(),
-      ),
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text(
-          'Gestion des Rapports',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.indigo.shade800,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Refresh the data
-              setState(() {});
-            },
-            tooltip: 'Actualiser',
+      body: CustomScrollView(
+        slivers: [
+          _buildAnimatedAppBar(),
+          SliverToBoxAdapter(
+            child: SlideTransition(
+              position: _contentSlideAnimation,
+              child: FadeTransition(
+                opacity: _contentFadeAnimation,
+                child: Column(
+                  children: [_buildHeaderSection(), const SizedBox(height: 8)],
+                ),
+              ),
+            ),
           ),
+          _buildReportsList(),
         ],
       ),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Column(
-              children: [
-                // Header with search and filters
-                _buildHeaderSection(),
+    );
+  }
 
-                // Reports list
-                Expanded(child: _buildReportsList()),
+  Widget _buildAnimatedAppBar() {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      leading: SlideTransition(
+        position: _headerSlideAnimation,
+        child: FadeTransition(
+          opacity: _headerFadeAnimation,
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
+            ),
+            child: IconButton(
+              onPressed: _navigateBack,
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.indigo.shade600,
+              ),
+              tooltip: 'Retour au tableau de bord',
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        SlideTransition(
+          position: _headerSlideAnimation,
+          child: FadeTransition(
+            opacity: _headerFadeAnimation,
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: () => setState(() {}),
+                icon: Icon(Icons.refresh, color: Colors.indigo.shade600),
+                tooltip: 'Actualiser',
+              ),
+            ),
+          ),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.only(left: 72, bottom: 16),
+        title: SlideTransition(
+          position: _headerSlideAnimation,
+          child: FadeTransition(
+            opacity: _headerFadeAnimation,
+            child: const Text(
+              'Gestion des Rapports',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.indigo.shade600,
+                Colors.blue.shade500,
+                Colors.teal.shade400,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.black.withOpacity(0.3), Colors.transparent],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
             ),
           ),
         ),
@@ -180,17 +335,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search bar
-          _buildSearchBar(),
-
+          ScaleTransition(
+            scale: _searchScaleAnimation,
+            child: _buildSearchBar(),
+          ),
           const SizedBox(height: 20),
-
-          // Filter chips
           _buildFilterChips(),
-
           const SizedBox(height: 16),
-
-          // Current filter info
           _buildFilterInfo(),
         ],
       ),
@@ -203,6 +354,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchController,
@@ -218,9 +376,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                       color: Colors.grey.shade500,
                       size: 20,
                     ),
-                    onPressed: () {
-                      _searchController.clear();
-                    },
+                    onPressed: () => _searchController.clear(),
                   )
                   : null,
           border: InputBorder.none,
@@ -235,7 +391,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
   Widget _buildFilterChips() {
     return SizedBox(
-      height: 40,
+      height: 44,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _filterOptions.length,
@@ -246,69 +402,79 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
           return Container(
             margin: EdgeInsets.only(
-              right: index < _filterOptions.length - 1 ? 8 : 0,
+              right: index < _filterOptions.length - 1 ? 12 : 0,
             ),
             child: StreamBuilder<List<TechnicalVisitReport>>(
               stream: _getStreamForFilter(filterKey),
               builder: (context, snapshot) {
                 final count = snapshot.data?.length ?? 0;
 
-                return GestureDetector(
-                  onTap: () => _changeFilter(filterKey),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? filterData['color']
-                              : (filterData['color'] as Color).withOpacity(
-                                0.08,
-                              ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color:
-                            isSelected
-                                ? filterData['color']
-                                : (filterData['color'] as Color).withOpacity(
-                                  0.25,
-                                ),
-                        width: 1,
-                      ),
-                      boxShadow:
-                          isSelected
-                              ? [
-                                BoxShadow(
-                                  color: (filterData['color'] as Color)
-                                      .withOpacity(0.2),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                              : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          filterData['icon'] as IconData,
-                          size: 14,
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _changeFilter(filterKey),
+                      borderRadius: BorderRadius.circular(22),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
                           color:
-                              isSelected ? Colors.white : filterData['color'],
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${filterData['label']} ($count)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                              isSelected
+                                  ? filterData['color']
+                                  : (filterData['color'] as Color).withOpacity(
+                                    0.08,
+                                  ),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
                             color:
-                                isSelected ? Colors.white : filterData['color'],
+                                isSelected
+                                    ? filterData['color']
+                                    : (filterData['color'] as Color)
+                                        .withOpacity(0.3),
+                            width: 1,
                           ),
+                          boxShadow:
+                              isSelected
+                                  ? [
+                                    BoxShadow(
+                                      color: (filterData['color'] as Color)
+                                          .withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                  : null,
                         ),
-                      ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              filterData['icon'],
+                              size: 16,
+                              color:
+                                  isSelected
+                                      ? Colors.white
+                                      : filterData['color'],
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${filterData['label']} ($count)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color:
+                                    isSelected
+                                        ? Colors.white
+                                        : filterData['color'],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -322,12 +488,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
   Widget _buildFilterInfo() {
     final filterData = _filterOptions[_selectedFilter]!;
-
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: (filterData['color'] as Color).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: (filterData['color'] as Color).withOpacity(0.2),
         ),
@@ -335,18 +500,18 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: (filterData['color'] as Color).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              filterData['icon'] as IconData,
-              size: 16,
+              filterData['icon'],
+              size: 18,
               color: filterData['color'],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,15 +519,16 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                 Text(
                   'Filtrage: ${filterData['label']}',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: filterData['color'],
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   filterData['description'] as String,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: (filterData['color'] as Color).withOpacity(0.8),
                   ),
                 ),
@@ -381,20 +547,24 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
           stream: _getStreamForFilter(_selectedFilter),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Chargement des rapports...'),
-                  ],
+              return const SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Chargement des rapports...'),
+                    ],
+                  ),
                 ),
               );
             }
 
             if (snapshot.hasError) {
-              return _buildErrorState(snapshot.error.toString());
+              return SliverFillRemaining(
+                child: _buildErrorState(snapshot.error.toString()),
+              );
             }
 
             List<TechnicalVisitReport> reports = snapshot.data ?? [];
@@ -417,16 +587,28 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
             }
 
             if (reports.isEmpty) {
-              return _buildEmptyState();
+              return SliverFillRemaining(child: _buildEmptyState());
             }
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: reports.length,
-              itemBuilder: (context, index) {
-                final report = reports[index];
-                return _buildReportCard(report, viewModel);
-              },
+            return SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return TweenAnimationBuilder<double>(
+                    duration: Duration(milliseconds: 300 + (index * 100)),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Transform.translate(
+                        offset: Offset(0, 20 * (1 - value)),
+                        child: Opacity(
+                          opacity: value,
+                          child: _buildReportCard(reports[index], viewModel),
+                        ),
+                      );
+                    },
+                  );
+                }, childCount: reports.length),
+              ),
             );
           },
         );
@@ -447,17 +629,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
     switch (report.status) {
       case 'draft':
-        statusColor = Colors.grey;
+        statusColor = Colors.orange;
         statusIcon = Icons.edit_note;
         statusText = 'BROUILLON';
         break;
       case 'submitted':
-        statusColor = Colors.orange;
+        statusColor = Colors.blue;
         statusIcon = Icons.assignment_turned_in;
         statusText = 'SOUMIS';
         break;
       case 'reviewed':
-        statusColor = Colors.blue;
+        statusColor = Colors.teal;
         statusIcon = Icons.fact_check;
         statusText = 'EXAMINÉ';
         break;
@@ -477,393 +659,421 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
             ? (report.lastModified ?? report.createdAt)
             : (report.submittedAt ?? report.createdAt);
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: statusColor.withOpacity(0.2), width: 1),
-        ),
-        child: Column(
-          children: [
-            // Status header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: statusColor.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Status header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.08),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(statusIcon, size: 16, color: statusColor),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${dateFormat.format(displayDate)} • ${timeFormat.format(displayDate)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: statusColor.withOpacity(0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Report content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and client
+                Text(
+                  report.clientName.isNotEmpty
+                      ? report.clientName
+                      : 'Rapport sans nom',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 14,
+                      color: Colors.grey.shade500,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        report.location.isNotEmpty
+                            ? report.location
+                            : 'Lieu non spécifié',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Technician and project manager info
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.person,
+                            size: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Par: ${report.technicianName}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.manage_accounts,
+                            size: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Chef: ${report.projectManager.isNotEmpty ? report.projectManager : "Non spécifié"}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Action buttons
+                _buildActionButtons(report, viewModel),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(
+    TechnicalVisitReport report,
+    AdminViewModel viewModel,
+  ) {
+    return Row(
+      children: [
+        // PDF Button (for non-draft reports)
+        if (report.status != 'draft') ...[
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _viewReportPdf(report, viewModel),
+              icon: const Icon(Icons.picture_as_pdf, size: 16),
+              label: const Text('PDF'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade600,
+                side: BorderSide(color: Colors.red.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+
+        // Status action button
+        if (report.status == 'submitted') ...[
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed:
+                  () => _updateReportStatus(report, 'reviewed', viewModel),
+              icon: const Icon(Icons.fact_check, size: 16),
+              label: const Text('Examiner'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ] else if (report.status == 'reviewed') ...[
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed:
+                  () => _updateReportStatus(report, 'approved', viewModel),
+              icon: const Icon(Icons.check_circle, size: 16),
+              label: const Text('Approuver'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ] else if (report.status == 'draft') ...[
+          Expanded(
+            flex: 2,
+            child: OutlinedButton.icon(
+              onPressed: () => _viewDraftReport(report),
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Modifier'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange.shade600,
+                side: BorderSide(color: Colors.orange.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ] else ...[
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(statusIcon, size: 16, color: statusColor),
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: Colors.green.shade600,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Text(
-                    statusText,
+                    'Approuvé',
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${dateFormat.format(displayDate)} • ${timeFormat.format(displayDate)}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: statusColor.withOpacity(0.7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade600,
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+        ],
 
-            // Report content
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title and client
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              report.clientName.isNotEmpty
-                                  ? report.clientName
-                                  : 'Rapport sans nom',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 14,
-                                  color: Colors.grey.shade500,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    report.location.isNotEmpty
-                                        ? report.location
-                                        : 'Lieu non spécifié',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+        const SizedBox(width: 12),
 
-                  const SizedBox(height: 12),
-
-                  // Technician and project manager info
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.person,
-                              size: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                'Par: ${report.technicianName}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.manage_accounts,
-                              size: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                'Chef: ${report.projectManager.isNotEmpty ? report.projectManager : "Non spécifié"}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Action buttons
-                  Row(
-                    children: [
-                      // PDF Button (for non-draft reports)
-                      if (report.status != 'draft') ...[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _viewReportPdf(report, viewModel),
-                            icon: const Icon(Icons.picture_as_pdf, size: 16),
-                            label: const Text('PDF'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red.shade600,
-                              side: BorderSide(color: Colors.red.shade300),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-
-                      // Status action button
-                      if (report.status == 'submitted') ...[
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed:
-                                () => _updateReportStatus(
-                                  report,
-                                  'reviewed',
-                                  viewModel,
-                                ),
-                            icon: const Icon(Icons.fact_check, size: 16),
-                            label: const Text('Examiner'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                      ] else if (report.status == 'reviewed') ...[
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed:
-                                () => _updateReportStatus(
-                                  report,
-                                  'approved',
-                                  viewModel,
-                                ),
-                            icon: const Icon(Icons.check_circle, size: 16),
-                            label: const Text('Approuver'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                      ] else if (report.status == 'draft') ...[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _viewDraftReport(report),
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('Modifier'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.orange.shade600,
-                              side: BorderSide(color: Colors.orange.shade300),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                      ] else ...[
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.shade200),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.check_circle,
-                                  size: 16,
-                                  color: Colors.green.shade600,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Approuvé',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      const SizedBox(width: 8),
-
-                      // Delete button
-                      IconButton(
-                        onPressed:
-                            () => _confirmDeleteReport(report, viewModel),
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        color: Colors.red.shade400,
-                        tooltip: 'Supprimer',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.red.shade50,
-                          padding: const EdgeInsets.all(8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+        // Delete button
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            onPressed: () => _confirmDeleteReport(report, viewModel),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            color: Colors.red.shade400,
+            tooltip: 'Supprimer',
+            padding: const EdgeInsets.all(12),
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildEmptyState() {
     final filterData = _filterOptions[_selectedFilter]!;
-
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: (filterData['color'] as Color).withOpacity(0.1),
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: (filterData['color'] as Color).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                filterData['icon'],
+                size: 64,
+                color: (filterData['color'] as Color).withOpacity(0.6),
+              ),
             ),
-            child: Icon(
-              filterData['icon'] as IconData,
-              size: 64,
-              color: (filterData['color'] as Color).withOpacity(0.6),
+            const SizedBox(height: 24),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Aucun résultat pour "$_searchQuery"'
+                  : 'Aucun rapport ${_getEmptyStateText()}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _searchQuery.isNotEmpty
-                ? 'Aucun résultat pour "$_searchQuery"'
-                : 'Aucun rapport ${_getEmptyStateText()}',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+            const SizedBox(height: 8),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Essayez avec d\'autres mots-clés'
+                  : 'Les rapports ${_getEmptyStateText()} apparaîtront ici',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _searchQuery.isNotEmpty
-                ? 'Essayez avec d\'autres mots-clés'
-                : 'Les rapports ${_getEmptyStateText()} apparaîtront ici',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            textAlign: TextAlign.center,
-          ),
-          if (_searchQuery.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {
-                _searchController.clear();
-              },
-              icon: const Icon(Icons.clear, size: 16),
-              label: const Text('Effacer la recherche'),
-            ),
+            if (_searchQuery.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: () => _searchController.clear(),
+                icon: const Icon(Icons.clear, size: 16),
+                label: const Text('Effacer la recherche'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey.shade600,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorState(String error) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-          const SizedBox(height: 16),
-          Text(
-            'Erreur de chargement',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.red.shade700,
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur de chargement',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade700,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            error,
-            style: const TextStyle(fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => setState(() {}),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              error,
+              style: const TextStyle(fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => setState(() {}),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Stream<List<TechnicalVisitReport>> _getStreamForFilter(String filter) {
-    final viewModel = Provider.of<AdminViewModel>(context, listen: false);
+    try {
+      final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
-    switch (filter) {
-      case 'submitted':
-        return viewModel.getSubmittedReportsStream();
-      case 'reviewed':
-        return viewModel.getReviewedReportsStream();
-      case 'approved':
-        return viewModel.getApprovedReportsStream();
-      case 'draft':
-        // You'll need to add this method to AdminViewModel
-        return viewModel.getAllReportsStream().map(
-          (reports) => reports.where((r) => r.status == 'draft').toList(),
-        );
-      case 'all':
-      default:
-        return viewModel.getAllReportsStream();
+      switch (filter) {
+        case 'submitted':
+          return viewModel.getSubmittedReportsStream();
+        case 'reviewed':
+          return viewModel.getReviewedReportsStream();
+        case 'approved':
+          return viewModel.getApprovedReportsStream();
+        case 'draft':
+          return viewModel.getAllReportsStream().map(
+            (reports) => reports.where((r) => r.status == 'draft').toList(),
+          );
+        case 'all':
+        default:
+          return viewModel.getAllReportsStream();
+      }
+    } catch (e) {
+      // If AdminViewModel is not available, return empty stream
+      debugPrint('AdminViewModel not found: $e');
+      return Stream.value(<TechnicalVisitReport>[]);
     }
   }
 
@@ -1039,7 +1249,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
   void _viewDraftReport(TechnicalVisitReport report) {
     // Navigate to report editing screen for drafts
-    // This would typically navigate to the report form screen with the report ID
     NotificationUtils.showInfo(
       context,
       'Fonctionnalité de modification des brouillons en cours de développement',

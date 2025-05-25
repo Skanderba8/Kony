@@ -2,53 +2,41 @@ import 'package:flutter/foundation.dart';
 import '../services/auth_service.dart';
 import '../services/report_service.dart';
 
+// Just add this getter to your existing TechnicianViewModel class
+// No constructor changes needed!
+
 class TechnicianViewModel extends ChangeNotifier {
   final ReportService _reportService;
   final AuthService _authService;
 
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _errorMessage;
 
   // Getters
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // Constructor with dependency injection
+  // Add this getter - no other changes needed!
+  String get currentUserName {
+    final user = _authService.currentUser;
+    if (user != null) {
+      // Try to get display name first, then fall back to email prefix
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        return user.displayName!;
+      } else if (user.email != null) {
+        // Extract name from email (everything before @)
+        return user.email!.split('@').first;
+      }
+    }
+    return 'Technicien'; // Fallback
+  }
+
+  // Constructor with dependency injection - keep as is
   TechnicianViewModel({
     required ReportService reportService,
     required AuthService authService,
   }) : _reportService = reportService,
        _authService = authService;
 
-  // Logout function
-  Future<void> logout() async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      await _authService.signOut();
-    } catch (e) {
-      _setError('Failed to log out: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Helper method to set loading state
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-  // Helper method to set error message
-  void _setError(String message) {
-    _errorMessage = message;
-    notifyListeners();
-  }
-
-  // Helper method to clear error message
-  void _clearError() {
-    _errorMessage = null;
-    notifyListeners();
-  }
+  // ... rest of your existing methods stay the same ...
 }
