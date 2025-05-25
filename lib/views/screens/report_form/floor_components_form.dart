@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../view_models/technical_visit_report_view_model.dart';
 import '../../../models/floor.dart';
 import '../../widgets/report_form/component_type_selector.dart';
-import '../../widgets/report_form/dynamic_list_section.dart';
+import '../../widgets/report_form/collapsible_component_card.dart';
 import '../../widgets/report_form/section_header.dart';
 import '../../widgets/report_form/floor_selector.dart';
 
@@ -77,7 +77,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
               ),
             ),
 
-            // Display components by type with proper constraints
+            // Display components by type with collapsible cards
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 0),
               child: _buildComponentSections(viewModel, currentFloor),
@@ -88,7 +88,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     );
   }
 
-  /// Build sections for each component type that has components
+  /// Build sections for each component type that has components using collapsible cards
   Widget _buildComponentSections(
     TechnicalVisitReportViewModel viewModel,
     Floor floor,
@@ -98,357 +98,646 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     // Network cabinets
     if (floor.networkCabinets.isNotEmpty) {
       sections.add(
-        DynamicListSection<NetworkCabinet>(
+        CollapsibleComponentCard<NetworkCabinet>(
           title: 'Baies Informatiques',
-          subtitle: 'Informations sur les baies informatiques à cet étage.',
+          subtitle: 'Équipements réseau et serveurs',
           icon: Icons.dns_outlined,
+          color: Colors.blue,
           items: floor.networkCabinets,
-          onAddItem: () {
-            viewModel.addNetworkCabinet();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeNetworkCabinet(index);
-          },
+          onAddItem: () => viewModel.addNetworkCabinet(),
+          onRemoveItem: (index) => viewModel.removeNetworkCabinet(index),
           addButtonLabel: 'Ajouter une baie',
           emptyStateMessage: 'Aucune baie informatique ajoutée',
-          componentType: 'baie informatique',
+          componentType: 'Baie Informatique',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (cabinet, index) {
-            return _buildCabinetForm(cabinet, index, viewModel);
-          },
+          itemBuilder:
+              (cabinet, index) => _buildCabinetForm(cabinet, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Perforations
     if (floor.perforations.isNotEmpty) {
       sections.add(
-        DynamicListSection<Perforation>(
+        CollapsibleComponentCard<Perforation>(
           title: 'Percements',
-          subtitle:
-              'Points de passage des câbles à travers les murs et planchers.',
+          subtitle: 'Passages de câbles dans murs et planchers',
           icon: Icons.architecture,
+          color: Colors.orange,
           items: floor.perforations,
-          onAddItem: () {
-            viewModel.addPerforation();
-          },
-          onRemoveItem: (index) {
-            viewModel.removePerforation(index);
-          },
+          onAddItem: () => viewModel.addPerforation(),
+          onRemoveItem: (index) => viewModel.removePerforation(index),
           addButtonLabel: 'Ajouter un percement',
           emptyStateMessage: 'Aucun percement ajouté',
-          componentType: 'percement',
+          componentType: 'Percement',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (perforation, index) {
-            return _buildPerforationForm(perforation, index, viewModel);
-          },
+          itemBuilder:
+              (perforation, index) =>
+                  _buildPerforationForm(perforation, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Access traps
     if (floor.accessTraps.isNotEmpty) {
       sections.add(
-        DynamicListSection<AccessTrap>(
+        CollapsibleComponentCard<AccessTrap>(
           title: 'Trappes d\'accès',
-          subtitle: 'Informations sur les trappes d\'accès à cet étage.',
+          subtitle: 'Accès aux zones techniques',
           icon: Icons.door_sliding_outlined,
+          color: Colors.purple,
           items: floor.accessTraps,
-          onAddItem: () {
-            viewModel.addAccessTrap();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeAccessTrap(index);
-          },
+          onAddItem: () => viewModel.addAccessTrap(),
+          onRemoveItem: (index) => viewModel.removeAccessTrap(index),
           addButtonLabel: 'Ajouter une trappe',
           emptyStateMessage: 'Aucune trappe d\'accès ajoutée',
-          componentType: 'trappe d\'accès',
+          componentType: 'Trappe d\'accès',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (trap, index) {
-            return _buildAccessTrapForm(trap, index, viewModel);
-          },
+          itemBuilder:
+              (trap, index) => _buildAccessTrapForm(trap, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Cable paths
     if (floor.cablePaths.isNotEmpty) {
       sections.add(
-        DynamicListSection<CablePath>(
+        CollapsibleComponentCard<CablePath>(
           title: 'Chemins de câbles',
-          subtitle: 'Structures de support des câbles à cet étage.',
+          subtitle: 'Structures de support des câbles',
           icon: Icons.linear_scale,
+          color: Colors.green,
           items: floor.cablePaths,
-          onAddItem: () {
-            viewModel.addCablePath();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeCablePath(index);
-          },
+          onAddItem: () => viewModel.addCablePath(),
+          onRemoveItem: (index) => viewModel.removeCablePath(index),
           addButtonLabel: 'Ajouter un chemin',
           emptyStateMessage: 'Aucun chemin de câbles ajouté',
-          componentType: 'chemin de câbles',
+          componentType: 'Chemin de câbles',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (path, index) {
-            return _buildCablePathForm(path, index, viewModel);
-          },
+          itemBuilder:
+              (path, index) => _buildCablePathForm(path, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Cable trunkings
     if (floor.cableTrunkings.isNotEmpty) {
       sections.add(
-        DynamicListSection<CableTrunking>(
+        CollapsibleComponentCard<CableTrunking>(
           title: 'Goulottes',
-          subtitle: 'Canaux de protection des câbles à cet étage.',
+          subtitle: 'Canaux de protection des câbles',
           icon: Icons.power_input,
+          color: Colors.teal,
           items: floor.cableTrunkings,
-          onAddItem: () {
-            viewModel.addCableTrunking();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeCableTrunking(index);
-          },
+          onAddItem: () => viewModel.addCableTrunking(),
+          onRemoveItem: (index) => viewModel.removeCableTrunking(index),
           addButtonLabel: 'Ajouter une goulotte',
           emptyStateMessage: 'Aucune goulotte ajoutée',
-          componentType: 'goulotte',
+          componentType: 'Goulotte',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (trunking, index) {
-            return _buildCableTrunkingForm(trunking, index, viewModel);
-          },
+          itemBuilder:
+              (trunking, index) =>
+                  _buildCableTrunkingForm(trunking, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Conduits
     if (floor.conduits.isNotEmpty) {
       sections.add(
-        DynamicListSection<Conduit>(
+        CollapsibleComponentCard<Conduit>(
           title: 'Conduits',
-          subtitle: 'Tubes de protection des câbles à cet étage.',
+          subtitle: 'Tubes de protection des câbles',
           icon: Icons.rotate_90_degrees_ccw,
+          color: Colors.indigo,
           items: floor.conduits,
-          onAddItem: () {
-            viewModel.addConduit();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeConduit(index);
-          },
+          onAddItem: () => viewModel.addConduit(),
+          onRemoveItem: (index) => viewModel.removeConduit(index),
           addButtonLabel: 'Ajouter un conduit',
           emptyStateMessage: 'Aucun conduit ajouté',
-          componentType: 'conduit',
+          componentType: 'Conduit',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (conduit, index) {
-            return _buildConduitForm(conduit, index, viewModel);
-          },
+          itemBuilder:
+              (conduit, index) => _buildConduitForm(conduit, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Copper cablings
     if (floor.copperCablings.isNotEmpty) {
       sections.add(
-        DynamicListSection<CopperCabling>(
+        CollapsibleComponentCard<CopperCabling>(
           title: 'Câblages cuivre',
-          subtitle: 'Câbles réseau en cuivre à cet étage.',
+          subtitle: 'Câbles réseau en cuivre',
           icon: Icons.cable,
+          color: Colors.amber,
           items: floor.copperCablings,
-          onAddItem: () {
-            viewModel.addCopperCabling();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeCopperCabling(index);
-          },
+          onAddItem: () => viewModel.addCopperCabling(),
+          onRemoveItem: (index) => viewModel.removeCopperCabling(index),
           addButtonLabel: 'Ajouter un câblage cuivre',
           emptyStateMessage: 'Aucun câblage cuivre ajouté',
-          componentType: 'câblage cuivre',
+          componentType: 'Câblage cuivre',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (cabling, index) {
-            return _buildCopperCablingForm(cabling, index, viewModel);
-          },
+          itemBuilder:
+              (cabling, index) =>
+                  _buildCopperCablingForm(cabling, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     // Fiber optic cablings
     if (floor.fiberOpticCablings.isNotEmpty) {
       sections.add(
-        DynamicListSection<FiberOpticCabling>(
+        CollapsibleComponentCard<FiberOpticCabling>(
           title: 'Câblages fibre optique',
-          subtitle: 'Câbles à fibre optique à cet étage.',
+          subtitle: 'Câbles à fibre optique haute performance',
           icon: Icons.fiber_manual_record,
+          color: Colors.red,
           items: floor.fiberOpticCablings,
-          onAddItem: () {
-            viewModel.addFiberOpticCabling();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeFiberOpticCabling(index);
-          },
+          onAddItem: () => viewModel.addFiberOpticCabling(),
+          onRemoveItem: (index) => viewModel.removeFiberOpticCabling(index),
           addButtonLabel: 'Ajouter un câblage fibre',
           emptyStateMessage: 'Aucun câblage fibre optique ajouté',
-          componentType: 'câblage fibre optique',
+          componentType: 'Câblage fibre optique',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (cabling, index) {
-            return _buildFiberOpticCablingForm(cabling, index, viewModel);
-          },
+          itemBuilder:
+              (cabling, index) =>
+                  _buildFiberOpticCablingForm(cabling, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
-
-    // In lib/views/screens/report_form/floor_components_form.dart
-    // In the _buildComponentSections method after other component sections
 
     // Custom components
     if (floor.customComponents.isNotEmpty) {
       sections.add(
-        DynamicListSection<CustomComponent>(
+        CollapsibleComponentCard<CustomComponent>(
           title: 'Composants Personnalisés',
-          subtitle: 'Composants personnalisés ajoutés à cet étage.',
+          subtitle: 'Composants sur mesure selon vos besoins',
           icon: Icons.add_box,
+          color: Colors.pink,
           items: floor.customComponents,
-          onAddItem: () {
-            viewModel.addCustomComponent();
-          },
-          onRemoveItem: (index) {
-            viewModel.removeCustomComponent(index);
-          },
+          onAddItem: () => viewModel.addCustomComponent(),
+          onRemoveItem: (index) => viewModel.removeCustomComponent(index),
           addButtonLabel: 'Ajouter un composant personnalisé',
           emptyStateMessage: 'Aucun composant personnalisé ajouté',
-          componentType: 'composant personnalisé',
+          componentType: 'Composant personnalisé',
           onAddOtherComponentType: () {
             viewModel.setSelectedComponentType(null);
             _showComponentTypeSelector(context, viewModel);
           },
-          itemBuilder: (component, index) {
-            return _buildCustomComponentForm(component, index, viewModel);
-          },
+          itemBuilder:
+              (component, index) =>
+                  _buildCustomComponentForm(component, index, viewModel),
         ),
       );
-      sections.add(const SizedBox(height: 24));
     }
 
     if (sections.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            children: [
-              Icon(Icons.info_outline, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                'Aucun composant ajouté à cet étage',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Utilisez le sélecteur ci-dessus pour ajouter des baies, percements, '
-                'chemins de câbles et autres composants à cet étage.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => _showComponentTypeSelector(context, viewModel),
-                icon: const Icon(Icons.add),
-                label: const Text('Ajouter un composant'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildEmptyFloorState(viewModel);
     }
 
-    return SingleChildScrollView(child: Column(children: sections));
+    return Column(children: sections);
   }
 
-  /// Display a dialog to select a component type
+  Widget _buildEmptyFloorState(TechnicalVisitReportViewModel viewModel) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 32),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade50, Colors.indigo.shade50],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.category_outlined,
+              size: 48,
+              color: Colors.blue.shade400,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Aucun composant ajouté à cet étage',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Utilisez le sélecteur ci-dessus pour ajouter des baies, percements,\nchemins de câbles et autres composants à cet étage.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade600, Colors.blue.shade700],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: () => _showComponentTypeSelector(context, viewModel),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Ajouter un composant',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Display a modern dialog to select a component type
   void _showComponentTypeSelector(
     BuildContext context,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Choisir un type de composant'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...viewModel.componentTypes.map(
-                    (type) => ListTile(
-                      title: Text(type),
-                      leading: Icon(_getIconForComponentType(type)),
-                      onTap: () {
-                        viewModel.setSelectedComponentType(type);
-                        viewModel.addComponentByType(type);
-                        Navigator.pop(context);
-                      },
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.blue.shade400,
+                              Colors.blue.shade600,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.category,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Choisir un composant',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Sélectionnez le type de composant à ajouter',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.grey.shade100,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Component options
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        // Featured: Custom component
+                        _buildFeaturedComponentOption(
+                          'Composant personnalisé',
+                          'Créer un composant sur mesure selon vos besoins',
+                          Icons.add_box,
+                          Colors.pink,
+                          () => _addComponent(
+                            viewModel,
+                            'Composant personnalisé',
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Section divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(color: Colors.grey.shade300),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(
+                                'COMPOSANTS STANDARD',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade500,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(color: Colors.grey.shade300),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Standard components grid
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 1.1,
+                          children:
+                              viewModel.componentTypes
+                                  .where(
+                                    (type) => type != 'Composant personnalisé',
+                                  )
+                                  .map(
+                                    (type) => _buildComponentGridItem(
+                                      type,
+                                      _getComponentIcon(type),
+                                      _getComponentColor(type),
+                                      () => _addComponent(viewModel, type),
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-            ],
           ),
     );
   }
 
-  /// Get an icon for a component type
-  IconData _getIconForComponentType(String type) {
+  Widget _buildFeaturedComponentOption(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.3), width: 2),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: color, size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'RECOMMANDÉ',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: color.withOpacity(0.8),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, color: color, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComponentGridItem(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addComponent(TechnicalVisitReportViewModel viewModel, String type) {
+    Navigator.pop(context);
+    viewModel.addComponentByType(type);
+  }
+
+  // Helper methods for component properties
+  IconData _getComponentIcon(String type) {
     switch (type) {
       case 'Baie Informatique':
         return Icons.dns_outlined;
@@ -466,10 +755,35 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
         return Icons.cable;
       case 'Câblage fibre optique':
         return Icons.fiber_manual_record;
-      case 'Composant personnalisé': // Add this case
+      case 'Composant personnalisé':
         return Icons.add_box;
       default:
         return Icons.device_unknown;
+    }
+  }
+
+  Color _getComponentColor(String type) {
+    switch (type) {
+      case 'Baie Informatique':
+        return Colors.blue;
+      case 'Percement':
+        return Colors.orange;
+      case 'Trappe d\'accès':
+        return Colors.purple;
+      case 'Chemin de câbles':
+        return Colors.green;
+      case 'Goulotte':
+        return Colors.teal;
+      case 'Conduit':
+        return Colors.indigo;
+      case 'Câblage cuivre':
+        return Colors.amber;
+      case 'Câblage fibre optique':
+        return Colors.red;
+      case 'Composant personnalisé':
+        return Colors.pink;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -479,7 +793,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Reuse the existing NetworkCabinetForm but modify it to work with our floor-based approach
     return NetworkCabinetFormItem(
       cabinet: cabinet,
       index: index,
@@ -495,7 +808,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Create a form for perforation - simplified version for now
     Perforation editingPerforation = perforation;
 
     return Column(
@@ -511,7 +823,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updatePerforation(index, editingPerforation);
           },
         ),
-
         FormTextField(
           label: 'Type de mur/plancher',
           hintText: 'Ex: Béton, Plâtre, Cloison, etc.',
@@ -522,7 +833,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updatePerforation(index, editingPerforation);
           },
         ),
-
         FormNumberField(
           label: 'Épaisseur (cm)',
           value: editingPerforation.wallDepth,
@@ -538,7 +848,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur ce percement',
@@ -560,7 +869,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Simplified form for access trap
     AccessTrap editingTrap = trap;
 
     return Column(
@@ -576,7 +884,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateAccessTrap(index, editingTrap);
           },
         ),
-
         FormTextField(
           label: 'Dimensions',
           hintText: 'Ex: 60x60cm, 30x30cm, etc.',
@@ -587,7 +894,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateAccessTrap(index, editingTrap);
           },
         ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur cette trappe',
@@ -609,7 +915,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Form for cable path
     CablePath editingPath = path;
 
     return Column(
@@ -625,7 +930,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCablePath(index, editingPath);
           },
         ),
-
         FormTextField(
           label: 'Dimensions',
           hintText: 'Ex: 100x50mm, 200x60mm, etc.',
@@ -636,7 +940,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCablePath(index, editingPath);
           },
         ),
-
         FormNumberField(
           label: 'Longueur (m)',
           value: editingPath.lengthInMeters,
@@ -652,7 +955,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
         FormTextField(
           label: 'Type de fixation',
           hintText: 'Ex: Suspendu, Mural, Sur dalle, etc.',
@@ -663,29 +965,34 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCablePath(index, editingPath);
           },
         ),
-
-        FormCheckbox(
-          label: 'Visible',
-          value: editingPath.isVisible,
-          onChanged: (value) {
-            if (value != null) {
-              editingPath = editingPath.copyWith(isVisible: value);
-              viewModel.updateCablePath(index, editingPath);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormCheckbox(
+                label: 'Visible',
+                value: editingPath.isVisible,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingPath = editingPath.copyWith(isVisible: value);
+                    viewModel.updateCablePath(index, editingPath);
+                  }
+                },
+              ),
+            ),
+            Expanded(
+              child: FormCheckbox(
+                label: 'Intérieur',
+                value: editingPath.isInterior,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingPath = editingPath.copyWith(isInterior: value);
+                    viewModel.updateCablePath(index, editingPath);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormCheckbox(
-          label: 'Intérieur',
-          value: editingPath.isInterior,
-          onChanged: (value) {
-            if (value != null) {
-              editingPath = editingPath.copyWith(isInterior: value);
-              viewModel.updateCablePath(index, editingPath);
-            }
-          },
-        ),
-
         FormNumberField(
           label: 'Hauteur d\'installation (m)',
           value: editingPath.heightInMeters,
@@ -701,7 +1008,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur ce chemin de câbles',
@@ -723,7 +1029,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Form for cable trunking
     CableTrunking editingTrunking = trunking;
 
     return Column(
@@ -739,7 +1044,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCableTrunking(index, editingTrunking);
           },
         ),
-
         FormTextField(
           label: 'Dimensions',
           hintText: 'Ex: 40x25mm, 60x40mm, etc.',
@@ -750,7 +1054,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCableTrunking(index, editingTrunking);
           },
         ),
-
         FormNumberField(
           label: 'Longueur (m)',
           value: editingTrunking.lengthInMeters,
@@ -766,66 +1069,81 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
-        FormNumberField(
-          label: 'Angles intérieurs',
-          value: editingTrunking.innerAngles,
-          decimal: false,
-          min: 0,
-          max: 100,
-          onChanged: (value) {
-            if (value != null) {
-              editingTrunking = editingTrunking.copyWith(
-                innerAngles: value.toInt(),
-              );
-              viewModel.updateCableTrunking(index, editingTrunking);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormNumberField(
+                label: 'Angles intérieurs',
+                value: editingTrunking.innerAngles,
+                decimal: false,
+                min: 0,
+                max: 100,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingTrunking = editingTrunking.copyWith(
+                      innerAngles: value.toInt(),
+                    );
+                    viewModel.updateCableTrunking(index, editingTrunking);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FormNumberField(
+                label: 'Angles extérieurs',
+                value: editingTrunking.outerAngles,
+                decimal: false,
+                min: 0,
+                max: 100,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingTrunking = editingTrunking.copyWith(
+                      outerAngles: value.toInt(),
+                    );
+                    viewModel.updateCableTrunking(index, editingTrunking);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormNumberField(
-          label: 'Angles extérieurs',
-          value: editingTrunking.outerAngles,
-          decimal: false,
-          min: 0,
-          max: 100,
-          onChanged: (value) {
-            if (value != null) {
-              editingTrunking = editingTrunking.copyWith(
-                outerAngles: value.toInt(),
-              );
-              viewModel.updateCableTrunking(index, editingTrunking);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormNumberField(
+                label: 'Angles plats',
+                value: editingTrunking.flatAngles,
+                decimal: false,
+                min: 0,
+                max: 100,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingTrunking = editingTrunking.copyWith(
+                      flatAngles: value.toInt(),
+                    );
+                    viewModel.updateCableTrunking(index, editingTrunking);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FormCheckbox(
+                label: 'Intérieur',
+                value: editingTrunking.isInterior,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingTrunking = editingTrunking.copyWith(
+                      isInterior: value,
+                    );
+                    viewModel.updateCableTrunking(index, editingTrunking);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormNumberField(
-          label: 'Angles plats',
-          value: editingTrunking.flatAngles,
-          decimal: false,
-          min: 0,
-          max: 100,
-          onChanged: (value) {
-            if (value != null) {
-              editingTrunking = editingTrunking.copyWith(
-                flatAngles: value.toInt(),
-              );
-              viewModel.updateCableTrunking(index, editingTrunking);
-            }
-          },
-        ),
-
-        FormCheckbox(
-          label: 'Intérieur',
-          value: editingTrunking.isInterior,
-          onChanged: (value) {
-            if (value != null) {
-              editingTrunking = editingTrunking.copyWith(isInterior: value);
-              viewModel.updateCableTrunking(index, editingTrunking);
-            }
-          },
-        ),
-
         FormNumberField(
           label: 'Hauteur d\'installation (m)',
           value: editingTrunking.workHeight,
@@ -841,7 +1159,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur cette goulotte',
@@ -863,7 +1180,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Form for conduit
     Conduit editingConduit = conduit;
 
     return Column(
@@ -879,7 +1195,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateConduit(index, editingConduit);
           },
         ),
-
         FormTextField(
           label: 'Diamètre',
           hintText: 'Ex: 25mm, 40mm, etc.',
@@ -890,7 +1205,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateConduit(index, editingConduit);
           },
         ),
-
         FormNumberField(
           label: 'Longueur (m)',
           value: editingConduit.lengthInMeters,
@@ -906,34 +1220,39 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
-        FormCheckbox(
-          label: 'Intérieur',
-          value: editingConduit.isInterior,
-          onChanged: (value) {
-            if (value != null) {
-              editingConduit = editingConduit.copyWith(isInterior: value);
-              viewModel.updateConduit(index, editingConduit);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormCheckbox(
+                label: 'Intérieur',
+                value: editingConduit.isInterior,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingConduit = editingConduit.copyWith(isInterior: value);
+                    viewModel.updateConduit(index, editingConduit);
+                  }
+                },
+              ),
+            ),
+            Expanded(
+              child: FormNumberField(
+                label: 'Hauteur d\'installation (m)',
+                value: editingConduit.workHeight,
+                decimal: true,
+                min: 0,
+                max: 20,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingConduit = editingConduit.copyWith(
+                      workHeight: value.toDouble(),
+                    );
+                    viewModel.updateConduit(index, editingConduit);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormNumberField(
-          label: 'Hauteur d\'installation (m)',
-          value: editingConduit.workHeight,
-          decimal: true,
-          min: 0,
-          max: 20,
-          onChanged: (value) {
-            if (value != null) {
-              editingConduit = editingConduit.copyWith(
-                workHeight: value.toDouble(),
-              );
-              viewModel.updateConduit(index, editingConduit);
-            }
-          },
-        ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur ce conduit',
@@ -955,7 +1274,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Form for copper cabling
     CopperCabling editingCabling = cabling;
 
     return Column(
@@ -971,7 +1289,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCopperCabling(index, editingCabling);
           },
         ),
-
         FormTextField(
           label: 'Description du trajet',
           hintText: 'Ex: Chemin de câbles puis faux-plafond...',
@@ -982,8 +1299,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateCopperCabling(index, editingCabling);
           },
         ),
-
-        // Dropdown for category
         FormDropdown<String>(
           label: 'Catégorie',
           value: editingCabling.category,
@@ -1001,34 +1316,40 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
-        FormNumberField(
-          label: 'Longueur (m)',
-          value: editingCabling.lengthInMeters,
-          decimal: true,
-          min: 0,
-          max: 1000,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(
-                lengthInMeters: value.toDouble(),
-              );
-              viewModel.updateCopperCabling(index, editingCabling);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormNumberField(
+                label: 'Longueur (m)',
+                value: editingCabling.lengthInMeters,
+                decimal: true,
+                min: 0,
+                max: 1000,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(
+                      lengthInMeters: value.toDouble(),
+                    );
+                    viewModel.updateCopperCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FormCheckbox(
+                label: 'Intérieur',
+                value: editingCabling.isInterior,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(isInterior: value);
+                    viewModel.updateCopperCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormCheckbox(
-          label: 'Intérieur',
-          value: editingCabling.isInterior,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(isInterior: value);
-              viewModel.updateCopperCabling(index, editingCabling);
-            }
-          },
-        ),
-
         FormNumberField(
           label: 'Hauteur d\'installation (m)',
           value: editingCabling.workHeight,
@@ -1044,7 +1365,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             }
           },
         ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur ce câblage',
@@ -1066,7 +1386,6 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
     int index,
     TechnicalVisitReportViewModel viewModel,
   ) {
-    // Form for fiber optic cabling
     FiberOpticCabling editingCabling = cabling;
 
     return Column(
@@ -1082,93 +1401,112 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateFiberOpticCabling(index, editingCabling);
           },
         ),
-
-        FormNumberField(
-          label: 'Nombre de tiroirs',
-          value: editingCabling.drawerCount,
-          min: 0,
-          max: 100,
-          decimal: false,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(
-                drawerCount: value.toInt(),
-              );
-              viewModel.updateFiberOpticCabling(index, editingCabling);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormNumberField(
+                label: 'Nombre de tiroirs',
+                value: editingCabling.drawerCount,
+                min: 0,
+                max: 100,
+                decimal: false,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(
+                      drawerCount: value.toInt(),
+                    );
+                    viewModel.updateFiberOpticCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FormTextField(
+                label: 'Type de fibre',
+                hintText: 'Ex: OM3, OM4, OS2, etc.',
+                initialValue: editingCabling.fiberType,
+                required: true,
+                onChanged: (value) {
+                  editingCabling = editingCabling.copyWith(fiberType: value);
+                  viewModel.updateFiberOpticCabling(index, editingCabling);
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormTextField(
-          label: 'Type de fibre',
-          hintText: 'Ex: OM3, OM4, OS2, etc.',
-          initialValue: editingCabling.fiberType,
-          required: true,
-          onChanged: (value) {
-            editingCabling = editingCabling.copyWith(fiberType: value);
-            viewModel.updateFiberOpticCabling(index, editingCabling);
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormNumberField(
+                label: 'Nombre de conduits',
+                value: editingCabling.conduitCount,
+                min: 0,
+                max: 100,
+                decimal: false,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(
+                      conduitCount: value.toInt(),
+                    );
+                    viewModel.updateFiberOpticCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: FormNumberField(
+                label: 'Longueur (m)',
+                value: editingCabling.lengthInMeters,
+                decimal: true,
+                min: 0,
+                max: 1000,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(
+                      lengthInMeters: value.toDouble(),
+                    );
+                    viewModel.updateFiberOpticCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormNumberField(
-          label: 'Nombre de conduits',
-          value: editingCabling.conduitCount,
-          min: 0,
-          max: 100,
-          decimal: false,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(
-                conduitCount: value.toInt(),
-              );
-              viewModel.updateFiberOpticCabling(index, editingCabling);
-            }
-          },
+        Row(
+          children: [
+            Expanded(
+              child: FormCheckbox(
+                label: 'Intérieur',
+                value: editingCabling.isInterior,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(isInterior: value);
+                    viewModel.updateFiberOpticCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+            Expanded(
+              child: FormNumberField(
+                label: 'Hauteur d\'installation (m)',
+                value: editingCabling.workHeight,
+                decimal: true,
+                min: 0,
+                max: 20,
+                onChanged: (value) {
+                  if (value != null) {
+                    editingCabling = editingCabling.copyWith(
+                      workHeight: value.toDouble(),
+                    );
+                    viewModel.updateFiberOpticCabling(index, editingCabling);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        FormNumberField(
-          label: 'Longueur (m)',
-          value: editingCabling.lengthInMeters,
-          decimal: true,
-          min: 0,
-          max: 1000,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(
-                lengthInMeters: value.toDouble(),
-              );
-              viewModel.updateFiberOpticCabling(index, editingCabling);
-            }
-          },
-        ),
-
-        FormCheckbox(
-          label: 'Intérieur',
-          value: editingCabling.isInterior,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(isInterior: value);
-              viewModel.updateFiberOpticCabling(index, editingCabling);
-            }
-          },
-        ),
-
-        FormNumberField(
-          label: 'Hauteur d\'installation (m)',
-          value: editingCabling.workHeight,
-          decimal: true,
-          min: 0,
-          max: 20,
-          onChanged: (value) {
-            if (value != null) {
-              editingCabling = editingCabling.copyWith(
-                workHeight: value.toDouble(),
-              );
-              viewModel.updateFiberOpticCabling(index, editingCabling);
-            }
-          },
-        ),
-
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur ce câblage fibre optique',
@@ -1183,78 +1521,71 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
       ],
     );
   }
-}
 
-// In lib/views/screens/report_form/floor_components_form.dart
-// Add this as a new method alongside other component form methods
+  /// Build form for custom component
+  Widget _buildCustomComponentForm(
+    CustomComponent component,
+    int index,
+    TechnicalVisitReportViewModel viewModel,
+  ) {
+    CustomComponent editingComponent = component;
 
-Widget _buildCustomComponentForm(
-  CustomComponent component,
-  int index,
-  TechnicalVisitReportViewModel viewModel,
-) {
-  // Create a local copy for editing
-  CustomComponent editingComponent = component;
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      FormTextField(
-        label: 'Nom du composant',
-        hintText: 'Ex: Système d\'alarme, Tableau électrique, etc.',
-        initialValue: editingComponent.name,
-        required: true,
-        onChanged: (value) {
-          editingComponent = editingComponent.copyWith(name: value);
-          viewModel.updateCustomComponent(index, editingComponent);
-        },
-      ),
-
-      FormTextField(
-        label: 'Description',
-        hintText: 'Décrivez le composant et ses caractéristiques',
-        initialValue: editingComponent.description,
-        required: true,
-        multiline: true,
-        maxLines: 3,
-        onChanged: (value) {
-          editingComponent = editingComponent.copyWith(description: value);
-          viewModel.updateCustomComponent(index, editingComponent);
-        },
-      ),
-
-      FormTextField(
-        label: 'Emplacement',
-        hintText: 'Indiquez où se trouve ce composant',
-        initialValue: editingComponent.location,
-        required: true,
-        onChanged: (value) {
-          editingComponent = editingComponent.copyWith(location: value);
-          viewModel.updateCustomComponent(index, editingComponent);
-        },
-      ),
-
-      FormTextField(
-        label: 'Remarques',
-        hintText: 'Notes additionnelles sur ce composant',
-        initialValue: editingComponent.notes,
-        multiline: true,
-        maxLines: 3,
-        onChanged: (value) {
-          editingComponent = editingComponent.copyWith(notes: value);
-          viewModel.updateCustomComponent(index, editingComponent);
-        },
-      ),
-
-      // Add the photo section
-      const Divider(height: 32),
-      ComponentPhotoSection(
-        componentIndex: index,
-        photos: component.photos,
-        componentType: 'Composant personnalisé',
-      ),
-    ],
-  );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FormTextField(
+          label: 'Nom du composant',
+          hintText: 'Ex: Système d\'alarme, Tableau électrique, etc.',
+          initialValue: editingComponent.name,
+          required: true,
+          onChanged: (value) {
+            editingComponent = editingComponent.copyWith(name: value);
+            viewModel.updateCustomComponent(index, editingComponent);
+          },
+        ),
+        FormTextField(
+          label: 'Description',
+          hintText: 'Décrivez le composant et ses caractéristiques',
+          initialValue: editingComponent.description,
+          required: true,
+          multiline: true,
+          maxLines: 3,
+          onChanged: (value) {
+            editingComponent = editingComponent.copyWith(description: value);
+            viewModel.updateCustomComponent(index, editingComponent);
+          },
+        ),
+        FormTextField(
+          label: 'Emplacement',
+          hintText: 'Indiquez où se trouve ce composant',
+          initialValue: editingComponent.location,
+          required: true,
+          onChanged: (value) {
+            editingComponent = editingComponent.copyWith(location: value);
+            viewModel.updateCustomComponent(index, editingComponent);
+          },
+        ),
+        FormTextField(
+          label: 'Remarques',
+          hintText: 'Notes additionnelles sur ce composant',
+          initialValue: editingComponent.notes,
+          multiline: true,
+          maxLines: 3,
+          onChanged: (value) {
+            editingComponent = editingComponent.copyWith(notes: value);
+            viewModel.updateCustomComponent(index, editingComponent);
+          },
+        ),
+        // Add the photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: component.photos,
+          componentType: 'Composant personnalisé',
+        ),
+      ],
+    );
+  }
 }
 
 /// Adapted form item for network cabinet specifically for the floor-based layout
@@ -1272,13 +1603,11 @@ class NetworkCabinetFormItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Create local state for editing
     NetworkCabinet editingCabinet = cabinet;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Name field
         FormTextField(
           label: 'Nom de la baie',
           hintText: 'Ex: Baie Principale, Switch Étage 2, etc.',
@@ -1289,9 +1618,6 @@ class NetworkCabinetFormItem extends StatelessWidget {
             onUpdate(editingCabinet);
           },
         ),
-
-        // Location field
-        // Location field
         FormTextField(
           label: 'Emplacement précis',
           hintText: 'Ex: Local technique 1er étage, Salle serveur, etc.',
@@ -1302,8 +1628,6 @@ class NetworkCabinetFormItem extends StatelessWidget {
             onUpdate(editingCabinet);
           },
         ),
-
-        // Cabinet state field
         FormTextField(
           label: 'État de la baie',
           hintText: 'Ex: Bon état, Encombré, À remplacer, etc.',
@@ -1314,8 +1638,6 @@ class NetworkCabinetFormItem extends StatelessWidget {
             onUpdate(editingCabinet);
           },
         ),
-
-        // Powered checkbox
         FormCheckbox(
           label: 'Baie alimentée',
           value: editingCabinet.isPowered,
@@ -1328,8 +1650,6 @@ class NetworkCabinetFormItem extends StatelessWidget {
             }
           },
         ),
-
-        // Number fields
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1364,7 +1684,6 @@ class NetworkCabinetFormItem extends StatelessWidget {
             ),
           ],
         ),
-
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1386,8 +1705,6 @@ class NetworkCabinetFormItem extends StatelessWidget {
             const Expanded(child: SizedBox()), // Empty space for alignment
           ],
         ),
-
-        // Notes field
         FormTextField(
           label: 'Remarques',
           hintText: 'Notes additionnelles sur la baie',
