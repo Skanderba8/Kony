@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../view_models/technical_visit_report_view_model.dart';
 import '../../../utils/notification_utils.dart';
 import '../../widgets/report_form/form_text_field.dart';
+import 'floor_components_form.dart';
 import '../../widgets/report_form/form_dropdown.dart';
 import '../../widgets/report_form/form_checkbox.dart';
 import '../../widgets/report_form/section_header.dart';
@@ -22,6 +23,7 @@ import '../../../models/report_sections/copper_cabling.dart';
 import '../../../models/report_sections/fiber_optic_cabling.dart';
 import '../../../models/report_sections/custom_component.dart';
 import '../../widgets/report_form/component_photo_section.dart';
+import '../../widgets/custom_notification.dart';
 
 class ReportFormScreen extends StatefulWidget {
   final String? reportId;
@@ -38,8 +40,70 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late ScrollController _componentsScrollController;
+
+  // Add overlay entry for custom notification
+  OverlayEntry? _notificationOverlay;
+
   void _showValidationError(String message) {
-    NotificationUtils.showError(context, message);
+    _showCustomNotification(message, Icons.warning, Colors.orange);
+  }
+
+  void _showCustomNotification(String message, IconData icon, Color color) {
+    // Remove existing overlay if any
+    _notificationOverlay?.remove();
+
+    _notificationOverlay = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            top: MediaQuery.of(context).padding.top + 80, // Below the header
+            left: 20,
+            right: 20,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, color: Colors.white, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
+
+    Overlay.of(context).insert(_notificationOverlay!);
+
+    // Auto-remove after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      _notificationOverlay?.remove();
+      _notificationOverlay = null;
+    });
   }
 
   int _currentStep = 0;
@@ -78,6 +142,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
   @override
   void dispose() {
+    _notificationOverlay?.remove(); // Clean up overlay
     _pageController.dispose();
     _componentsScrollController.dispose();
     _animationController.dispose();
@@ -216,23 +281,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               ],
             ),
           ),
-          if (viewModel.currentReport?.status == 'draft')
-            TextButton.icon(
-              onPressed: viewModel.isLoading ? null : _saveDraft,
-              icon: const Icon(Icons.save_outlined, size: 18),
-              label: const Text('Sauvegarder'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue.shade700,
-                backgroundColor: Colors.blue.shade50,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
+          // Removed the save button as requested
         ],
       ),
     );
@@ -451,47 +500,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   }
 
   Widget _buildComponentsList(TechnicalVisitReportViewModel viewModel) {
-    final floor = viewModel.currentFloor!;
-
-    return Column(
-      children: [
-        // Network Cabinets
-        if (floor.networkCabinets.isNotEmpty)
-          _buildNetworkCabinetsSection(viewModel, floor.networkCabinets),
-
-        // Perforations
-        if (floor.perforations.isNotEmpty)
-          _buildPerforationsSection(viewModel, floor.perforations),
-
-        // Access Traps
-        if (floor.accessTraps.isNotEmpty)
-          _buildAccessTrapsSection(viewModel, floor.accessTraps),
-
-        // Cable Paths
-        if (floor.cablePaths.isNotEmpty)
-          _buildCablePathsSection(viewModel, floor.cablePaths),
-
-        // Cable Trunkings
-        if (floor.cableTrunkings.isNotEmpty)
-          _buildCableTrunkingsSection(viewModel, floor.cableTrunkings),
-
-        // Conduits
-        if (floor.conduits.isNotEmpty)
-          _buildConduitsSection(viewModel, floor.conduits),
-
-        // Copper Cablings
-        if (floor.copperCablings.isNotEmpty)
-          _buildCopperCablingsSection(viewModel, floor.copperCablings),
-
-        // Fiber Optic Cablings
-        if (floor.fiberOpticCablings.isNotEmpty)
-          _buildFiberOpticCablingsSection(viewModel, floor.fiberOpticCablings),
-
-        // Custom Components
-        if (floor.customComponents.isNotEmpty)
-          _buildCustomComponentsSection(viewModel, floor.customComponents),
-      ],
-    );
+    // Import the existing FloorComponentsForm and use its _buildComponentSections method
+    // or simply return the form content directly
+    return const FloorComponentsForm(); // You'll need to import this
   }
 
   Widget _buildSimpleComponentSelector(
@@ -1153,7 +1164,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     _hideKeyboard();
 
     if (_currentStep < _totalSteps - 1) {
-      // Validate current step before proceeding
+      // Validate current step before proceeding - ENHANCED VALIDATION
       if (_validateCurrentStep()) {
         _pageController.nextPage(
           duration: const Duration(milliseconds: 300),
@@ -1192,25 +1203,25 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     switch (_currentStep) {
       case 0: // Basic info step
         if (_clientNameController.text.trim().isEmpty) {
-          _showValidationError('Veuillez renseigner le nom du client');
+          _showValidationError('Veuillez renseigner le nom du client *');
           return false;
         }
         if (_locationController.text.trim().isEmpty) {
-          _showValidationError('Veuillez renseigner le lieu d\'intervention');
+          _showValidationError('Veuillez renseigner le lieu d\'intervention *');
           return false;
         }
         if (_projectManagerController.text.trim().isEmpty) {
-          _showValidationError('Veuillez renseigner le chef de projet');
+          _showValidationError('Veuillez renseigner le chef de projet *');
           return false;
         }
         if (_technicians.isEmpty) {
-          _showValidationError('Veuillez ajouter au moins un technicien');
+          _showValidationError('Veuillez ajouter au moins un technicien *');
           return false;
         }
         return true;
       case 1: // Project context step
         if (_projectContextController.text.trim().isEmpty) {
-          _showValidationError('Veuillez décrire le contexte du projet');
+          _showValidationError('Veuillez décrire le contexte du projet *');
           return false;
         }
         return true;
@@ -1219,7 +1230,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         return true;
       case 3: // Conclusion step
         if (_conclusionController.text.trim().isEmpty) {
-          _showValidationError('Veuillez rédiger une conclusion');
+          _showValidationError('Veuillez rédiger une conclusion *');
           return false;
         }
         return true;
@@ -1746,11 +1757,11 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   }
 
   Future<void> _submitReport(TechnicalVisitReportViewModel viewModel) async {
+    // HIDE KEYBOARD WHEN SUBMITTING REPORT
+    _hideKeyboard();
+
     if (!viewModel.validateAllSections()) {
-      NotificationUtils.showError(
-        context,
-        'Veuillez compléter toutes les sections requises',
-      );
+      _showValidationError('Veuillez compléter toutes les sections requises');
       return;
     }
 
@@ -1759,7 +1770,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     if (success && mounted) {
       Navigator.pop(context, true);
     } else if (mounted && viewModel.errorMessage != null) {
-      NotificationUtils.showError(context, viewModel.errorMessage!);
+      _showValidationError(viewModel.errorMessage!);
     }
   }
 
@@ -1768,1181 +1779,32 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       context: context,
       builder:
           (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Text('Quitter le rapport ?'),
             content: const Text(
-              'Vos modifications seront automatiquement sauvegardées comme brouillon.',
+              'Voulez-vous sauvegarder vos modifications avant de quitter ?',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Continuer l\'édition'),
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); // Exit form without saving
+                },
+                child: const Text('Quitter sans sauvegarder'),
               ),
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Close dialog
                   // Auto-save as draft before leaving
                   await _saveDraft();
-                  if (mounted) Navigator.pop(context);
+                  if (mounted) Navigator.pop(context); // Exit form
                 },
                 child: const Text('Sauvegarder et quitter'),
               ),
             ],
           ),
     );
-  }
-
-  // Component sections builders
-  Widget _buildNetworkCabinetsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<NetworkCabinet> cabinets,
-  ) {
-    return DynamicListSection<NetworkCabinet>(
-      title: 'Baies Informatiques',
-      subtitle: 'Armoires contenant les équipements réseau',
-      icon: Icons.dns_outlined,
-      items: cabinets,
-      componentType: 'Baie Informatique',
-      itemBuilder:
-          (cabinet, index) =>
-              _buildNetworkCabinetForm(viewModel, cabinet, index),
-      onAddItem: () {
-        _hideKeyboard();
-        viewModel.addNetworkCabinet();
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _scrollToBottom();
-        });
-      },
-      onRemoveItem: (index) => viewModel.removeNetworkCabinet(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _scrollToBottom();
-        });
-      },
-    );
-  }
-
-  Widget _buildNetworkCabinetForm(
-    TechnicalVisitReportViewModel viewModel,
-    NetworkCabinet cabinet,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Nom de la baie',
-                initialValue: cabinet.name,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(name: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: cabinet.location,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(location: value),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormDropdown<String>(
-          label: 'État de la baie',
-          value: cabinet.cabinetState,
-          items:
-              ['Neuve', 'Bonne', 'Correcte', 'À remplacer']
-                  .map(
-                    (state) =>
-                        DropdownMenuItem(value: state, child: Text(state)),
-                  )
-                  .toList(),
-          onChanged:
-              (value) => _updateNetworkCabinet(
-                viewModel,
-                index,
-                cabinet.copyWith(cabinetState: value ?? ''),
-              ),
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Unités rack totales',
-                value: cabinet.totalRackUnits,
-                min: 1,
-                max: 100,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(totalRackUnits: value?.toInt() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Unités disponibles',
-                value: cabinet.availableRackUnits,
-                min: 0,
-                max: 100,
-                onChanged:
-                    (value) => _updateNetworkCabinet(
-                      viewModel,
-                      index,
-                      cabinet.copyWith(availableRackUnits: value?.toInt() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormNumberField(
-          label: 'Prises disponibles',
-          value: cabinet.availableOutlets,
-          min: 0,
-          max: 50,
-          onChanged:
-              (value) => _updateNetworkCabinet(
-                viewModel,
-                index,
-                cabinet.copyWith(availableOutlets: value?.toInt() ?? 0),
-              ),
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: cabinet.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateNetworkCabinet(
-                viewModel,
-                index,
-                cabinet.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateNetworkCabinet(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    NetworkCabinet cabinet,
-  ) {
-    viewModel.updateNetworkCabinet(index, cabinet);
-  }
-
-  Widget _buildPerforationsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<Perforation> perforations,
-  ) {
-    return DynamicListSection<Perforation>(
-      title: 'Percements',
-      subtitle: 'Passages pour câbles dans murs ou planchers',
-      icon: Icons.architecture,
-      items: perforations,
-      componentType: 'Percement',
-      itemBuilder:
-          (perforation, index) =>
-              _buildPerforationForm(viewModel, perforation, index),
-      onAddItem: () => viewModel.addPerforation(),
-      onRemoveItem: (index) => viewModel.removePerforation(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildPerforationForm(
-    TechnicalVisitReportViewModel viewModel,
-    Perforation perforation,
-    int index,
-  ) {
-    return Column(
-      children: [
-        FormTextField(
-          label: 'Emplacement',
-          initialValue: perforation.location,
-          onChanged:
-              (value) => _updatePerforation(
-                viewModel,
-                index,
-                perforation.copyWith(location: value),
-              ),
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Type de mur/plancher',
-                initialValue: perforation.wallType,
-                onChanged:
-                    (value) => _updatePerforation(
-                      viewModel,
-                      index,
-                      perforation.copyWith(wallType: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Épaisseur (cm)',
-                value: perforation.wallDepth,
-                min: 1,
-                max: 200,
-                decimal: true,
-                onChanged:
-                    (value) => _updatePerforation(
-                      viewModel,
-                      index,
-                      perforation.copyWith(wallDepth: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: perforation.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updatePerforation(
-                viewModel,
-                index,
-                perforation.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updatePerforation(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    Perforation perforation,
-  ) {
-    viewModel.updatePerforation(index, perforation);
-  }
-
-  Widget _buildAccessTrapsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<AccessTrap> traps,
-  ) {
-    return DynamicListSection<AccessTrap>(
-      title: 'Trappes d\'accès',
-      subtitle: 'Ouvertures pour accéder aux zones techniques',
-      icon: Icons.door_sliding_outlined,
-      items: traps,
-      componentType: 'Trappe d\'accès',
-      itemBuilder:
-          (trap, index) => _buildAccessTrapForm(viewModel, trap, index),
-      onAddItem: () => viewModel.addAccessTrap(),
-      onRemoveItem: (index) => viewModel.removeAccessTrap(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildAccessTrapForm(
-    TechnicalVisitReportViewModel viewModel,
-    AccessTrap trap,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: trap.location,
-                onChanged:
-                    (value) => _updateAccessTrap(
-                      viewModel,
-                      index,
-                      trap.copyWith(location: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormTextField(
-                label: 'Dimensions',
-                initialValue: trap.trapSize,
-                onChanged:
-                    (value) => _updateAccessTrap(
-                      viewModel,
-                      index,
-                      trap.copyWith(trapSize: value),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: trap.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateAccessTrap(
-                viewModel,
-                index,
-                trap.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateAccessTrap(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    AccessTrap trap,
-  ) {
-    viewModel.updateAccessTrap(index, trap);
-  }
-
-  Widget _buildCablePathsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<CablePath> paths,
-  ) {
-    return DynamicListSection<CablePath>(
-      title: 'Chemins de câbles',
-      subtitle: 'Supports pour acheminer les câbles',
-      icon: Icons.linear_scale,
-      items: paths,
-      componentType: 'Chemin de câbles',
-      itemBuilder: (path, index) => _buildCablePathForm(viewModel, path, index),
-      onAddItem: () => viewModel.addCablePath(),
-      onRemoveItem: (index) => viewModel.removeCablePath(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildCablePathForm(
-    TechnicalVisitReportViewModel viewModel,
-    CablePath path,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: path.location,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(location: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormTextField(
-                label: 'Dimensions',
-                initialValue: path.size,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(size: value),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Longueur (m)',
-                value: path.lengthInMeters,
-                min: 0,
-                max: 1000,
-                decimal: true,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Hauteur (m)',
-                value: path.heightInMeters,
-                min: 0,
-                max: 50,
-                decimal: true,
-                onChanged:
-                    (value) => _updateCablePath(
-                      viewModel,
-                      index,
-                      path.copyWith(heightInMeters: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Type de fixation',
-          initialValue: path.fixationType,
-          onChanged:
-              (value) => _updateCablePath(
-                viewModel,
-                index,
-                path.copyWith(fixationType: value),
-              ),
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: path.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateCablePath(
-                viewModel,
-                index,
-                path.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateCablePath(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    CablePath path,
-  ) {
-    viewModel.updateCablePath(index, path);
-  }
-
-  Widget _buildCableTrunkingsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<CableTrunking> trunkings,
-  ) {
-    return DynamicListSection<CableTrunking>(
-      title: 'Goulottes',
-      subtitle: 'Canaux pour protéger et dissimuler les câbles',
-      icon: Icons.power_input,
-      items: trunkings,
-      componentType: 'Goulotte',
-      itemBuilder:
-          (trunking, index) =>
-              _buildCableTrunkingForm(viewModel, trunking, index),
-      onAddItem: () => viewModel.addCableTrunking(),
-      onRemoveItem: (index) => viewModel.removeCableTrunking(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildCableTrunkingForm(
-    TechnicalVisitReportViewModel viewModel,
-    CableTrunking trunking,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: trunking.location,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(location: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormTextField(
-                label: 'Dimensions',
-                initialValue: trunking.size,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(size: value),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Longueur (m)',
-                value: trunking.lengthInMeters,
-                min: 0,
-                max: 1000,
-                decimal: true,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Hauteur (m)',
-                value: trunking.workHeight,
-                min: 0,
-                max: 50,
-                decimal: true,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(workHeight: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Angles intérieurs',
-                value: trunking.innerAngles,
-                min: 0,
-                max: 100,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(innerAngles: value?.toInt() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FormNumberField(
-                label: 'Angles extérieurs',
-                value: trunking.outerAngles,
-                min: 0,
-                max: 100,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(outerAngles: value?.toInt() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FormNumberField(
-                label: 'Angles plats',
-                value: trunking.flatAngles,
-                min: 0,
-                max: 100,
-                onChanged:
-                    (value) => _updateCableTrunking(
-                      viewModel,
-                      index,
-                      trunking.copyWith(flatAngles: value?.toInt() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: trunking.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateCableTrunking(
-                viewModel,
-                index,
-                trunking.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateCableTrunking(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    CableTrunking trunking,
-  ) {
-    viewModel.updateCableTrunking(index, trunking);
-  }
-
-  Widget _buildConduitsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<Conduit> conduits,
-  ) {
-    return DynamicListSection<Conduit>(
-      title: 'Conduits',
-      subtitle: 'Tubes pour protéger les câbles',
-      icon: Icons.rotate_90_degrees_ccw,
-      items: conduits,
-      componentType: 'Conduit',
-      itemBuilder:
-          (conduit, index) => _buildConduitForm(viewModel, conduit, index),
-      onAddItem: () => viewModel.addConduit(),
-      onRemoveItem: (index) => viewModel.removeConduit(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildConduitForm(
-    TechnicalVisitReportViewModel viewModel,
-    Conduit conduit,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: conduit.location,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(location: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormTextField(
-                label: 'Diamètre',
-                initialValue: conduit.size,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(size: value),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Longueur (m)',
-                value: conduit.lengthInMeters,
-                min: 0,
-                max: 1000,
-                decimal: true,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Hauteur (m)',
-                value: conduit.workHeight,
-                min: 0,
-                max: 50,
-                decimal: true,
-                onChanged:
-                    (value) => _updateConduit(
-                      viewModel,
-                      index,
-                      conduit.copyWith(workHeight: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: conduit.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateConduit(
-                viewModel,
-                index,
-                conduit.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateConduit(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    Conduit conduit,
-  ) {
-    viewModel.updateConduit(index, conduit);
-  }
-
-  Widget _buildCopperCablingsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<CopperCabling> cablings,
-  ) {
-    return DynamicListSection<CopperCabling>(
-      title: 'Câblages cuivre',
-      subtitle: 'Câbles réseau en cuivre (Cat5e, Cat6, etc.)',
-      icon: Icons.cable,
-      items: cablings,
-      componentType: 'Câblage cuivre',
-      itemBuilder:
-          (cabling, index) =>
-              _buildCopperCablingForm(viewModel, cabling, index),
-      onAddItem: () => viewModel.addCopperCabling(),
-      onRemoveItem: (index) => viewModel.removeCopperCabling(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildCopperCablingForm(
-    TechnicalVisitReportViewModel viewModel,
-    CopperCabling cabling,
-    int index,
-  ) {
-    return Column(
-      children: [
-        FormTextField(
-          label: 'Emplacement',
-          initialValue: cabling.location,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(location: value),
-              ),
-        ),
-
-        FormTextField(
-          label: 'Description du trajet',
-          initialValue: cabling.pathDescription,
-          multiline: true,
-          maxLines: 2,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(pathDescription: value),
-              ),
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormDropdown<String>(
-                label: 'Catégorie',
-                value: cabling.category,
-                items:
-                    ['Cat5e', 'Cat6', 'Cat6A', 'Cat7']
-                        .map(
-                          (cat) =>
-                              DropdownMenuItem(value: cat, child: Text(cat)),
-                        )
-                        .toList(),
-                onChanged:
-                    (value) => _updateCopperCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(category: value ?? ''),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Longueur (m)',
-                value: cabling.lengthInMeters,
-                min: 0,
-                max: 1000,
-                decimal: true,
-                onChanged:
-                    (value) => _updateCopperCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormNumberField(
-          label: 'Hauteur de travail (m)',
-          value: cabling.workHeight,
-          min: 0,
-          max: 50,
-          decimal: true,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(workHeight: value?.toDouble() ?? 0),
-              ),
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: cabling.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateCopperCabling(
-                viewModel,
-                index,
-                cabling.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateCopperCabling(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    CopperCabling cabling,
-  ) {
-    viewModel.updateCopperCabling(index, cabling);
-  }
-
-  Widget _buildFiberOpticCablingsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<FiberOpticCabling> cablings,
-  ) {
-    return DynamicListSection<FiberOpticCabling>(
-      title: 'Câblages fibre optique',
-      subtitle: 'Câbles à fibre optique haute performance',
-      icon: Icons.fiber_manual_record,
-      items: cablings,
-      componentType: 'Câblage fibre optique',
-      itemBuilder:
-          (cabling, index) =>
-              _buildFiberOpticCablingForm(viewModel, cabling, index),
-      onAddItem: () => viewModel.addFiberOpticCabling(),
-      onRemoveItem: (index) => viewModel.removeFiberOpticCabling(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildFiberOpticCablingForm(
-    TechnicalVisitReportViewModel viewModel,
-    FiberOpticCabling cabling,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: cabling.location,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(location: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormDropdown<String>(
-                label: 'Type de fibre',
-                value: cabling.fiberType,
-                items:
-                    [
-                          'Monomode',
-                          'Multimode OM3',
-                          'Multimode OM4',
-                          'Multimode OM5',
-                        ]
-                        .map(
-                          (type) =>
-                              DropdownMenuItem(value: type, child: Text(type)),
-                        )
-                        .toList(),
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(fiberType: value ?? ''),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Nombre de tiroirs',
-                min: 1,
-                max: 50,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(drawerCount: value?.toInt() ?? 1),
-                    ),
-                value: null,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Nombre de conduits',
-                value: cabling.conduitCount,
-                min: 1,
-                max: 100,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(conduitCount: value?.toInt() ?? 1),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        Row(
-          children: [
-            Expanded(
-              child: FormNumberField(
-                label: 'Longueur (m)',
-                value: cabling.lengthInMeters,
-                min: 0,
-                max: 10000,
-                decimal: true,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(lengthInMeters: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormNumberField(
-                label: 'Hauteur (m)',
-                value: cabling.workHeight,
-                min: 0,
-                max: 50,
-                decimal: true,
-                onChanged:
-                    (value) => _updateFiberOpticCabling(
-                      viewModel,
-                      index,
-                      cabling.copyWith(workHeight: value?.toDouble() ?? 0),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Notes',
-          initialValue: cabling.notes,
-          multiline: true,
-          maxLines: 3,
-          onChanged:
-              (value) => _updateFiberOpticCabling(
-                viewModel,
-                index,
-                cabling.copyWith(notes: value),
-              ),
-        ),
-      ],
-    );
-  }
-
-  void _updateFiberOpticCabling(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    FiberOpticCabling cabling,
-  ) {
-    viewModel.updateFiberOpticCabling(index, cabling);
-  }
-
-  Widget _buildCustomComponentsSection(
-    TechnicalVisitReportViewModel viewModel,
-    List<CustomComponent> components,
-  ) {
-    return DynamicListSection<CustomComponent>(
-      title: 'Composants personnalisés',
-      subtitle: 'Éléments sur mesure selon vos besoins',
-      icon: Icons.add_box,
-      items: components,
-      componentType: 'Composant personnalisé',
-      itemBuilder:
-          (component, index) =>
-              _buildCustomComponentForm(viewModel, component, index),
-      onAddItem: () => viewModel.addCustomComponent(),
-      onRemoveItem: (index) => viewModel.removeCustomComponent(index),
-      onAddOtherComponentType: () {
-        _hideKeyboard();
-        _showComponentTypeDialog(viewModel);
-      },
-    );
-  }
-
-  Widget _buildCustomComponentForm(
-    TechnicalVisitReportViewModel viewModel,
-    CustomComponent component,
-    int index,
-  ) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: FormTextField(
-                label: 'Nom du composant',
-                initialValue: component.name,
-                required: true,
-                onChanged:
-                    (value) => _updateCustomComponent(
-                      viewModel,
-                      index,
-                      component.copyWith(name: value),
-                    ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormTextField(
-                label: 'Emplacement',
-                initialValue: component.location,
-                onChanged:
-                    (value) => _updateCustomComponent(
-                      viewModel,
-                      index,
-                      component.copyWith(location: value),
-                    ),
-              ),
-            ),
-          ],
-        ),
-
-        FormTextField(
-          label: 'Description',
-          initialValue: component.description,
-          multiline: true,
-          maxLines: 3,
-          hintText: 'Décrivez ce composant et ses caractéristiques...',
-          onChanged:
-              (value) => _updateCustomComponent(
-                viewModel,
-                index,
-                component.copyWith(description: value),
-              ),
-        ),
-
-        FormTextField(
-          label: 'Notes techniques',
-          initialValue: component.notes,
-          multiline: true,
-          maxLines: 3,
-          hintText: 'Observations, recommandations ou remarques spécifiques...',
-          onChanged:
-              (value) => _updateCustomComponent(
-                viewModel,
-                index,
-                component.copyWith(notes: value),
-              ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Photo section
-        ComponentPhotoSection(
-          componentIndex: index,
-          photos: component.photos,
-          componentType: 'Composant personnalisé',
-        ),
-      ],
-    );
-  }
-
-  void _updateCustomComponent(
-    TechnicalVisitReportViewModel viewModel,
-    int index,
-    CustomComponent component,
-  ) {
-    viewModel.updateCustomComponent(index, component);
   }
 }
