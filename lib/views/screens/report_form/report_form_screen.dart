@@ -1897,10 +1897,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () async {
-                              Navigator.pop(context); // Close dialog first
-                              Navigator.pop(context); // Exit form immediately
+                              Navigator.pop(
+                                context,
+                              ); // Close exit confirmation dialog
 
-                              // Show loading indicator
+                              // OPTIONAL: Show loading indicator briefly
+                              final BuildContext loadingContext = context;
                               showDialog(
                                 context: context,
                                 barrierDismissible: false,
@@ -1910,8 +1912,16 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                                     ),
                               );
 
-                              // Save as draft
-                              _saveDraft();
+                              // Trigger save draft in background
+                              _saveDraft(); // This already runs without await and saves silently
+
+                              // Pop loading dialog after saving starts
+                              if (Navigator.canPop(loadingContext)) {
+                                Navigator.pop(loadingContext);
+                              }
+
+                              // Go back to ReportList
+                              Navigator.pop(context);
                             },
                             icon: const Icon(Icons.save, size: 18),
                             label: const Text('Sauvegarder et quitter'),
