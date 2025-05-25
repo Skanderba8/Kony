@@ -15,40 +15,71 @@ class AppSidebar extends StatefulWidget {
   State<AppSidebar> createState() => _AppSidebarState();
 }
 
-class _AppSidebarState extends State<AppSidebar>
-    with SingleTickerProviderStateMixin {
+class _AppSidebarState extends State<AppSidebar> with TickerProviderStateMixin {
   UserModel? _userModel;
   bool _isLoading = true;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+  late AnimationController _slideController;
+  late AnimationController _fadeController;
+  late AnimationController _itemController;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _itemFadeAnimation;
+
+  String? _selectedItem;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _initializeAnimations();
+    _loadUserData();
+  }
+
+  void _initializeAnimations() {
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    _itemController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(-0.3, 0),
+      begin: const Offset(-1.0, 0),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
     );
 
-    _loadUserData();
-    _animationController.forward();
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+
+    _itemFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _itemController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideController.forward();
+    _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _itemController.forward();
+    });
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _slideController.dispose();
+    _fadeController.dispose();
+    _itemController.dispose();
     super.dispose();
   }
 
@@ -88,46 +119,65 @@ class _AppSidebarState extends State<AppSidebar>
     }
   }
 
+  bool get isAdmin => widget.userRole == 'admin';
+
+  LinearGradient get _roleGradient =>
+      isAdmin
+          ? LinearGradient(
+            colors: [Colors.indigo.shade600, Colors.purple.shade500],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+          : LinearGradient(
+            colors: [Colors.blue.shade600, Colors.cyan.shade500],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+  Color get _roleColor =>
+      isAdmin ? Colors.indigo.shade600 : Colors.blue.shade600;
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
 
-    // Fallback to Auth user email if Firestore data not available
     final String userEmail = _userModel?.email ?? user?.email ?? '';
     final String userName = _userModel?.name ?? 'Utilisateur';
-    final String userRoleText =
-        widget.userRole == 'admin' ? 'Administrateur' : 'Technicien';
+    final String userRoleText = isAdmin ? 'Administrateur' : 'Technicien';
 
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.85,
-      child: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.white, Colors.grey.shade50],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Header Section
-                  _buildHeaderSection(userName, userEmail, userRoleText),
-
-                  // Menu Items
-                  Expanded(
-                    child: SingleChildScrollView(child: _buildMenuSection()),
+    return SlideTransition(
+      position: _slideAnimation,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.85,
+        height: MediaQuery.of(context).size.height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(5, 0),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              children: [
+                _buildModernHeader(userName, userEmail, userRoleText),
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _itemFadeAnimation,
+                    child: _buildMenuContent(),
                   ),
-
-                  // Footer
-                  _buildFooterSection(),
-                ],
-              ),
+                ),
+                FadeTransition(
+                  opacity: _itemFadeAnimation,
+                  child: _buildModernFooter(),
+                ),
+              ],
             ),
           ),
         ),
@@ -135,35 +185,19 @@ class _AppSidebarState extends State<AppSidebar>
     );
   }
 
-  Widget _buildHeaderSection(
+  Widget _buildModernHeader(
     String userName,
     String userEmail,
     String userRoleText,
   ) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors:
-              widget.userRole == 'admin'
-                  ? [Colors.indigo.shade600, Colors.indigo.shade500]
-                  : [Colors.blue.shade600, Colors.blue.shade500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: _roleGradient,
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: (widget.userRole == 'admin' ? Colors.indigo : Colors.blue)
-                .withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -171,132 +205,167 @@ class _AppSidebarState extends State<AppSidebar>
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                onPressed: widget.onClose,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  padding: const EdgeInsets.all(8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: widget.onClose,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
 
           // User avatar and info
           _isLoading
               ? const CircularProgressIndicator(color: Colors.white)
               : Column(
                 children: [
-                  // Avatar
+                  // Avatar with glassmorphism effect
                   Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.grey.shade100,
-                      backgroundImage:
-                          _userModel?.profilePictureUrl != null
-                              ? NetworkImage(_userModel!.profilePictureUrl!)
-                                  as ImageProvider
-                              : null,
-                      child:
-                          _userModel?.profilePictureUrl == null
-                              ? Icon(
-                                Icons.person,
-                                size: 32,
-                                color:
-                                    widget.userRole == 'admin'
-                                        ? Colors.indigo.shade600
-                                        : Colors.blue.shade600,
-                              )
-                              : null,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // User name - Fixed overflow
-                  SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      userName.length > 20
-                          ? '${userName.substring(0, 20)}...'
-                          : userName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-
-                  const SizedBox(height: 3),
-
-                  // User email - Fixed overflow
-                  SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      userEmail.length > 25
-                          ? '${userEmail.substring(0, 25)}...'
-                          : userEmail,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // Role badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 36,
+                        backgroundColor: Colors.grey.shade100,
+                        backgroundImage:
+                            _userModel?.profilePictureUrl != null
+                                ? NetworkImage(_userModel!.profilePictureUrl!)
+                                : null,
+                        child:
+                            _userModel?.profilePictureUrl == null
+                                ? Icon(
+                                  Icons.person,
+                                  size: 36,
+                                  color: _roleColor,
+                                )
+                                : null,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // User name with animation
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 800),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Transform.translate(
+                        offset: Offset(0, 20 * (1 - value)),
+                        child: Opacity(
+                          opacity: value,
+                          child: Text(
+                            userName.length > 22
+                                ? '${userName.substring(0, 22)}...'
+                                : userName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // User email
+                  Text(
+                    userEmail.length > 28
+                        ? '${userEmail.substring(0, 28)}...'
+                        : userEmail,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Role badge with modern design
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.3),
                         width: 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          widget.userRole == 'admin'
-                              ? Icons.admin_panel_settings
-                              : Icons.engineering,
-                          color: Colors.white,
-                          size: 14,
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isAdmin
+                                ? Icons.admin_panel_settings
+                                : Icons.engineering,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 8),
                         Text(
                           userRoleText,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
@@ -309,200 +378,208 @@ class _AppSidebarState extends State<AppSidebar>
     );
   }
 
-  Widget _buildMenuSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+  Widget _buildMenuContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Navigation section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              'Navigation',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade600,
-                letterSpacing: 1.1,
+          _buildMenuSection('Navigation', [
+            _MenuItemData(
+              icon: Icons.dashboard_rounded,
+              title: 'Tableau de bord',
+              action: () => _navigateToScreen(context, 'dashboard'),
+              isHighlighted: true,
+            ),
+            _MenuItemData(
+              icon: Icons.assignment_rounded,
+              title: 'Rapports',
+              action: () => _navigateToScreen(context, 'reports'),
+            ),
+          ]),
+
+          if (isAdmin) ...[
+            const SizedBox(height: 8),
+            _buildMenuSection('Administration', [
+              _MenuItemData(
+                icon: Icons.people_rounded,
+                title: 'Gestion des utilisateurs',
+                action: () => _navigateToScreen(context, 'users'),
               ),
-            ),
-          ),
-
-          _buildMenuItem(
-            icon: Icons.dashboard_outlined,
-            title: 'Tableau de bord',
-            onTap: () => _navigateToScreen(context, 'dashboard'),
-            isHighlighted: true,
-          ),
-
-          _buildMenuItem(
-            icon: Icons.assignment_outlined,
-            title: 'Rapports',
-            onTap: () => _navigateToScreen(context, 'reports'),
-          ),
-
-          if (widget.userRole == 'admin') ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Text(
-                'Administration',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600,
-                  letterSpacing: 1.1,
-                ),
+              _MenuItemData(
+                icon: Icons.analytics_rounded,
+                title: 'Statistiques',
+                action: () => _navigateToScreen(context, 'stats'),
               ),
-            ),
-
-            _buildMenuItem(
-              icon: Icons.people_outline,
-              title: 'Gestion des utilisateurs',
-              onTap: () => _navigateToScreen(context, 'users'),
-            ),
-
-            _buildMenuItem(
-              icon: Icons.analytics_outlined,
-              title: 'Statistiques',
-              onTap: () => _navigateToScreen(context, 'stats'),
-            ),
+            ]),
           ],
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          _buildMenuSection('Compte', [
+            _MenuItemData(
+              icon: Icons.person_rounded,
+              title: 'Profil',
+              action: () => _navigateToScreen(context, 'profile'),
+            ),
+            _MenuItemData(
+              icon: Icons.settings_rounded,
+              title: 'Paramètres',
+              action: () => _navigateToScreen(context, 'settings'),
+            ),
+          ]),
+
+          const SizedBox(height: 24),
+
+          // Logout section
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              'Compte',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade600,
-                letterSpacing: 1.1,
-              ),
-            ),
-          ),
-
-          _buildMenuItem(
-            icon: Icons.person_outline,
-            title: 'Profil',
-            onTap: () => _navigateToScreen(context, 'profile'),
-          ),
-
-          _buildMenuItem(
-            icon: Icons.settings_outlined,
-            title: 'Paramètres',
-            onTap: () => _navigateToScreen(context, 'settings'),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Logout section - RESTORED
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red.shade100),
-            ),
-            child: _buildMenuItem(
-              icon: Icons.logout,
-              title: 'Déconnexion',
-              onTap: () => _logout(context),
-              textColor: Colors.red.shade700,
-              iconColor: Colors.red.shade600,
-              showBackground: false,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildModernLogoutButton(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isHighlighted = false,
-    Color? textColor,
-    Color? iconColor,
-    bool showBackground = true,
-  }) {
-    final Color defaultIconColor =
-        widget.userRole == 'admin'
-            ? Colors.indigo.shade600
-            : Colors.blue.shade600;
+  Widget _buildMenuSection(String title, List<_MenuItemData> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade500,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...items.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          return TweenAnimationBuilder<double>(
+            duration: Duration(milliseconds: 600 + (index * 100)),
+            tween: Tween(begin: 0.0, end: 1.0),
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(30 * (1 - value), 0),
+                child: Opacity(
+                  opacity: value,
+                  child: _buildModernMenuItem(item),
+                ),
+              );
+            },
+          );
+        }),
+      ],
+    );
+  }
 
-    final Color defaultTextColor = Colors.grey.shade800;
+  Widget _buildModernMenuItem(_MenuItemData item) {
+    final isSelected = _selectedItem == item.title;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          onTap: () {
+            setState(() {
+              _selectedItem = item.title;
+            });
+            Future.delayed(const Duration(milliseconds: 150), () {
+              item.action();
+            });
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color:
-                  showBackground && isHighlighted
-                      ? (widget.userRole == 'admin'
-                          ? Colors.indigo.shade50
-                          : Colors.blue.shade50)
-                      : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  isHighlighted && showBackground
-                      ? Border.all(
-                        color:
-                            widget.userRole == 'admin'
-                                ? Colors.indigo.shade200
-                                : Colors.blue.shade200,
-                        width: 1,
-                      )
-                      : null,
+                  isSelected
+                      ? _roleColor.withOpacity(0.1)
+                      : (item.isHighlighted
+                          ? _roleColor.withOpacity(0.05)
+                          : Colors.transparent),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color:
+                    isSelected
+                        ? _roleColor.withOpacity(0.3)
+                        : (item.isHighlighted
+                            ? _roleColor.withOpacity(0.1)
+                            : Colors.transparent),
+                width: 1,
+              ),
             ),
             child: Row(
               children: [
+                // Icon container with modern design
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color:
-                        showBackground
-                            ? (iconColor ?? defaultIconColor).withOpacity(0.1)
-                            : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
+                        isSelected
+                            ? _roleColor.withOpacity(0.15)
+                            : (item.isHighlighted
+                                ? _roleColor.withOpacity(0.1)
+                                : Colors.grey.shade100),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    icon,
-                    color: iconColor ?? defaultIconColor,
-                    size: 18,
+                    item.icon,
+                    color:
+                        isSelected
+                            ? _roleColor
+                            : (item.isHighlighted
+                                ? _roleColor
+                                : Colors.grey.shade600),
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 10),
+
+                const SizedBox(width: 16),
+
+                // Title
                 Expanded(
                   child: Text(
-                    title,
+                    item.title,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight:
-                          isHighlighted ? FontWeight.w600 : FontWeight.w500,
-                      color: textColor ?? defaultTextColor,
+                          isSelected
+                              ? FontWeight.w600
+                              : (item.isHighlighted
+                                  ? FontWeight.w600
+                                  : FontWeight.w500),
+                      color:
+                          isSelected
+                              ? _roleColor
+                              : (item.isHighlighted
+                                  ? Colors.grey.shade800
+                                  : Colors.grey.shade700),
+                      letterSpacing: 0.2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (isHighlighted)
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color:
-                        widget.userRole == 'admin'
-                            ? Colors.indigo.shade400
-                            : Colors.blue.shade400,
+
+                // Arrow indicator for highlighted items
+                if (item.isHighlighted || isSelected)
+                  AnimatedRotation(
+                    turns: isSelected ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: _roleColor.withOpacity(0.7),
+                    ),
                   ),
               ],
             ),
@@ -512,76 +589,131 @@ class _AppSidebarState extends State<AppSidebar>
     );
   }
 
-  Widget _buildFooterSection() {
+  Widget _buildModernLogoutButton() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey.shade50, Colors.grey.shade100],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.shade400, Colors.red.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => _logout(context),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    Icons.info_outline,
-                    color: Colors.blue.shade600,
-                    size: 14,
+                  child: const Icon(
+                    Icons.exit_to_app_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Kony Solutions',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                      Text(
-                        'Version 1.0.3',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'Déconnexion',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
                   ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Colors.white70,
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // In lib/views/widgets/app_sidebar.dart
-  // Replace the existing _navigateToScreen method with this updated version:
+  Widget _buildModernFooter() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.grey.shade50, Colors.grey.shade100],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: _roleGradient,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.info_outline_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Kony Solutions',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  Text(
+                    'Version 1.0.3',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _navigateToScreen(BuildContext context, String screen) {
-    Navigator.pop(context); // Close the drawer
+    Navigator.pop(context);
 
     if (screen == 'dashboard') {
-      // Navigate to respective home screen based on role
-      if (widget.userRole == 'admin') {
+      if (isAdmin) {
         Navigator.pushReplacementNamed(context, '/admin');
       } else {
         Navigator.pushReplacementNamed(context, '/technician');
@@ -589,35 +721,30 @@ class _AppSidebarState extends State<AppSidebar>
       return;
     }
 
-    if (screen == 'users' && widget.userRole == 'admin') {
+    if (screen == 'users' && isAdmin) {
       Navigator.pushNamed(context, '/user-management');
       return;
     }
 
-    if (screen == 'stats' && widget.userRole == 'admin') {
+    if (screen == 'stats' && isAdmin) {
       Navigator.pushNamed(context, '/statistics');
       return;
     }
 
     if (screen == 'reports') {
-      // Updated reports navigation
-      if (widget.userRole == 'admin') {
-        // For admin: go to the comprehensive admin reports screen
+      if (isAdmin) {
         Navigator.pushNamed(context, '/admin-reports');
       } else {
-        // For technicians: go to their personal report list
         Navigator.pushNamed(context, '/report-list');
       }
       return;
     }
 
     if (screen == 'profile') {
-      // Navigate to profile screen
       Navigator.pushNamed(context, '/profile');
       return;
     }
 
-    // For other screens show "En cours de développement"
     _showFeatureDialog(context, 'Cette fonctionnalité');
   }
 
@@ -627,13 +754,24 @@ class _AppSidebarState extends State<AppSidebar>
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           title: Row(
             children: [
-              Icon(Icons.construction, color: Colors.orange.shade600),
-              const SizedBox(width: 8),
-              const Text('En développement'),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.construction_rounded,
+                  color: Colors.orange.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('En développement', style: TextStyle(fontSize: 18)),
             ],
           ),
           content: Text('$feature est en cours de développement.'),
@@ -641,15 +779,13 @@ class _AppSidebarState extends State<AppSidebar>
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: _roleColor,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Compris',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Compris'),
             ),
           ],
         );
@@ -658,19 +794,29 @@ class _AppSidebarState extends State<AppSidebar>
   }
 
   void _logout(BuildContext context) async {
-    // Show confirmation dialog
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.logout, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Déconnexion'),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.exit_to_app_rounded,
+                  color: Colors.red.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Déconnexion'),
             ],
           ),
           content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
@@ -686,14 +832,12 @@ class _AppSidebarState extends State<AppSidebar>
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Déconnexion',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Déconnexion'),
             ),
           ],
         );
@@ -710,4 +854,18 @@ class _AppSidebarState extends State<AppSidebar>
       }
     }
   }
+}
+
+class _MenuItemData {
+  final IconData icon;
+  final String title;
+  final VoidCallback action;
+  final bool isHighlighted;
+
+  _MenuItemData({
+    required this.icon,
+    required this.title,
+    required this.action,
+    this.isHighlighted = false,
+  });
 }

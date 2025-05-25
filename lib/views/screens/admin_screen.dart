@@ -298,43 +298,6 @@ class _AdminScreenState extends State<AdminScreen>
         backgroundColor: Colors.white,
         foregroundColor: Colors.blue.shade800,
         centerTitle: true,
-        actions: [
-          // Notification bell
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined),
-                onPressed: _showNotifications,
-                tooltip: 'Notifications',
-              ),
-              if (_newSubmittedCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '$_newSubmittedCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
       ),
       body: SafeArea(
         child: FadeTransition(
