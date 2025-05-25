@@ -1,5 +1,6 @@
 // lib/app/routes.dart
 import 'package:flutter/material.dart';
+import 'package:kony/views/screens/report_form/report_form_screen.dart';
 import 'package:kony/views/screens/report_list_screen.dart';
 import 'package:kony/views/screens/statistics_screen.dart';
 import 'package:kony/views/screens/admin_reports_screen.dart';
@@ -19,6 +20,7 @@ class AppRoutes {
   static const String reportList = '/report-list';
   static const String statistics = '/statistics';
   static const String adminReports = '/admin-reports'; // Add this line
+  static const String reportForm = '/report-form'; // ← Add this line
 
   // Define routes for navigator
   static Map<String, WidgetBuilder> getRoutes() {
@@ -31,6 +33,7 @@ class AppRoutes {
       adminReports: (context) => const AdminReportsScreen(), // Add this line
       reportList: (context) => const ReportListScreen(),
       profile: (context) => const ProfileScreen(),
+      reportForm: (context) => const ReportFormScreen(), // ← Add this line
       // PDF viewer route is handled dynamically since it requires file parameters
     };
   }
