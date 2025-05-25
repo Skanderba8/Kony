@@ -25,22 +25,13 @@ class _AdminScreenState extends State<AdminScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // Report filter state
-  final String _selectedReportFilter = 'all';
-  final List<String> _reportFilters = [
-    'all',
-    'submitted',
-    'reviewed',
-    'approved',
-  ];
-
   // Notification state
   int _submittedCount = 0;
   int _reviewedCount = 0;
   int _approvedCount = 0;
+  int _totalReports = 0;
   int _newSubmittedCount = 0;
   DateTime? _lastViewedSubmittedTime;
-  final bool _hasCheckedNotifications = false;
 
   @override
   void initState() {
@@ -72,7 +63,6 @@ class _AdminScreenState extends State<AdminScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
-    // Save the current time when leaving the admin screen
     NotificationService.saveLastOpenTime();
     super.dispose();
   }
@@ -80,21 +70,17 @@ class _AdminScreenState extends State<AdminScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      // App is going to background, save the time
       NotificationService.saveLastOpenTime();
     } else if (state == AppLifecycleState.resumed) {
-      // App is coming back to foreground, refresh notifications
       _loadNotificationData();
       _loadReportCounts();
     }
   }
 
-  // Load notification data from SharedPreferences
   Future<void> _loadNotificationData() async {
     _lastViewedSubmittedTime =
         await NotificationService.getLastViewedSubmittedTime();
     if (_lastViewedSubmittedTime == null) {
-      // If no previous data, set it to now (first time user)
       await NotificationService.saveLastViewedSubmittedTime();
       _lastViewedSubmittedTime = DateTime.now();
     }
@@ -104,15 +90,10 @@ class _AdminScreenState extends State<AdminScreen>
   Future<void> _loadReportCounts() async {
     final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
-    // Listen to submitted reports stream and calculate new reports
     viewModel.getSubmittedReportsStream().listen((reports) {
       if (mounted) {
-        final int oldSubmittedCount = _submittedCount;
-
         setState(() {
           _submittedCount = reports.length;
-
-          // Calculate new submitted reports since last viewed time
           if (_lastViewedSubmittedTime != null) {
             _newSubmittedCount =
                 reports.where((report) {
@@ -124,11 +105,6 @@ class _AdminScreenState extends State<AdminScreen>
             _newSubmittedCount = 0;
           }
         });
-
-        // Debug logging
-        debugPrint('Submitted reports count: $_submittedCount');
-        debugPrint('New submitted reports: $_newSubmittedCount');
-        debugPrint('Last viewed time: $_lastViewedSubmittedTime');
       }
     });
 
@@ -147,9 +123,16 @@ class _AdminScreenState extends State<AdminScreen>
         });
       }
     });
+
+    viewModel.getAllReportsStream().listen((reports) {
+      if (mounted) {
+        setState(() {
+          _totalReports = reports.length;
+        });
+      }
+    });
   }
 
-  // Navigation methods
   void _navigateToUserManagement() {
     Navigator.pushNamed(context, AppRoutes.userManagement);
   }
@@ -158,28 +141,7 @@ class _AdminScreenState extends State<AdminScreen>
     Navigator.pushNamed(context, AppRoutes.statistics);
   }
 
-  // Handle logout
-  Future<void> _logout() async {
-    final viewModel = Provider.of<AdminViewModel>(context, listen: false);
-
-    try {
-      await viewModel.logout();
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/');
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationUtils.showError(
-          context,
-          "Erreur lors de la déconnexion: ${viewModel.errorMessage ?? e}",
-        );
-      }
-    }
-  }
-
-  // Show reports for selected filter
   void _showReportsList(String filter) {
-    // Navigate to the dedicated reports screen with the selected filter
     Navigator.pushNamed(
       context,
       '/admin-reports',
@@ -188,90 +150,183 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   void _markSubmittedNotificationsAsRead() async {
-    // Save current time as last viewed submitted time
     await NotificationService.saveLastViewedSubmittedTime();
-
     setState(() {
       _newSubmittedCount = 0;
       _lastViewedSubmittedTime = DateTime.now();
     });
-
     NotificationUtils.showSuccess(context, 'Notifications marquées comme lues');
   }
 
-  void _showNotifications() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Icon(Icons.notifications, color: Colors.blue.shade600),
-                const SizedBox(width: 8),
-                const Text('Notifications'),
+  Widget _buildNotificationDropdown(AdminViewModel viewModel) {
+    return StreamBuilder<List<TechnicalVisitReport>>(
+      stream: viewModel.getSubmittedReportsStream(),
+      builder: (context, snapshot) {
+        final reports = snapshot.data ?? [];
+        final newReports =
+            reports.where((report) {
+              if (_lastViewedSubmittedTime == null) return false;
+              final reportTime = report.submittedAt ?? report.createdAt;
+              return reportTime.isAfter(_lastViewedSubmittedTime!);
+            }).toList();
+
+        return PopupMenuButton<String>(
+          offset: const Offset(0, 45),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          constraints: const BoxConstraints(
+            minWidth: 320,
+            maxWidth: 350,
+            maxHeight: 400,
+          ),
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                if (_newSubmittedCount > 0) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.assignment_turned_in,
-                          color: Colors.orange.shade600,
-                          size: 20,
+                IconButton(
+                  icon: Icon(
+                    Icons.notifications_outlined,
+                    color: Colors.grey.shade700,
+                  ),
+                  onPressed: null,
+                  tooltip: 'Notifications',
+                ),
+                if (newReports.isNotEmpty)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '${newReports.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '$_newSubmittedCount nouveau${_newSubmittedCount > 1 ? 'x' : ''} rapport${_newSubmittedCount > 1 ? 's' : ''} soumis',
-                            style: TextStyle(
-                              color: Colors.orange.shade800,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ] else ...[
-                  const Row(
+              ],
+            ),
+          ),
+          itemBuilder: (context) {
+            if (newReports.isEmpty) {
+              return [
+                const PopupMenuItem<String>(
+                  enabled: false,
+                  child: _EmptyNotificationItem(),
+                ),
+              ];
+            }
+
+            final items = <PopupMenuItem<String>>[];
+
+            items.add(
+              PopupMenuItem<String>(
+                enabled: false,
+                child: _NotificationHeader(count: newReports.length),
+              ),
+            );
+
+            for (int i = 0; i < newReports.length && i < 5; i++) {
+              items.add(
+                PopupMenuItem<String>(
+                  value: newReports[i].id,
+                  child: _NotificationItem(report: newReports[i]),
+                ),
+              );
+            }
+
+            if (newReports.length > 5) {
+              items.add(
+                PopupMenuItem<String>(
+                  value: 'show_all',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Center(
+                      child: Text(
+                        'Voir ${newReports.length - 5} de plus...',
+                        style: TextStyle(
+                          color: Colors.indigo.shade600,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            items.add(
+              PopupMenuItem<String>(
+                value: 'mark_read',
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.check_circle, color: Colors.green, size: 20),
-                      SizedBox(width: 8),
-                      Text('Aucune nouvelle notification'),
+                      Icon(
+                        Icons.done_all,
+                        size: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Marquer comme lu',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fermer'),
-              ),
-              if (_newSubmittedCount > 0)
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showReportsList('submitted');
-                  },
-                  child: const Text('Voir Rapports'),
                 ),
-            ],
-          ),
+              ),
+            );
+
+            return items;
+          },
+          onSelected: (value) {
+            if (value == 'mark_read') {
+              _markSubmittedNotificationsAsRead();
+            } else if (value == 'show_all') {
+              _showReportsList('submitted');
+            } else
+              _showReportsList('submitted');
+          },
+        );
+      },
     );
   }
 
@@ -293,11 +348,17 @@ class _AdminScreenState extends State<AdminScreen>
           icon: const Icon(Icons.menu),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        automaticallyImplyLeading: false,
         elevation: 0,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.blue.shade800,
+        foregroundColor: Colors.indigo.shade800,
         centerTitle: true,
+        actions: [
+          Consumer<AdminViewModel>(
+            builder: (context, viewModel, child) {
+              return _buildNotificationDropdown(viewModel);
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: FadeTransition(
@@ -309,40 +370,20 @@ class _AdminScreenState extends State<AdminScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome Section
                   _buildWelcomeSection(),
-
                   const SizedBox(height: 24),
-
-                  // Notifications Section (if there are new reports)
                   if (_newSubmittedCount > 0) ...[
-                    _buildNotificationsSection(),
+                    _buildNotificationBanner(),
                     const SizedBox(height: 24),
                   ],
-
-                  const SizedBox(height: 8),
-
-                  // Quick Stats Section
-                  _buildQuickStatsSection(),
-
+                  _buildQuickStatsGrid(),
                   const SizedBox(height: 32),
-
-                  // Reports Management Section
                   _buildReportsManagementSection(),
-
                   const SizedBox(height: 32),
-
-                  // Administration Tools Section
-                  _buildAdministrationToolsSection(),
-
+                  _buildQuickActionsSection(),
                   const SizedBox(height: 32),
-
-                  // System Information Section
-                  _buildSystemInformationSection(),
-
+                  _buildSystemStatusSection(),
                   const SizedBox(height: 20),
-
-                  // Footer
                   _buildFooterSection(),
                 ],
               ),
@@ -358,36 +399,35 @@ class _AdminScreenState extends State<AdminScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withOpacity(0.3),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 15,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome Text
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Colors.indigo.shade500, Colors.indigo.shade600],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.admin_panel_settings,
                   color: Colors.white,
-                  size: 28,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 16),
@@ -398,18 +438,18 @@ class _AdminScreenState extends State<AdminScreen>
                     Text(
                       'Tableau de bord',
                       style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Administrateur',
+                      'Administration',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: Colors.grey.shade800,
                       ),
                     ),
                   ],
@@ -417,26 +457,28 @@ class _AdminScreenState extends State<AdminScreen>
               ),
             ],
           ),
-
           const SizedBox(height: 20),
-
-          // Admin message
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.indigo.shade50,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.indigo.shade100),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.security, color: Colors.yellow, size: 24),
-                SizedBox(width: 12),
+                Icon(
+                  Icons.info_outline,
+                  color: Colors.indigo.shade600,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Gérez les utilisateurs, supervisez les rapports et analysez les performances',
+                    'Gérez les utilisateurs, supervisez les rapports et analysez les performances du système',
                     style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.white,
+                      fontSize: 14,
+                      color: Colors.indigo.shade700,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -449,42 +491,37 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildNotificationsSection() {
+  Widget _buildNotificationBanner() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.amber.shade50, Colors.orange.shade50],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.orange.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.orange.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.orange.shade100,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  Icons.notification_important,
-                  color: Colors.orange.shade700,
-                  size: 24,
+                  Icons.notification_important_outlined,
+                  color: Colors.orange.shade600,
+                  size: 20,
                 ),
               ),
               const SizedBox(width: 12),
@@ -493,7 +530,7 @@ class _AdminScreenState extends State<AdminScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Nouveaux Rapports',
+                      'Nouveaux rapports soumis',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -501,9 +538,9 @@ class _AdminScreenState extends State<AdminScreen>
                       ),
                     ),
                     Text(
-                      '$_newSubmittedCount rapport${_newSubmittedCount > 1 ? 's' : ''} soumis depuis votre dernière consultation',
+                      '$_newSubmittedCount rapport${_newSubmittedCount > 1 ? 's' : ''} en attente de révision',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: Colors.orange.shade700,
                       ),
                     ),
@@ -511,9 +548,12 @@ class _AdminScreenState extends State<AdminScreen>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade700,
+                  color: Colors.orange.shade600,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -527,24 +567,22 @@ class _AdminScreenState extends State<AdminScreen>
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Action buttons
           Row(
             children: [
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () => _showReportsList('submitted'),
-                  icon: const Icon(Icons.visibility, size: 18),
-                  label: const Text('Voir les Rapports'),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: const Text('Examiner'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade600,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    elevation: 0,
                   ),
                 ),
               ),
@@ -552,16 +590,16 @@ class _AdminScreenState extends State<AdminScreen>
               OutlinedButton.icon(
                 onPressed: _markSubmittedNotificationsAsRead,
                 icon: const Icon(Icons.check, size: 18),
-                label: const Text('Marquer Lu'),
+                label: const Text('Marquer lu'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.orange.shade700,
-                  side: BorderSide(color: Colors.orange.shade300),
+                  foregroundColor: Colors.grey.shade700,
+                  side: BorderSide(color: Colors.grey.shade300),
                   padding: const EdgeInsets.symmetric(
                     vertical: 12,
                     horizontal: 16,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
@@ -572,65 +610,79 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildQuickStatsSection() {
-    return Consumer<AdminViewModel>(
-      builder: (context, viewModel, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildQuickStatsGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Vue d\'ensemble',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
           children: [
-            Text(
-              'Aperçu Rapide',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
+            Expanded(
+              child: _buildStatCard(
+                title: 'Total',
+                subtitle: 'Rapports',
+                value: _totalReports.toString(),
+                icon: Icons.assessment_outlined,
+                color: Colors.indigo,
+                onTap: () => _showReportsList('all'),
               ),
             ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Rapports\nSoumis',
-                    value: _submittedCount.toString(),
-                    icon: Icons.assignment_turned_in,
-                    color: Colors.orange,
-                    onTap: () => _showReportsList('submitted'),
-                    hasNotification: _newSubmittedCount > 0,
-                    notificationCount: _newSubmittedCount,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Rapports\nExaminés',
-                    value: _reviewedCount.toString(),
-                    icon: Icons.fact_check,
-                    color: Colors.blue,
-                    onTap: () => _showReportsList('reviewed'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Rapports\nApprouvés',
-                    value: _approvedCount.toString(),
-                    icon: Icons.check_circle,
-                    color: Colors.green,
-                    onTap: () => _showReportsList('approved'),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: 'En attente',
+                subtitle: 'À examiner',
+                value: _submittedCount.toString(),
+                icon: Icons.pending_actions_outlined,
+                color: Colors.orange,
+                onTap: () => _showReportsList('submitted'),
+                hasNotification: _newSubmittedCount > 0,
+                notificationCount: _newSubmittedCount,
+              ),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'Examinés',
+                subtitle: 'Révisés',
+                value: _reviewedCount.toString(),
+                icon: Icons.fact_check_outlined,
+                color: Colors.blue,
+                onTap: () => _showReportsList('reviewed'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Approuvés',
+                subtitle: 'Finalisés',
+                value: _approvedCount.toString(),
+                icon: Icons.check_circle_outline,
+                color: Colors.green,
+                onTap: () => _showReportsList('approved'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildStatCard({
     required String title,
+    required String subtitle,
     required String value,
     required IconData icon,
     required Color color,
@@ -641,7 +693,7 @@ class _AdminScreenState extends State<AdminScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -652,61 +704,65 @@ class _AdminScreenState extends State<AdminScreen>
               offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(
-            color:
-                hasNotification ? color.withOpacity(0.5) : Colors.grey.shade100,
-            width: hasNotification ? 2 : 1,
-          ),
+          border:
+              hasNotification
+                  ? Border.all(color: color.withOpacity(0.3), width: 1)
+                  : null,
         ),
         child: Stack(
           children: [
             Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(hasNotification ? 0.2 : 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: color, size: 24),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, color: color, size: 20),
+                    ),
+                    const Spacer(),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  value,
+                  title,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: color,
+                    color: Colors.grey.shade800,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                    height: 1.2,
-                  ),
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             ),
-            // Notification badge
             if (hasNotification && notificationCount > 0)
               Positioned(
                 top: 0,
                 right: 0,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.red,
-                    borderRadius: BorderRadius.circular(10),
+                    shape: BoxShape.circle,
                   ),
                   constraints: const BoxConstraints(
-                    minWidth: 20,
-                    minHeight: 20,
+                    minWidth: 18,
+                    minHeight: 18,
                   ),
                   child: Text(
                     notificationCount > 99
@@ -732,7 +788,7 @@ class _AdminScreenState extends State<AdminScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Gestion des Rapports',
+          'Gestion des rapports',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -741,92 +797,33 @@ class _AdminScreenState extends State<AdminScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Consultez et gérez tous les rapports techniques',
+          'Accès rapide aux différents statuts de rapports',
           style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
         ),
-        const SizedBox(height: 20),
-
-        // Reports filter buttons
-        _buildReportsFilterCard(),
-
         const SizedBox(height: 16),
-
-        // All Reports button
-        _buildAllReportsCard(),
-      ],
-    );
-  }
-
-  Widget _buildReportsFilterCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade400, Colors.blue.shade600],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.filter_list,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Filtrer par Statut',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Cliquez sur un statut pour voir les rapports',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-
-          const SizedBox(height: 20),
-
-          // Filter buttons
-          Column(
+          child: Column(
             children: [
               Row(
                 children: [
                   Expanded(
-                    child: _buildFilterButton(
+                    child: _buildReportFilterButton(
                       title: 'Soumis',
-                      description: 'Rapports en attente de révision',
-                      icon: Icons.assignment_turned_in,
+                      description: 'Attendent révision',
+                      icon: Icons.assignment_turned_in_outlined,
                       color: Colors.orange,
                       onTap: () => _showReportsList('submitted'),
                       hasNotification: _newSubmittedCount > 0,
@@ -834,10 +831,10 @@ class _AdminScreenState extends State<AdminScreen>
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildFilterButton(
+                    child: _buildReportFilterButton(
                       title: 'Examinés',
-                      description: 'Rapports révisés et validés',
-                      icon: Icons.fact_check,
+                      description: 'Prêts approbation',
+                      icon: Icons.fact_check_outlined,
                       color: Colors.blue,
                       onTap: () => _showReportsList('reviewed'),
                     ),
@@ -848,21 +845,21 @@ class _AdminScreenState extends State<AdminScreen>
               Row(
                 children: [
                   Expanded(
-                    child: _buildFilterButton(
+                    child: _buildReportFilterButton(
                       title: 'Approuvés',
-                      description: 'Rapports finalisés et approuvés',
-                      icon: Icons.check_circle,
+                      description: 'Validation finale',
+                      icon: Icons.check_circle_outline,
                       color: Colors.green,
                       onTap: () => _showReportsList('approved'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildFilterButton(
+                    child: _buildReportFilterButton(
                       title: 'Tous',
-                      description: 'Afficher tous les rapports',
-                      icon: Icons.list_alt,
-                      color: Colors.purple,
+                      description: 'Vue complète',
+                      icon: Icons.view_list_outlined,
+                      color: Colors.indigo,
                       onTap: () => _showReportsList('all'),
                     ),
                   ),
@@ -870,12 +867,12 @@ class _AdminScreenState extends State<AdminScreen>
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildFilterButton({
+  Widget _buildReportFilterButton({
     required String title,
     required String description,
     required IconData icon,
@@ -888,14 +885,14 @@ class _AdminScreenState extends State<AdminScreen>
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color:
                 hasNotification
-                    ? color.withOpacity(0.6)
-                    : color.withOpacity(0.3),
-            width: hasNotification ? 2 : 1,
+                    ? color.withOpacity(0.3)
+                    : color.withOpacity(0.1),
+            width: hasNotification ? 1.5 : 1,
           ),
         ),
         child: Stack(
@@ -903,21 +900,16 @@ class _AdminScreenState extends State<AdminScreen>
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(icon, color: color, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                  ],
+                Icon(icon, color: color, size: 20),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
-                const SizedBox(height: 4),
                 Text(
                   description,
                   style: TextStyle(fontSize: 11, color: color.withOpacity(0.8)),
@@ -926,15 +918,14 @@ class _AdminScreenState extends State<AdminScreen>
             ),
             if (hasNotification)
               Positioned(
-                top: -5,
-                right: -5,
+                top: -2,
+                right: -2,
                 child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
                   ),
                 ),
               ),
@@ -944,91 +935,37 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildAllReportsCard() {
-    return GestureDetector(
-      onTap:
-          () => _showReportsList(
-            'all',
-          ), // This will now navigate to the dedicated screen
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.purple.shade400, Colors.purple.shade600],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.purple.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.view_list, color: Colors.white, size: 28),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Voir Tous les Rapports',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Accédez à la liste complète de tous les rapports techniques',
-                    style: TextStyle(fontSize: 12, color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdministrationToolsSection() {
+  Widget _buildQuickActionsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Outils d\'Administration',
+          'Outils d\'administration',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.grey.shade800,
           ),
         ),
-        const SizedBox(height: 20),
-
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
-              child: _buildAdminToolCard(
-                title: 'Gestion des\nUtilisateurs',
-                icon: Icons.people,
+              child: _buildActionCard(
+                title: 'Utilisateurs',
+                description: 'Gérer les comptes et permissions',
+                icon: Icons.people_outline,
                 color: Colors.teal,
                 onTap: _navigateToUserManagement,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _buildAdminToolCard(
-                title: 'Statistiques\net Analyses',
-                icon: Icons.analytics,
-                color: Colors.indigo,
+              child: _buildActionCard(
+                title: 'Statistiques',
+                description: 'Analyses et tableaux de bord',
+                icon: Icons.analytics_outlined,
+                color: Colors.purple,
                 onTap: _navigateToStatistics,
               ),
             ),
@@ -1038,8 +975,9 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildAdminToolCard({
+  Widget _buildActionCard({
     required String title,
+    required String description,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
@@ -1053,9 +991,9 @@ class _AdminScreenState extends State<AdminScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -1063,10 +1001,10 @@ class _AdminScreenState extends State<AdminScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 24),
             ),
@@ -1074,28 +1012,42 @@ class _AdminScreenState extends State<AdminScreen>
             Text(
               title,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade800,
-                height: 1.2,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                'Accéder',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Accéder',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.arrow_forward_ios, size: 12, color: color),
+                ],
               ),
             ),
           ],
@@ -1104,40 +1056,136 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildSystemInformationSection() {
+  Widget _buildSystemStatusSection() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.green.shade600, size: 24),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green.shade600,
+                  size: 20,
+                ),
+              ),
               const SizedBox(width: 12),
               Text(
-                'Information Système',
+                'État du système',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green.shade800,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusItem(
+                  'Services',
+                  'Opérationnels',
+                  Colors.green,
+                  Icons.cloud_done_outlined,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatusItem(
+                  'Base de données',
+                  'Connectée',
+                  Colors.green,
+                  Icons.storage_outlined,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Système fonctionnel - Tous les services sont opérationnels. '
-            'Utilisez les outils ci-dessus pour gérer les utilisateurs et superviser les rapports techniques.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.green.shade700,
-              height: 1.4,
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatusItem(
+                  'Sauvegardes',
+                  'À jour',
+                  Colors.green,
+                  Icons.backup_outlined,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatusItem(
+                  'Sécurité',
+                  'Active',
+                  Colors.green,
+                  Icons.security_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusItem(
+    String title,
+    String status,
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1159,7 +1207,7 @@ class _AdminScreenState extends State<AdminScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            'Version 1.0.3',
+            'Version 1.1.0',
             style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
           ),
         ],
@@ -1167,353 +1215,10 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  // Bottom sheet for reports list
-  Widget _buildReportsBottomSheet(String filter) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      maxChildSize: 0.9,
-      minChildSize: 0.5,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                    Expanded(
-                      child: Text(
-                        _getFilterTitle(filter),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        // Refresh action
-                      },
-                      icon: const Icon(Icons.refresh),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Reports list
-              Expanded(child: _buildReportsList(filter, scrollController)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _getFilterTitle(String filter) {
-    switch (filter) {
-      case 'submitted':
-        return 'Rapports Soumis';
-      case 'reviewed':
-        return 'Rapports Examinés';
-      case 'approved':
-        return 'Rapports Approuvés';
-      case 'all':
-        return 'Tous les Rapports';
-      default:
-        return 'Rapports';
-    }
-  }
-
-  Widget _buildReportsList(String filter, ScrollController scrollController) {
-    return Consumer<AdminViewModel>(
-      builder: (context, viewModel, child) {
-        Stream<List<TechnicalVisitReport>> stream;
-
-        switch (filter) {
-          case 'submitted':
-            stream = viewModel.getSubmittedReportsStream();
-            break;
-          case 'reviewed':
-            stream = viewModel.getReviewedReportsStream();
-            break;
-          case 'approved':
-            stream = viewModel.getApprovedReportsStream();
-            break;
-          case 'all':
-          default:
-            stream = viewModel.getAllReportsStream();
-            break;
-        }
-
-        return StreamBuilder<List<TechnicalVisitReport>>(
-          stream: stream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('Erreur: ${snapshot.error}'),
-                  ],
-                ),
-              );
-            }
-
-            final reports = snapshot.data ?? [];
-
-            if (reports.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.assignment_outlined,
-                      size: 64,
-                      color: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Aucun rapport ${_getFilterDescription(filter)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return ListView.builder(
-              controller: scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: reports.length,
-              itemBuilder: (context, index) {
-                final report = reports[index];
-                return _buildReportListItem(report);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _getFilterDescription(String filter) {
-    switch (filter) {
-      case 'submitted':
-        return 'soumis';
-      case 'reviewed':
-        return 'examiné';
-      case 'approved':
-        return 'approuvé';
-      case 'all':
-        return 'disponible';
-      default:
-        return '';
-    }
-  }
-
-  Widget _buildReportListItem(TechnicalVisitReport report) {
-    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
-    final DateFormat timeFormat = DateFormat('HH:mm');
-
-    Color statusColor;
-    IconData statusIcon;
-    String statusText;
-
-    switch (report.status) {
-      case 'submitted':
-        statusColor = Colors.orange;
-        statusIcon = Icons.assignment_turned_in;
-        statusText = 'SOUMIS';
-        break;
-      case 'reviewed':
-        statusColor = Colors.blue;
-        statusIcon = Icons.fact_check;
-        statusText = 'EXAMINÉ';
-        break;
-      case 'approved':
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
-        statusText = 'APPROUVÉ';
-        break;
-      default:
-        statusColor = Colors.grey;
-        statusIcon = Icons.help_outline;
-        statusText = report.status.toUpperCase();
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with title and status
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    report.clientName.isNotEmpty
-                        ? report.clientName
-                        : 'Rapport sans nom',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(statusIcon, size: 14, color: statusColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Location and technician info
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 14, color: Colors.grey.shade500),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    report.location.isNotEmpty
-                        ? report.location
-                        : 'Lieu non spécifié',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            Row(
-              children: [
-                Icon(Icons.person, size: 14, color: Colors.grey.shade500),
-                const SizedBox(width: 4),
-                Text(
-                  'Par: ${report.technicianName}',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Date and actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Soumis: ${dateFormat.format(report.submittedAt ?? report.createdAt)} à ${timeFormat.format(report.submittedAt ?? report.createdAt)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
-                Row(
-                  children: [
-                    // PDF Button
-                    IconButton(
-                      onPressed: () => _viewReportPdf(report),
-                      icon: const Icon(Icons.picture_as_pdf, size: 18),
-                      color: Colors.red.shade600,
-                      tooltip: 'Voir PDF',
-                    ),
-
-                    // Status update buttons
-                    if (report.status == 'submitted')
-                      IconButton(
-                        onPressed:
-                            () => _updateReportStatus(report, 'reviewed'),
-                        icon: const Icon(Icons.fact_check, size: 18),
-                        color: Colors.blue,
-                        tooltip: 'Marquer comme examiné',
-                      ),
-
-                    if (report.status == 'reviewed')
-                      IconButton(
-                        onPressed:
-                            () => _updateReportStatus(report, 'approved'),
-                        icon: const Icon(Icons.check_circle, size: 18),
-                        color: Colors.green,
-                        tooltip: 'Approuver',
-                      ),
-
-                    // Delete button
-                    IconButton(
-                      onPressed: () => _confirmDeleteReport(report),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      color: Colors.red.shade400,
-                      tooltip: 'Supprimer',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Report management methods (keeping existing functionality)
+  // Report management methods
   Future<void> _viewReportPdf(TechnicalVisitReport report) async {
     final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
-    // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1523,7 +1228,6 @@ class _AdminScreenState extends State<AdminScreen>
     try {
       final pdfFile = await viewModel.generateReportPdf(report.id);
 
-      // Close loading dialog
       if (mounted) Navigator.of(context).pop();
 
       if (pdfFile != null) {
@@ -1564,7 +1268,6 @@ class _AdminScreenState extends State<AdminScreen>
         }
       }
     } catch (e) {
-      // Close loading dialog if still showing
       if (mounted) Navigator.of(context).pop();
       debugPrint('Error generating PDF: $e');
       NotificationUtils.showError(
@@ -1586,6 +1289,9 @@ class _AdminScreenState extends State<AdminScreen>
           context: context,
           builder:
               (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 title: Text('$statusText?'),
                 content: Text(
                   'Êtes-vous sûr de vouloir $statusText ce rapport?',
@@ -1597,6 +1303,10 @@ class _AdminScreenState extends State<AdminScreen>
                   ),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo.shade600,
+                      foregroundColor: Colors.white,
+                    ),
                     child: Text(statusText),
                   ),
                 ],
@@ -1629,6 +1339,9 @@ class _AdminScreenState extends State<AdminScreen>
           context: context,
           builder:
               (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 title: const Text('Supprimer le Rapport ?'),
                 content: const Text(
                   'Êtes-vous sûr de vouloir supprimer ce rapport ? Cette action ne peut pas être annulée.',
@@ -1642,6 +1355,7 @@ class _AdminScreenState extends State<AdminScreen>
                     onPressed: () => Navigator.of(context).pop(true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
                     ),
                     child: const Text('Supprimer'),
                   ),
@@ -1663,5 +1377,193 @@ class _AdminScreenState extends State<AdminScreen>
         );
       }
     }
+  }
+}
+
+// Notification dropdown helper widgets
+class _NotificationHeader extends StatelessWidget {
+  final int count;
+
+  const _NotificationHeader({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.indigo.shade50,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.indigo.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_active_outlined,
+              size: 16,
+              color: Colors.indigo.shade600,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nouvelles notifications',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.indigo.shade800,
+                  ),
+                ),
+                Text(
+                  '$count nouveau${count > 1 ? 'x' : ''} rapport${count > 1 ? 's' : ''} soumis',
+                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationItem extends StatelessWidget {
+  final TechnicalVisitReport report;
+
+  const _NotificationItem({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final timeAgo = _getTimeAgo(report.submittedAt ?? report.createdAt);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.assignment_turned_in_outlined,
+              size: 16,
+              color: Colors.orange.shade600,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                      height: 1.3,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: report.technicianName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(text: ' a soumis un rapport'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (report.clientName.isNotEmpty)
+                  Text(
+                    'Client: ${report.clientName}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  timeAgo,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'À l\'instant';
+    } else if (difference.inMinutes < 60) {
+      return 'Il y a ${difference.inMinutes} min';
+    } else if (difference.inHours < 24) {
+      return 'Il y a ${difference.inHours}h';
+    } else if (difference.inDays < 7) {
+      return 'Il y a ${difference.inDays}j';
+    } else {
+      return 'Il y a ${(difference.inDays / 7).floor()} sem';
+    }
+  }
+}
+
+class _EmptyNotificationItem extends StatelessWidget {
+  const _EmptyNotificationItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.notifications_none_outlined,
+            size: 32,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Aucune nouvelle notification',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Vous êtes à jour !',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
   }
 }

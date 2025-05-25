@@ -697,7 +697,7 @@ class _AppSidebarState extends State<AppSidebar> with TickerProviderStateMixin {
                     ),
                   ),
                   Text(
-                    'Version 1.0.3',
+                    'Version 1.1.0',
                     style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                   ),
                 ],
