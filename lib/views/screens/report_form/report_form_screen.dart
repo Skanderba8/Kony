@@ -1124,17 +1124,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                   ),
                   elevation: 0,
                 ),
-                child:
-                    viewModel.isLoading
-                        ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                        : Text(_getNextButtonText()),
+                child: Text(_getNextButtonText()),
               ),
             ),
           ],
@@ -1747,12 +1737,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       listen: false,
     );
 
-    final success = await viewModel.saveDraft();
-
-    if (success && mounted) {
-      NotificationUtils.showSuccess(context, 'Brouillon sauvegardé');
-    } else if (mounted && viewModel.errorMessage != null) {
-      NotificationUtils.showError(context, viewModel.errorMessage!);
+    try {
+      await viewModel.saveDraft();
+      // Removed the success notification since it happens in background now
+    } catch (e) {
+      // Silently handle errors since this runs in background
+      debugPrint('Error saving draft: $e');
     }
   }
 
@@ -1777,33 +1767,223 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   void _showExitDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder:
           (context) => AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text('Quitter le rapport ?'),
-            content: const Text(
-              'Voulez-vous sauvegarder vos modifications avant de quitter ?',
+            elevation: 8,
+            backgroundColor: Colors.white,
+            contentPadding: EdgeInsets.zero,
+            title: null,
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.orange.shade400,
+                          Colors.orange.shade500,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.exit_to_app,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Quitter le rapport',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Que souhaitez-vous faire ?',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Voulez-vous sauvegarder vos modifications avant de quitter ?',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.shade100),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade600,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Vos modifications seront sauvegardées en tant que brouillon',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Actions
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Column(
+                      children: [
+                        // Save and exit button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(context); // Close dialog first
+                              Navigator.pop(context); // Exit form immediately
+
+                              // Show loading indicator
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder:
+                                    (context) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                              );
+
+                              // Save as draft
+                              _saveDraft();
+                            },
+                            icon: const Icon(Icons.save, size: 18),
+                            label: const Text('Sauvegarder et quitter'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Exit without saving button
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context); // Close dialog
+                              Navigator.pop(
+                                context,
+                              ); // Exit form without saving
+                            },
+                            icon: Icon(
+                              Icons.close,
+                              size: 18,
+                              color: Colors.red.shade600,
+                            ),
+                            label: Text(
+                              'Quitter sans sauvegarder',
+                              style: TextStyle(color: Colors.red.shade600),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.red.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Cancel button
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Annuler',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Exit form without saving
-                },
-                child: const Text('Quitter sans sauvegarder'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.pop(context); // Close dialog
-                  // Auto-save as draft before leaving
-                  await _saveDraft();
-                  if (mounted) Navigator.pop(context); // Exit form
-                },
-                child: const Text('Sauvegarder et quitter'),
-              ),
-            ],
           ),
     );
   }
