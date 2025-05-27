@@ -44,6 +44,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   // Add overlay entry for custom notification
   OverlayEntry? _notificationOverlay;
 
+  // Floor selector visibility state
+  bool _showFloatingFloorSelector = false;
+
   void _showValidationError(String message) {
     _showCustomNotification(message, Icons.warning, Colors.orange);
   }
@@ -136,13 +139,29 @@ class _ReportFormScreenState extends State<ReportFormScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
+    // Add scroll listener for components step
+    _componentsScrollController.addListener(_onComponentsScroll);
+
     _initializeReport();
     _animationController.forward();
   }
 
+  void _onComponentsScroll() {
+    if (_currentStep == 2) {
+      // Components step
+      // Show floating floor selector when scrolled down
+      final shouldShow = _componentsScrollController.offset > 100;
+      if (shouldShow != _showFloatingFloorSelector) {
+        setState(() {
+          _showFloatingFloorSelector = shouldShow;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
-    _notificationOverlay?.remove(); // Clean up overlay
+    _notificationOverlay?.remove();
     _pageController.dispose();
     _componentsScrollController.dispose();
     _animationController.dispose();
@@ -207,34 +226,122 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         return Scaffold(
           backgroundColor: Colors.grey.shade50,
           body: SafeArea(
-            child: Column(
+            child: Stack(
               children: [
-                _buildHeader(viewModel),
-                _buildProgressIndicator(),
-                Expanded(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() => _currentStep = index);
-                        viewModel.navigateToStep(index);
-                      },
-                      children: [
-                        _buildBasicInfoStep(viewModel),
-                        _buildProjectContextStep(viewModel),
-                        _buildComponentsStep(viewModel),
-                        _buildConclusionStep(viewModel),
-                      ],
+                Column(
+                  children: [
+                    _buildHeader(viewModel),
+                    _buildProgressIndicator(),
+                    Expanded(
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: PageView(
+                          controller: _pageController,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentStep = index;
+                              // Reset floating floor selector when leaving components step
+                              if (index != 2) {
+                                _showFloatingFloorSelector = false;
+                              }
+                            });
+                            viewModel.navigateToStep(index);
+                          },
+                          children: [
+                            _buildBasicInfoStep(viewModel),
+                            _buildProjectContextStep(viewModel),
+                            _buildComponentsStep(viewModel),
+                            _buildConclusionStep(viewModel),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    _buildBottomNavigation(viewModel),
+                  ],
                 ),
-                _buildBottomNavigation(viewModel),
+
+                // Floating floor selector for components step
+                if (_showFloatingFloorSelector && _currentStep == 2)
+                  _buildFloatingFloorSelector(viewModel),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFloatingFloorSelector(TechnicalVisitReportViewModel viewModel) {
+    return Positioned(
+      top: 0,
+      left: 16,
+      right: 16,
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.layers_outlined,
+                  size: 18,
+                  color: Colors.blue.shade600,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: viewModel.currentFloorIndex,
+                      isExpanded: true,
+                      icon: Icon(
+                        Icons.arrow_drop_down,
+                        color: Colors.blue.shade600,
+                        size: 20,
+                      ),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue.shade800,
+                      ),
+                      onChanged: (int? index) {
+                        if (index != null) {
+                          viewModel.setCurrentFloorIndex(index);
+                        }
+                      },
+                      items:
+                          viewModel.floors
+                              .asMap()
+                              .entries
+                              .map<DropdownMenuItem<int>>((entry) {
+                                return DropdownMenuItem<int>(
+                                  value: entry.key,
+                                  child: Text(entry.value.name),
+                                );
+                              })
+                              .toList(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: () => viewModel.addFloor(),
+                  tooltip: 'Ajouter un étage',
+                  color: Colors.blue.shade600,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -281,7 +388,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
               ],
             ),
           ),
-          // Removed the save button as requested
         ],
       ),
     );
@@ -443,29 +549,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   Widget _buildComponentsStep(TechnicalVisitReportViewModel viewModel) {
     return Column(
       children: [
-        // Fixed header that stays visible
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Floor selector - always visible
-              Container(
-                padding: const EdgeInsets.all(16),
-                child: const FloorSelector(),
-              ),
-            ],
-          ),
-        ),
-
         Expanded(
           child: SingleChildScrollView(
             controller: _componentsScrollController,
@@ -483,9 +566,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
                 const SizedBox(height: 24),
 
-                _buildSimpleComponentSelector(viewModel),
-
-                const SizedBox(height: 24),
+                // Floor selector (only visible when not floating)
+                if (!_showFloatingFloorSelector)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 24),
+                    child: FloorSelector(),
+                  ),
 
                 if (viewModel.currentFloor != null)
                   _buildComponentsList(viewModel),
@@ -500,100 +586,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   }
 
   Widget _buildComponentsList(TechnicalVisitReportViewModel viewModel) {
-    // Import the existing FloorComponentsForm and use its _buildComponentSections method
-    // or simply return the form content directly
-    return const FloorComponentsForm(); // You'll need to import this
-  }
-
-  Widget _buildSimpleComponentSelector(
-    TechnicalVisitReportViewModel viewModel,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade50, Colors.indigo.shade50],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.add_circle_outline,
-                  color: Colors.blue.shade700,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ajouter un composant',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Choisissez le type de composant à documenter',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                _hideKeyboard();
-                _showComponentTypeDialog(viewModel);
-              },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Sélectionner un composant'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const FloorComponentsForm();
   }
 
   Widget _buildConclusionStep(TechnicalVisitReportViewModel viewModel) {
@@ -1150,11 +1143,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   }
 
   void _nextStep() {
-    // Hide keyboard when moving to next step
     _hideKeyboard();
 
     if (_currentStep < _totalSteps - 1) {
-      // Validate current step before proceeding - ENHANCED VALIDATION
       if (_validateCurrentStep()) {
         _pageController.nextPage(
           duration: const Duration(milliseconds: 300),
@@ -1177,16 +1168,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
   void _hideKeyboard() {
     FocusScope.of(context).unfocus();
-  }
-
-  void _scrollToBottom() {
-    if (_componentsScrollController.hasClients) {
-      _componentsScrollController.animateTo(
-        _componentsScrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
   }
 
   bool _validateCurrentStep() {
@@ -1216,7 +1197,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         }
         return true;
       case 2: // Components step
-        // Allow to proceed but encourage adding components
         return true;
       case 3: // Conclusion step
         if (_conclusionController.text.trim().isEmpty) {
@@ -1226,351 +1206,6 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         return true;
       default:
         return true;
-    }
-  }
-
-  void _showComponentTypeDialog(TechnicalVisitReportViewModel viewModel) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) => Container(
-            height: MediaQuery.of(context).size.height * 0.75,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              children: [
-                // Handle bar
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blue.shade400,
-                              Colors.blue.shade600,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.category,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Choisir un composant',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Sélectionnez le type de composant à ajouter',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                        color: Colors.grey.shade600,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Component options
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      children: [
-                        // Highlighted: Custom component first
-                        _buildComponentOption(
-                          'Composant personnalisé',
-                          'Créer un composant sur mesure selon vos besoins',
-                          Icons.add_box,
-                          Colors.pink,
-                          true,
-                          () => _addComponent(
-                            viewModel,
-                            'Composant personnalisé',
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Divider(color: Colors.grey.shade300),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: Text(
-                                  'COMPOSANTS STANDARD',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade500,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Divider(color: Colors.grey.shade300),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Standard components
-                        ...viewModel.componentTypes
-                            .where((type) => type != 'Composant personnalisé')
-                            .map(
-                              (type) => _buildComponentOption(
-                                type,
-                                _getComponentDescription(type),
-                                _getComponentIcon(type),
-                                _getComponentColor(type),
-                                false,
-                                () => _addComponent(viewModel, type),
-                              ),
-                            ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-    );
-  }
-
-  Widget _buildComponentOption(
-    String title,
-    String description,
-    IconData icon,
-    Color color,
-    bool isHighlighted,
-    VoidCallback onTap,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color:
-                  isHighlighted ? color.withOpacity(0.05) : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color:
-                    isHighlighted
-                        ? color.withOpacity(0.3)
-                        : Colors.grey.shade200,
-                width: isHighlighted ? 2 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: isHighlighted ? color : Colors.black87,
-                              ),
-                            ),
-                          ),
-                          if (isHighlighted)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'RECOMMANDÉ',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey.shade400,
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _addComponent(TechnicalVisitReportViewModel viewModel, String type) {
-    Navigator.pop(context);
-    _hideKeyboard();
-
-    viewModel.addComponentByType(type);
-
-    // Scroll to bottom after adding component
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _scrollToBottom();
-    });
-  }
-
-  // Helper methods for component descriptions, icons, and colors
-  String _getComponentDescription(String type) {
-    switch (type) {
-      case 'Baie Informatique':
-        return 'Armoire contenant les équipements réseau';
-      case 'Percement':
-        return 'Passage pour câbles dans murs ou planchers';
-      case 'Trappe d\'accès':
-        return 'Ouverture pour accéder aux zones techniques';
-      case 'Chemin de câbles':
-        return 'Support pour acheminer les câbles';
-      case 'Goulotte':
-        return 'Canal pour protéger et dissimuler les câbles';
-      case 'Conduit':
-        return 'Tube pour protéger les câbles';
-      case 'Câblage cuivre':
-        return 'Câbles réseau en cuivre (Cat5e, Cat6, etc.)';
-      case 'Câblage fibre optique':
-        return 'Câbles à fibre optique haute performance';
-      case 'Composant personnalisé':
-        return 'Créer un composant sur mesure selon vos besoins';
-      default:
-        return 'Sélectionnez un type de composant';
-    }
-  }
-
-  IconData _getComponentIcon(String type) {
-    switch (type) {
-      case 'Baie Informatique':
-        return Icons.dns_outlined;
-      case 'Percement':
-        return Icons.architecture;
-      case 'Trappe d\'accès':
-        return Icons.door_sliding_outlined;
-      case 'Chemin de câbles':
-        return Icons.linear_scale;
-      case 'Goulotte':
-        return Icons.power_input;
-      case 'Conduit':
-        return Icons.rotate_90_degrees_ccw;
-      case 'Câblage cuivre':
-        return Icons.cable;
-      case 'Câblage fibre optique':
-        return Icons.fiber_manual_record;
-      case 'Composant personnalisé':
-        return Icons.add_box;
-      default:
-        return Icons.device_unknown;
-    }
-  }
-
-  Color _getComponentColor(String type) {
-    switch (type) {
-      case 'Baie Informatique':
-        return Colors.blue;
-      case 'Percement':
-        return Colors.orange;
-      case 'Trappe d\'accès':
-        return Colors.purple;
-      case 'Chemin de câbles':
-        return Colors.green;
-      case 'Goulotte':
-        return Colors.teal;
-      case 'Conduit':
-        return Colors.indigo;
-      case 'Câblage cuivre':
-        return Colors.amber;
-      case 'Câblage fibre optique':
-        return Colors.red;
-      case 'Composant personnalisé':
-        return Colors.pink;
-      default:
-        return Colors.grey;
     }
   }
 
@@ -1739,15 +1374,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
     try {
       await viewModel.saveDraft();
-      // Removed the success notification since it happens in background now
     } catch (e) {
-      // Silently handle errors since this runs in background
       debugPrint('Error saving draft: $e');
     }
   }
 
   Future<void> _submitReport(TechnicalVisitReportViewModel viewModel) async {
-    // HIDE KEYBOARD WHEN SUBMITTING REPORT
     _hideKeyboard();
 
     if (!viewModel.validateAllSections()) {
@@ -1897,11 +1529,8 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () async {
-                              Navigator.pop(
-                                context,
-                              ); // Close exit confirmation dialog
+                              Navigator.pop(context);
 
-                              // OPTIONAL: Show loading indicator briefly
                               final BuildContext loadingContext = context;
                               showDialog(
                                 context: context,
@@ -1912,15 +1541,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                                     ),
                               );
 
-                              // Trigger save draft in background
-                              _saveDraft(); // This already runs without await and saves silently
+                              _saveDraft();
 
-                              // Pop loading dialog after saving starts
                               if (Navigator.canPop(loadingContext)) {
                                 Navigator.pop(loadingContext);
                               }
 
-                              // Go back to ReportList
                               Navigator.pop(context);
                             },
                             icon: const Icon(Icons.save, size: 18),
@@ -1943,10 +1569,8 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.pop(context); // Close dialog
-                              Navigator.pop(
-                                context,
-                              ); // Exit form without saving
+                              Navigator.pop(context);
+                              Navigator.pop(context);
                             },
                             icon: Icon(
                               Icons.close,
