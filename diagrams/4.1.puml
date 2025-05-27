@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+left to right direction
+
+actor "Technicien" as Tech
+actor "Administrateur" as Admin
+actor "Système Email" as Email
+
+rectangle "Module Authentification KONY" {
+  package "Gestion Session" {
+    usecase "Se connecter" as Login
+    usecase "Se déconnecter" as Logout
+    usecase "Vérifier session" as CheckSession
+  }
+  
+  package "Gestion Profil" {
+    usecase "Consulter profil" as ViewProfile
+    usecase "Modifier profil" as EditProfile
+    usecase "Changer mot de passe" as ChangePassword
+  }
+  
+  package "Récupération Accès" {
+    usecase "Réinitialiser mot de passe" as ResetPassword
+    usecase "Valider nouveau mot de passe" as ValidatePassword
+  }
+  
+  package "Administration" {
+    usecase "Créer utilisateur" as CreateUser
+    usecase "Gérer utilisateurs" as ManageUsers
+    usecase "Consulter audit" as ViewAudit
+  }
+}
+
+Tech --> Login
+Tech --> Logout
+Tech --> ViewProfile
+Tech --> EditProfile
+Tech --> ChangePassword
+Tech --> ResetPassword
+
+Admin --> Login
+Admin --> Logout
+Admin --> ViewProfile
+Admin --> EditProfile
+Admin --> CreateUser
+Admin --> ManageUsers
+Admin --> ViewAudit
+
+Login ..> CheckSession : include
+ResetPassword ..> ValidatePassword : include
+CreateUser --> Email : send welcome
+ResetPassword --> Email : send reset link
+ChangePassword --> Email : send confirmation
+
+@enduml

@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+start
+
+:Utilisateur clique "Mot de passe oublié";
+:Saisit adresse email;
+
+if (Email valide ?) then (oui)
+  :Envoie demande reset à Firebase;
+  
+  if (Email existe en base ?) then (oui)
+    :Firebase envoie email reset;
+    :Affiche message "Email envoyé";
+    
+    :Utilisateur clique lien email;
+    :Redirige vers écran reset;
+    :Saisit nouveau mot de passe;
+    
+    if (Mot de passe valide ?) then (oui)
+      :Met à jour mot de passe;
+      :Envoie email confirmation;
+      :Affiche message succès;
+      stop
+    else (non)
+      :Affiche erreur validation;
+      stop
+    endif
+    
+  else (non)
+    :Affiche message générique "Si email existe, vous recevrez un lien";
+    stop
+  endif
+  
+else (non)
+  :Affiche erreur format email;
+  stop
+endif
+@enduml

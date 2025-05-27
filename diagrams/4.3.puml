@@ -1,0 +1,38 @@
+@startuml
+!theme plain
+participant "Utilisateur" as User
+participant "LoginScreen" as UI
+participant "AuthProvider" as Provider
+participant "AuthService" as Service
+participant "Firebase Auth" as Auth
+participant "Firestore" as DB
+
+User -> UI : Saisit email/password
+UI -> UI : Valide format email
+UI -> Provider : signIn(email, password)
+Provider -> Provider : setLoading(true)
+Provider -> Service : signInWithEmailAndPassword()
+
+Service -> Auth : signInWithEmailAndPassword()
+Auth -> Auth : Valide credentials
+
+alt Authentification réussie
+    Auth -> Service : UserCredential
+    Service -> DB : update lastLoginAt
+    DB -> Service : success
+    Service -> DB : get user data
+    DB -> Service : User document
+    Service -> Provider : User object
+    Provider -> Provider : setCurrentUser(user)
+    Provider -> UI : success
+    UI -> User : Navigation Dashboard
+else Authentification échouée
+    Auth -> Service : FirebaseAuthException
+    Service -> Provider : error message
+    Provider -> Provider : setError(message)
+    Provider -> UI : error
+    UI -> User : Affiche message erreur
+end
+
+Provider -> Provider : setLoading(false)
+@enduml

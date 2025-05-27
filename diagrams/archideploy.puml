@@ -1,0 +1,27 @@
+@startuml
+!theme plain
+cloud "Internet" {
+  [Firebase Hosting] as Web
+  [Firebase App Distribution] as Mobile
+  [Firebase Functions] as Functions
+  [Firestore Database] as DB
+  [Firebase Storage] as Storage
+}
+
+package "Développement" {
+  [Flutter App] as FlutterDev
+  [React Admin] as ReactDev
+}
+
+package "Production" {
+  [Techniciens Terrain] as Techs
+  [Administrateurs] as Admins
+}
+
+FlutterDev --> Mobile : Upload manuel
+ReactDev --> Web : Déploiement automatisé
+Mobile --> Techs : Distribution
+Web --> Admins : Accès direct
+Functions --> DB : Opérations
+Functions --> Storage : Fichiers
+@enduml

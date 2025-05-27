@@ -1,0 +1,122 @@
+@startuml KONY_MVVM_Architecture
+
+package "Views (UI Layer)" {
+  class LoginScreen {
+    - TextEditingController emailController
+    - TextEditingController passwordController
+    + build(): Widget
+  }
+  
+  class ReportFormScreen {
+    - GlobalKey<FormState> formKey
+    - PageController pageController
+    + build(): Widget
+  }
+  
+  class AdminScreen {
+    - GlobalKey<ScaffoldState> scaffoldKey
+    + build(): Widget
+  }
+}
+
+package "ViewModels (Presentation Layer)" {
+  class LoginViewModel {
+    - bool isLoading
+    - String errorMessage
+    - AuthService authService
+    + signInWithEmailAndPassword()
+    + notifyListeners()
+  }
+  
+  class TechnicalVisitReportViewModel {
+    - List<TechnicalVisitReport> reports
+    - TechnicalVisitReport currentReport
+    - TechnicalVisitReportService service
+    + createReport()
+    + saveReport()
+    + addComponent()
+    + notifyListeners()
+  }
+  
+  class AdminViewModel {
+    - List<UserModel> users
+    - List<TechnicalVisitReport> pendingReports
+    + loadUsers()
+    + validateReport()
+    + notifyListeners()
+  }
+}
+
+package "Models (Data Layer)" {
+  class TechnicalVisitReport {
+    - String id
+    - String clientName
+    - List<Floor> floors
+    - DateTime createdAt
+    + toJson(): Map<String, dynamic>
+    + fromJson(): TechnicalVisitReport
+  }
+  
+  class UserModel {
+    - String authUid
+    - String name
+    - String email
+    - String role
+    + toJson(): Map<String, dynamic>
+  }
+  
+  class Floor {
+    - String name
+    - List<dynamic> components
+  }
+}
+
+package "Services (Data Access)" {
+  class AuthService {
+    + signInWithEmailAndPassword()
+    + getCurrentUser()
+    + signOut()
+  }
+  
+  class TechnicalVisitReportService {
+    + createReport()
+    + getReports()
+    + updateReport()
+  }
+  
+  class NotificationService {
+    + sendNotification()
+    + getNotifications()
+    + markAsRead()
+  }
+}
+
+package "Provider Pattern" {
+  class ChangeNotifier
+  class Consumer
+  class Provider
+}
+
+' Relations
+LoginScreen --> LoginViewModel : Consumer<LoginViewModel>
+ReportFormScreen --> TechnicalVisitReportViewModel : Consumer<TechnicalVisitReportViewModel>
+AdminScreen --> AdminViewModel : Consumer<AdminViewModel>
+
+LoginViewModel --> AuthService
+LoginViewModel --> UserModel
+LoginViewModel --|> ChangeNotifier
+
+TechnicalVisitReportViewModel --> TechnicalVisitReportService
+TechnicalVisitReportViewModel --> TechnicalVisitReport
+TechnicalVisitReportViewModel --|> ChangeNotifier
+
+AdminViewModel --> TechnicalVisitReportService
+AdminViewModel --> UserModel
+AdminViewModel --|> ChangeNotifier
+
+TechnicalVisitReportService --> TechnicalVisitReport
+AuthService --> UserModel
+
+note top of ChangeNotifier : Provider Pattern\nnotifyListeners() déclenche\nla mise à jour des Consumer widgets
+
+@enduml

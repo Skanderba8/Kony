@@ -11,7 +11,7 @@ import 'services/user_management_service.dart';
 import 'services/firebase_initialization_service.dart';
 import 'services/pdf_generation_service.dart';
 import 'services/statistics_service.dart';
-import 'services/notification_service.dart'; // Add this import
+import 'services/notification_service.dart';
 import 'view_models/login_view_model.dart';
 import 'view_models/technician_view_model.dart';
 import 'view_models/admin_view_model.dart';
@@ -48,7 +48,6 @@ class KonyApp extends StatelessWidget {
         Provider<UserManagementService>(create: (_) => UserManagementService()),
         Provider<PdfGenerationService>(create: (_) => PdfGenerationService()),
         Provider<StatisticsService>(create: (_) => StatisticsService()),
-        // Note: NotificationService is a static class, so no Provider needed
 
         // ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -95,6 +94,8 @@ class KonyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Kony',
+        // ✅ THIS LINE REMOVES THE DEBUG BANNER
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
           primaryColor: Colors.blue,

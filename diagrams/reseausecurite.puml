@@ -1,0 +1,36 @@
+@startuml
+!theme plain
+package "DMZ Internet" {
+  [Load Balancer] as LB
+  [CDN Global] as CDN
+}
+
+package "Firebase Security Layer" {
+  [Firebase Auth] as Auth
+  [Security Rules] as Rules
+  [API Gateway] as Gateway
+}
+
+package "Data Layer" {
+  [Firestore Multi-Region] as FSDB
+  [Storage Multi-Region] as FSST
+  [Backup & Archive] as Backup
+}
+
+package "Monitoring & Logs" {
+  [Firebase Analytics] as Analytics
+  [Cloud Logging] as Logs
+  [Performance Monitoring] as Perf
+}
+
+LB --> CDN : Static Content
+CDN --> Gateway : API Requests
+Gateway --> Auth : Token Validation
+Auth --> Rules : Permission Check
+Rules --> FSDB : Authorized Access
+Rules --> FSST : File Access
+FSDB --> Backup : Automatic Backup
+Gateway --> Analytics : Usage Metrics
+Gateway --> Logs : Request Logs
+Gateway --> Perf : Performance Data
+@enduml

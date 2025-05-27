@@ -820,7 +820,7 @@ class _TechnicianScreenState extends State<TechnicianScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            'Version 1.0.3',
+            'Version 1.1.0',
             style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
           ),
         ],

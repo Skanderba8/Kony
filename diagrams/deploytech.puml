@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+node "Firebase Cloud Platform" {
+  node "Europe-west1 (Belgium)" {
+    component [Firestore Database] as DB
+    component [Cloud Functions] as CF
+    component [Firebase Storage] as FS
+    component [Firebase Hosting] as FH
+  }
+  
+  node "Global CDN" {
+    component [Firebase App Distribution] as FAD
+    component [Static Assets Cache] as Cache
+  }
+}
+
+node "Appareils Techniciens" {
+  component [KONY Mobile App] as Mobile
+  database [SQLite Cache Local] as LocalDB
+}
+
+node "Postes Administrateurs" {
+  component [Interface Web Admin] as WebAdmin
+  component [Navigateur Web] as Browser
+}
+
+Mobile <--> CF : HTTPS/REST API
+Mobile --> LocalDB : Stockage hors-ligne
+WebAdmin <--> CF : HTTPS/REST API
+CF <--> DB : Firestore SDK
+CF <--> FS : Storage API
+FH --> Browser : Static Files
+FAD --> Mobile : App Distribution
+Cache --> Mobile : Assets globaux
+@enduml

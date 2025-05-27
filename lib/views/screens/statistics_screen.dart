@@ -3,167 +3,231 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../view_models/statistics_view_model.dart';
+import '../../services/auth_service.dart';
 import '../widgets/app_sidebar.dart';
-import '../widgets/statistics/report_trend_chart.dart';
-import '../widgets/statistics/component_distribution_chart.dart';
-import '../widgets/statistics/technician_productivity_chart.dart';
-import '../widgets/statistics/location_distribution_chart.dart';
-import '../widgets/statistics/duration_statistics_chart.dart';
-import '../widgets/statistics/stats_summary_card.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
 
   @override
-  _StatisticsScreenState createState() => _StatisticsScreenState();
+  State<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late AnimationController _animationController;
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  bool _isFirstLoad = true;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _initializeAnimations();
+
+    // Load data after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<StatisticsViewModel>().refreshAllStats();
+    });
+  }
+
+  void _initializeAnimations() {
+    _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
     );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
     );
 
-    _animationController.forward();
+    _fadeController.forward();
+    _slideController.forward();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _fadeController.dispose();
+    _slideController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    if (_isFirstLoad) {
-      _isFirstLoad = false;
-      // Load statistics when screen is first shown
-      Future.microtask(() {
-        Provider.of<StatisticsViewModel>(
-          context,
-          listen: false,
-        ).loadAllStatistics();
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: AppSidebar(
-        userRole: 'admin',
-        onClose: () => _scaffoldKey.currentState?.closeDrawer(),
-      ),
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text(
-          'Statistiques & Analyses',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+      drawer: Consumer<AuthService>(
+        builder: (context, authService, _) {
+          return AppSidebar(
+            userRole: authService.getUserRole(),
+            onClose: () => Navigator.pop(context),
+          );
+        },
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            Expanded(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: _buildBody(),
+                ),
+              ),
+            ),
+          ],
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade600, Colors.blue.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.indigo.shade800,
-        centerTitle: true,
-        actions: [
-          // Refresh button
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              Provider.of<StatisticsViewModel>(
-                context,
-                listen: false,
-              ).loadAllStatistics();
-            },
-            tooltip: 'Actualiser les données',
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Consumer<StatisticsViewModel>(
-              builder: (context, viewModel, child) {
-                if (viewModel.isLoading) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Chargement des statistiques...'),
-                      ],
-                    ),
-                  );
-                }
-
-                if (viewModel.errorMessage != null) {
-                  return _buildErrorState(viewModel);
-                }
-
-                // Check if there are any reports
-                if (viewModel.reports.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return _buildStatisticsContent(viewModel);
-              },
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            icon: const Icon(Icons.menu, color: Colors.white, size: 24),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-        ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tableau de Bord',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Statistiques et analyses',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Consumer<StatisticsViewModel>(
+            builder: (context, viewModel, child) {
+              return IconButton(
+                onPressed:
+                    viewModel.isLoading
+                        ? null
+                        : () => viewModel.refreshAllStats(),
+                icon:
+                    viewModel.isLoading
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                        : const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    return Consumer<StatisticsViewModel>(
+      builder: (context, viewModel, child) {
+        if (viewModel.errorMessage != null) {
+          return _buildErrorState(viewModel);
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildOverviewCards(viewModel),
+              const SizedBox(height: 24),
+              _buildChartsSection(viewModel),
+              const SizedBox(height: 24),
+              _buildDetailedStats(viewModel),
+              const SizedBox(height: 24),
+              _buildTopPerformers(viewModel),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildErrorState(StatisticsViewModel viewModel) {
     return Center(
       child: Container(
-        margin: const EdgeInsets.all(32),
+        margin: const EdgeInsets.all(20),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.red.shade50,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: Colors.red.shade200),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+            Icon(Icons.error_outline, color: Colors.red.shade400, size: 48),
             const SizedBox(height: 16),
             Text(
               'Erreur de chargement',
@@ -176,16 +240,16 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             const SizedBox(height: 8),
             Text(
               viewModel.errorMessage!,
-              style: const TextStyle(fontSize: 14),
               textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red.shade600),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () => viewModel.loadAllStatistics(),
+              onPressed: () => viewModel.refreshAllStats(),
               icon: const Icon(Icons.refresh),
               label: const Text('Réessayer'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo.shade600,
+                backgroundColor: Colors.red.shade600,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -195,282 +259,98 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(32),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.bar_chart, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            const Text(
-              'Aucune donnée disponible',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Aucun rapport trouvé pour générer des statistiques.',
-              style: TextStyle(fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+  Widget _buildOverviewCards(StatisticsViewModel viewModel) {
+    final cards = [
+      _StatCard(
+        title: 'Total Rapports',
+        value: viewModel.totalReports.toString(),
+        icon: Icons.description,
+        color: Colors.blue,
+        subtitle: 'Tous statuts confondus',
       ),
+      _StatCard(
+        title: 'Rapports Actifs',
+        value: (viewModel.draftReports + viewModel.submittedReports).toString(),
+        icon: Icons.edit_note,
+        color: Colors.orange,
+        subtitle: 'En cours de traitement',
+      ),
+      _StatCard(
+        title: 'Rapports Approuvés',
+        value: viewModel.approvedReports.toString(),
+        icon: Icons.check_circle,
+        color: Colors.green,
+        subtitle: 'Validés et terminés',
+      ),
+      _StatCard(
+        title: 'Techniciens Actifs',
+        value: viewModel.activeTechnicians.toString(),
+        icon: Icons.engineering,
+        color: Colors.purple,
+        subtitle: 'Utilisateurs actifs',
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 800;
+        return isWide
+            ? Row(
+              children:
+                  cards
+                      .map(
+                        (card) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: card,
+                          ),
+                        ),
+                      )
+                      .toList(),
+            )
+            : Column(
+              children:
+                  cards
+                      .map(
+                        (card) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: card,
+                        ),
+                      )
+                      .toList(),
+            );
+      },
     );
   }
 
-  Widget _buildStatisticsContent(StatisticsViewModel viewModel) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Header Section
-          _buildHeaderSection(viewModel),
+  Widget _buildChartsSection(StatisticsViewModel viewModel) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 800;
 
-          // Summary Cards Section
-          _buildSummarySection(viewModel),
-
-          // Charts Section
-          _buildChartsSection(viewModel),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderSection(StatisticsViewModel viewModel) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.indigo.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        if (isWide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.analytics,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tableau de Bord Analytics',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Analyses détaillées des performances et tendances',
-                      style: TextStyle(fontSize: 14, color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
+              Expanded(flex: 1, child: _buildStatusChart(viewModel)),
+              const SizedBox(width: 20),
+              Expanded(flex: 2, child: _buildTrendsChart(viewModel)),
             ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Quick stats in header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildHeaderStat(
-                        'Rapports Total',
-                        viewModel.totalReports.toString(),
-                        Icons.assignment,
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                    Expanded(
-                      child: _buildHeaderStat(
-                        'Composants',
-                        viewModel.totalComponents.toString(),
-                        Icons.category,
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                    Expanded(
-                      child: _buildHeaderStat(
-                        'Techniciens',
-                        viewModel.technicianProductivity.length.toString(),
-                        Icons.people,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderStat(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummarySection(StatisticsViewModel viewModel) {
-    // Calculate summary stats
-    final totalReports = viewModel.totalReports;
-    final completedReports =
-        viewModel.reports.where((r) => r.status != 'draft').length;
-    final completionRate =
-        totalReports > 0
-            ? (completedReports / totalReports * 100).toStringAsFixed(1)
-            : '0';
-
-    final averageComponents =
-        viewModel.totalComponents / (totalReports > 0 ? totalReports : 1);
-
-    final avgHours = viewModel.averageCompletionTime;
-    final avgDays = avgHours / 24;
-
-    // Format with 1 decimal place
-    final formatter = NumberFormat('#,##0.0');
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Indicateurs Clés',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Summary cards grid
-          GridView.count(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          );
+        } else {
+          return Column(
             children: [
-              _buildSummaryCard(
-                'Rapports Terminés',
-                '$completionRate%',
-                Icons.check_circle_outline,
-                Colors.green,
-                subtitle: '$completedReports sur $totalReports',
-              ),
-              _buildSummaryCard(
-                'Composants par Rapport',
-                formatter.format(averageComponents),
-                Icons.category,
-                Colors.blue,
-                subtitle: 'moyenne générale',
-              ),
-              _buildSummaryCard(
-                'Durée de Traitement',
-                '${formatter.format(avgDays)} jours',
-                Icons.timer,
-                Colors.purple,
-                subtitle: 'temps moyen',
-              ),
-              _buildSummaryCard(
-                'Estimation Projet',
-                '${formatter.format(viewModel.durationStatistics['average'] ?? 0)} jours',
-                Icons.calendar_today,
-                Colors.orange,
-                subtitle: 'durée estimée',
-              ),
+              _buildStatusChart(viewModel),
+              const SizedBox(height: 20),
+              _buildTrendsChart(viewModel),
             ],
-          ),
-        ],
-      ),
+          );
+        }
+      },
     );
   }
 
-  Widget _buildSummaryCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color, {
-    String? subtitle,
-  }) {
+  Widget _buildStatusChart(StatisticsViewModel viewModel) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -480,7 +360,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -492,173 +372,96 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(
+                  Icons.pie_chart,
+                  color: Colors.blue.shade600,
+                  size: 20,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
+              const Text(
+                'Répartition des Rapports',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
-
-          const SizedBox(height: 8),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
+          const SizedBox(height: 20),
+          _buildStatusDistribution(viewModel),
         ],
       ),
     );
   }
 
-  Widget _buildChartsSection(StatisticsViewModel viewModel) {
+  Widget _buildStatusDistribution(StatisticsViewModel viewModel) {
+    final statusData = [
+      {
+        'label': 'Brouillons',
+        'value': viewModel.draftReports,
+        'color': Colors.orange,
+      },
+      {
+        'label': 'Soumis',
+        'value': viewModel.submittedReports,
+        'color': Colors.blue,
+      },
+      {
+        'label': 'Approuvés',
+        'value': viewModel.approvedReports,
+        'color': Colors.green,
+      },
+    ];
+
+    final total = statusData.fold(
+      0,
+      (sum, item) => sum + (item['value'] as int),
+    );
+
     return Column(
-      children: [
-        const SizedBox(height: 32),
+      children:
+          statusData.map((item) {
+            final value = item['value'] as int;
+            final color = item['color'] as Color;
+            final percentage = total > 0 ? (value / total) * 100 : 0.0;
 
-        // Section title
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Text(
-                'Analyses Détaillées',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade800,
-                ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item['label'] as String,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  Text(
+                    '$value (${percentage.toStringAsFixed(1)}%)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Report trend chart
-        _buildChartCard(
-          'Évolution des Rapports',
-          Icons.trending_up,
-          Colors.blue,
-          SizedBox(
-            height: 300,
-            child: ReportTrendChart(monthlyStats: viewModel.monthlyStats),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Component distribution chart
-        _buildChartCard(
-          'Répartition des Composants',
-          Icons.pie_chart,
-          Colors.green,
-          SizedBox(
-            height: 300,
-            child: ComponentDistributionChart(
-              distribution: viewModel.componentDistribution,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Technician productivity chart
-        _buildChartCard(
-          'Productivité des Techniciens',
-          Icons.person,
-          Colors.purple,
-          SizedBox(
-            height: 300,
-            child: TechnicianProductivityChart(
-              productivity: viewModel.technicianProductivity,
-              getTechnicianName: viewModel.getTechnicianName,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Location distribution chart
-        _buildChartCard(
-          'Répartition Géographique',
-          Icons.location_on,
-          Colors.orange,
-          SizedBox(
-            height: 300,
-            child: LocationDistributionChart(
-              distribution: viewModel.locationDistribution,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Duration statistics chart
-        _buildChartCard(
-          'Statistiques des Durées',
-          Icons.hourglass_bottom,
-          Colors.teal,
-          SizedBox(
-            height: 300,
-            child: DurationStatisticsChart(
-              statistics: viewModel.durationStatistics,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 32),
-      ],
+            );
+          }).toList(),
     );
   }
 
-  Widget _buildChartCard(
-    String title,
-    IconData icon,
-    Color color,
-    Widget chart,
-  ) {
+  Widget _buildTrendsChart(StatisticsViewModel viewModel) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -666,48 +469,464 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Chart header
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.05),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 12),
+                child: Icon(
+                  Icons.trending_up,
+                  color: Colors.green.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Tendances Mensuelles',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildMonthlyTrends(viewModel),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyTrends(StatisticsViewModel viewModel) {
+    final trends = viewModel.monthlyTrendsChartData;
+
+    if (trends.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'Aucune donnée de tendance disponible',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    final maxValue = trends
+        .map((t) => t['total'] as int)
+        .fold(0, (a, b) => a > b ? a : b);
+
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: trends.length,
+        itemBuilder: (context, index) {
+          final trend = trends[index];
+          final total = trend['total'] as int;
+          final height = maxValue > 0 ? (total / maxValue) * 160 : 0.0;
+
+          return Container(
+            width: 60,
+            margin: const EdgeInsets.only(right: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
                 Text(
-                  title,
-                  style: TextStyle(
+                  total.toString(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  height: height,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.blue.shade600],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  (trend['month'] as String).substring(5), // Show MM part
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailedStats(StatisticsViewModel viewModel) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.analytics,
+                  color: Colors.purple.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Analyses Détaillées',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildDetailedMetrics(viewModel),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedMetrics(StatisticsViewModel viewModel) {
+    final metrics = [
+      {
+        'label': 'Taux de Completion',
+        'value': '${viewModel.completionRate.toStringAsFixed(1)}%',
+        'icon': Icons.check_circle_outline,
+        'color': Colors.green,
+      },
+      {
+        'label': 'Temps Moyen de Completion',
+        'value': '${viewModel.averageCompletionHours.toStringAsFixed(1)}h',
+        'icon': Icons.schedule,
+        'color': Colors.blue,
+      },
+      {
+        'label': 'Composant le Plus Utilisé',
+        'value': viewModel.mostUsedComponent,
+        'icon': Icons.build,
+        'color': Colors.orange,
+      },
+      {
+        'label': 'Activité Récente (7j)',
+        'value': viewModel.recentActivity.toString(),
+        'icon': Icons.trending_up,
+        'color': Colors.purple,
+      },
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 600;
+
+        if (isWide) {
+          return Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children:
+                metrics
+                    .map(
+                      (metric) => SizedBox(
+                        width: (constraints.maxWidth - 16) / 2,
+                        child: _buildMetricCard(metric),
+                      ),
+                    )
+                    .toList(),
+          );
+        } else {
+          return Column(
+            children:
+                metrics
+                    .map(
+                      (metric) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildMetricCard(metric),
+                      ),
+                    )
+                    .toList(),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildMetricCard(Map<String, dynamic> metric) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: (metric['color'] as Color).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: (metric['color'] as Color).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: (metric['color'] as Color).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              metric['icon'] as IconData,
+              color: metric['color'] as Color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric['label'] as String,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                Text(
+                  metric['value'] as String,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: color,
                   ),
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          // Chart content
-          Padding(padding: const EdgeInsets.all(16), child: chart),
+  Widget _buildTopPerformers(StatisticsViewModel viewModel) {
+    final topPerformers = viewModel.topPerformingTechnicians;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.emoji_events,
+                  color: Colors.amber.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Top Techniciens',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (topPerformers.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  'Aucun technicien trouvé',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ...topPerformers.asMap().entries.map((entry) {
+              final index = entry.key;
+              final performer = entry.value;
+
+              return _buildPerformerCard(performer, index);
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerformerCard(Map<String, dynamic> performer, int index) {
+    final rankColors = [Colors.amber, Colors.grey, Colors.brown];
+    final rankColor = index < 3 ? rankColors[index] : Colors.blue;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(color: rankColor, shape: BoxShape.circle),
+            child: Center(
+              child: Text(
+                '#${index + 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  performer['name'] as String,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  performer['email'] as String,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${performer['totalReports']} rapports',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${performer['approvedReports']} approuvés',
+                style: TextStyle(fontSize: 12, color: Colors.green.shade600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String subtitle;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.trending_up, color: color, size: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
         ],
       ),
     );

@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+
+class User {
+  +String uid
+  +String email
+  +String name
+  +String firstName
+  +String phone
+  +UserRole role
+  +DateTime createdAt
+  +DateTime lastLoginAt
+  +bool isActive
+  --
+  +toMap(): Map<String, dynamic>
+  +fromMap(data): User
+  +copyWith(): User
+  +isAdmin(): bool
+}
+
+enum UserRole {
+  TECHNICIAN
+  ADMINISTRATOR
+  --
+  +displayName(): String
+  +icon(): IconData
+}
+
+class AuthService {
+  -FirebaseAuth _auth
+  -FirebaseFirestore _firestore
+  --
+  +authStateChanges(): Stream<User?>
+  +signIn(email, password): Future<UserCredential?>
+  +signOut(): Future<void>
+  +createUser(userData): Future<User?>
+  +resetPassword(email): Future<bool>
+  +updateProfile(uid, data): Future<bool>
+  -_updateLastLogin(uid): Future<void>
+}
+
+class AuthProvider {
+  -AuthService _authService
+  -User? _currentUser
+  -bool _isLoading
+  -String? _errorMessage
+  --
+  +currentUser: User?
+  +isAuthenticated: bool
+  +signIn(email, password): Future<bool>
+  +signOut(): Future<void>
+  +updateProfile(data): Future<bool>
+  +notifyListeners(): void
+}
+
+class UserRepository {
+  -FirebaseFirestore _firestore
+  --
+  +createUser(user): Future<String>
+  +getUserById(uid): Future<User?>
+  +updateUser(uid, data): Future<bool>
+  +getAllUsers(): Future<List<User>>
+  +searchUsers(query): Future<List<User>>
+  +deleteUser(uid): Future<bool>
+}
+
+User --> UserRole : has
+AuthService --> User : manages
+AuthProvider --> AuthService : uses
+AuthProvider --> User : holds
+UserRepository --> User : stores
+AuthService --> UserRepository : uses
+@enduml

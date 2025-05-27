@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+participant "Admin" as Admin
+participant "UserManagementScreen" as UI
+participant "AuthService" as Service
+participant "Firebase Auth" as Auth
+participant "Firestore" as DB
+participant "Email Service" as Email
+
+Admin -> UI : Clique "Créer utilisateur"
+UI -> UI : Affiche formulaire
+Admin -> UI : Remplit données utilisateur
+UI -> UI : Valide formulaire
+UI -> Service : createUser(userData)
+
+Service -> Service : Génère mot de passe temporaire
+Service -> Auth : createUserWithEmailAndPassword()
+Auth -> Auth : Crée compte Firebase
+
+alt Création réussie
+    Auth -> Service : UserCredential
+    Service -> DB : Crée document utilisateur
+    DB -> Service : Document créé
+    Service -> Email : sendWelcomeEmail()
+    Email -> Email : Envoie email bienvenue
+    Email -> Service : Email envoyé
+    Service -> UI : Utilisateur créé
+    UI -> Admin : Message succès
+else Création échouée
+    Auth -> Service : FirebaseAuthException
+    Service -> UI : Erreur création
+    UI -> Admin : Affiche erreur
+end
+@enduml

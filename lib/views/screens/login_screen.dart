@@ -27,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   String dMessage = "";
   bool _isPasswordVisible = false;
+  bool _keepLoggedIn = false; // Add this state variable
 
   @override
   void initState() {
@@ -98,17 +99,18 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       debugPrint('LoginScreen: Tentative de connexion avec email: $email');
-      final userCredential = await viewModel.signInWithEmailAndPassword(
+      final userModel = await viewModel.signInWithEmailAndPassword(
         email,
         password,
+        keepLoggedIn: _keepLoggedIn, // Pass the keepLoggedIn parameter
       );
 
-      if (userCredential != null && mounted) {
+      if (userModel != null && mounted) {
         debugPrint(
           'LoginScreen: Authentification réussie. Récupération du rôle utilisateur...',
         );
-        // Obtenir le rôle utilisateur et naviguer
-        final role = await viewModel.getUserRole();
+        // Get user role from the userModel
+        final role = userModel.role;
         debugPrint('LoginScreen: Rôle utilisateur: $role');
 
         if (role == null && mounted) {
@@ -255,6 +257,11 @@ class _LoginScreenState extends State<LoginScreen>
 
                           // Login Form
                           _buildLoginForm(viewModel),
+
+                          const SizedBox(height: 20),
+
+                          // Keep Logged In Section
+                          _buildKeepLoggedInSection(),
 
                           const SizedBox(height: 30),
 
@@ -551,6 +558,81 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  Widget _buildKeepLoggedInSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.blue.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Transform.scale(
+            scale: 1.2,
+            child: Checkbox(
+              value: _keepLoggedIn,
+              onChanged: (value) {
+                setState(() {
+                  _keepLoggedIn = value ?? false;
+                });
+              },
+              activeColor: Colors.blue.shade600,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+              side: BorderSide(
+                color:
+                    _keepLoggedIn ? Colors.blue.shade600 : Colors.grey.shade400,
+                width: 2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rester connecté',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Vous resterez connecté même après la fermeture de l\'application',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.security, color: Colors.blue.shade600, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoginButton(LoginViewModel viewModel) {
     return Container(
       width: double.infinity,
@@ -714,7 +796,7 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 24),
 
         Text(
-          '© 2024 Kony Solutions. Tous droits réservés.',
+          '© 2025 Kony Solutions. Tous droits réservés.',
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey.shade500,
@@ -726,7 +808,7 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 8),
 
         Text(
-          'Version 1.0.3',
+          'Version 1.1.0',
           style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
         ),
       ],

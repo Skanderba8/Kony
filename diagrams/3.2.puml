@@ -1,47 +1,18 @@
 @startuml
-entity "User" as user {
-  * id : string <<PK>>
-  --
-  * email : string
-  * name : string
-  * role : string
-  photoUrl : string
-  createdAt : timestamp
-}
+!theme plain
+participant "App Mobile" as App
+participant "Cache Local" as Cache
+participant "Service Sync" as Sync
+participant "Firestore" as Cloud
 
-entity "TechnicalVisitReport" as report {
-  * id : string <<PK>>
-  --
-  * clientName : string
-  * location : string
-  * date : date
-  * status : string
-  * technicianId : string <<FK>>
-  conclusion : string
-  * createdAt : timestamp
-  updatedAt : timestamp
-}
+== Mode Hors-ligne ==
+App -> Cache : Créer/Modifier Rapport
+Cache -> Cache : Marquer "Dirty"
 
-entity "Floor" as floor {
-  * id : string <<PK>>
-  --
-  * reportId : string <<FK>>
-  * name : string
-  notes : string
-}
-
-entity "Component" as component {
-  * id : string <<PK>>
-  --
-  * floorId : string <<FK>>
-  * type : string
-  * name : string
-  location : string
-  properties : map
-  * createdAt : timestamp
-}
-
-user ||--o{ report : crée
-report ||--o{ floor : contient
-floor ||--o{ component : contient
+== Retour Connexion ==
+App -> Sync : Détecter connexion
+Sync -> Cache : Récupérer éléments "Dirty"
+Sync -> Cloud : Synchroniser données
+Cloud -> Sync : Confirmer
+Sync -> Cache : Marquer "Clean"
 @enduml

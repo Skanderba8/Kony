@@ -137,6 +137,7 @@ class UserManagementService {
     String? phoneNumber,
     String? address,
     String? department,
+    File? profilePicture,
   }) async {
     try {
       final Map<String, dynamic> updateData = {};
