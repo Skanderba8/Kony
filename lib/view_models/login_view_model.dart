@@ -153,7 +153,7 @@ class LoginViewModel extends ChangeNotifier {
   }
 
   /// Get current user role
-  Future<String?> getUserRole() async {
+  String? getUserRole() {
     try {
       // If we have a cached user model, return its role
       final userModel = getCurrentUserModel();

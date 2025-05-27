@@ -39,8 +39,8 @@ class KonyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Services
-        Provider<AuthService>(create: (_) => AuthService()),
+        // Services - Use ChangeNotifierProvider for services that extend ChangeNotifier
+        ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
         Provider<ReportService>(create: (_) => ReportService()),
         Provider<TechnicalVisitReportService>(
           create: (_) => TechnicalVisitReportService(),
