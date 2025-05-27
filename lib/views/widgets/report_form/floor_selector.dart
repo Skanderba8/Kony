@@ -23,10 +23,7 @@ class FloorSelector extends StatelessWidget {
         final currentFloorIndex = viewModel.currentFloorIndex;
 
         return Container(
-          padding: EdgeInsets.symmetric(
-            vertical: isCompact ? 8.0 : 12.0,
-            horizontal: 16.0,
-          ),
+          padding: EdgeInsets.all(isCompact ? 12.0 : 16.0),
           width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -47,146 +44,181 @@ class FloorSelector extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       Icons.layers_outlined,
-                      size: isCompact ? 16 : 18,
+                      size: isCompact ? 16 : 20,
                       color: Colors.blue.shade600,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: currentFloorIndex,
-                        isExpanded: true,
-                        icon: Icon(
-                          Icons.arrow_drop_down,
-                          color: Colors.blue.shade600,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Étage actuel',
+                          style: TextStyle(
+                            fontSize: isCompact ? 12 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue.shade800,
+                          ),
                         ),
-                        style: TextStyle(
-                          fontSize: isCompact ? 14 : 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade800,
+                        const SizedBox(height: 4),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: currentFloorIndex,
+                            isExpanded: true,
+                            icon: Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.blue.shade600,
+                              size: isCompact ? 18 : 20,
+                            ),
+                            style: TextStyle(
+                              fontSize: isCompact ? 14 : 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade900,
+                            ),
+                            onChanged: (int? index) {
+                              if (index != null) {
+                                viewModel.setCurrentFloorIndex(index);
+                              }
+                            },
+                            items:
+                                floors
+                                    .asMap()
+                                    .entries
+                                    .map<DropdownMenuItem<int>>((entry) {
+                                      return DropdownMenuItem<int>(
+                                        value: entry.key,
+                                        child: Text(entry.value.name),
+                                      );
+                                    })
+                                    .toList(),
+                          ),
                         ),
-                        onChanged: (int? index) {
-                          if (index != null) {
-                            viewModel.setCurrentFloorIndex(index);
-                          }
-                        },
-                        items:
-                            floors.asMap().entries.map<DropdownMenuItem<int>>((
-                              entry,
-                            ) {
-                              return DropdownMenuItem<int>(
-                                value: entry.key,
-                                child: Text(entry.value.name),
-                              );
-                            }).toList(),
-                      ),
+                      ],
                     ),
                   ),
-                  // Action buttons
+                  // Action buttons - more compact
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Edit floor name button
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        onPressed:
-                            () => _showEditFloorNameDialog(
-                              context,
-                              viewModel,
-                              floors[currentFloorIndex],
+                      // Add floor button
+                      if (showAddFloor)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.add,
+                              size: isCompact ? 16 : 18,
+                              color: Colors.green.shade600,
                             ),
-                        tooltip: 'Renommer l\'étage',
-                        color: Colors.blue.shade600,
-                      ),
-                      // Delete floor button (only if more than one floor)
-                      if (floors.length > 1)
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 16),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                            padding: EdgeInsets.all(isCompact ? 6 : 8),
+                            constraints: BoxConstraints(
+                              minWidth: isCompact ? 28 : 32,
+                              minHeight: isCompact ? 28 : 32,
+                            ),
+                            onPressed: () => viewModel.addFloor(),
+                            tooltip: 'Ajouter un étage',
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      // Edit floor name button
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.edit,
+                            size: isCompact ? 14 : 16,
+                            color: Colors.blue.shade600,
+                          ),
+                          padding: EdgeInsets.all(isCompact ? 6 : 8),
+                          constraints: BoxConstraints(
+                            minWidth: isCompact ? 28 : 32,
+                            minHeight: isCompact ? 28 : 32,
                           ),
                           onPressed:
-                              () => _showDeleteFloorConfirmation(
+                              () => _showEditFloorNameDialog(
                                 context,
                                 viewModel,
-                                currentFloorIndex,
+                                floors[currentFloorIndex],
                               ),
-                          tooltip: 'Supprimer l\'étage',
-                          color: Colors.red.shade400,
+                          tooltip: 'Renommer l\'étage',
                         ),
+                      ),
+                      // Delete floor button (only if more than one floor)
+                      if (floors.length > 1) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: isCompact ? 14 : 16,
+                              color: Colors.red.shade600,
+                            ),
+                            padding: EdgeInsets.all(isCompact ? 6 : 8),
+                            constraints: BoxConstraints(
+                              minWidth: isCompact ? 28 : 32,
+                              minHeight: isCompact ? 28 : 32,
+                            ),
+                            onPressed:
+                                () => _showDeleteFloorConfirmation(
+                                  context,
+                                  viewModel,
+                                  currentFloorIndex,
+                                ),
+                            tooltip: 'Supprimer l\'étage',
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
               ),
 
-              // Add floor button (if enabled and not compact)
-              if (showAddFloor && !isCompact) ...[
+              // Floor info summary (only when not compact)
+              if (!isCompact) ...[
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => viewModel.addFloor(),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Ajouter un étage'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue.shade700,
-                      side: BorderSide(color: Colors.blue.shade300),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
                   ),
-                ),
-              ],
-
-              // Compact add floor button
-              if (showAddFloor && isCompact) ...[
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => viewModel.addFloor(),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add, size: 14, color: Colors.blue.shade600),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Ajouter un étage',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _getFloorSummary(floors[currentFloorIndex]),
                           style: TextStyle(
-                            color: Colors.blue.shade700,
                             fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -195,6 +227,17 @@ class FloorSelector extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _getFloorSummary(Floor floor) {
+    final componentCount = floor.totalComponentCount;
+    if (componentCount == 0) {
+      return 'Aucun composant ajouté à cet étage';
+    } else if (componentCount == 1) {
+      return '1 composant documenté';
+    } else {
+      return '$componentCount composants documentés';
+    }
   }
 
   /// Show a dialog to edit the floor name

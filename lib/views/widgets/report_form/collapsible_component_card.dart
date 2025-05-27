@@ -119,12 +119,7 @@ class _CollapsibleComponentCardState<T>
             color: Colors.transparent,
             child: InkWell(
               onTap: _toggleExpansion,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 child: Row(

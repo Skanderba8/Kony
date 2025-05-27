@@ -5,10 +5,7 @@ import 'package:kony/views/widgets/report_form/component_photo_section.dart';
 import 'package:provider/provider.dart';
 import '../../../view_models/technical_visit_report_view_model.dart';
 import '../../../models/floor.dart';
-import '../../widgets/report_form/component_type_selector.dart';
 import '../../widgets/report_form/collapsible_component_card.dart';
-import '../../widgets/report_form/section_header.dart';
-import '../../widgets/report_form/floor_selector.dart';
 
 // Import all needed model and form components
 import '../../../models/report_sections/network_cabinet.dart';
@@ -43,48 +40,109 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           return const Center(child: CircularProgressIndicator());
         }
 
+        // Check if floor has any components
+        final hasComponents = currentFloor.totalComponentCount > 0;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Floor selector with add floor button
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16.0),
-              child: FloorSelector(),
-            ),
-
-            // Floor title and description
-            SectionHeader(
-              title: 'Étage: ${currentFloor.name}',
-              subtitle: 'Ajoutez les composants installés à cet étage.',
-              icon: Icons.layers,
-            ),
-
-            // Component type selector
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24.0),
-              child: ComponentTypeSelector(
-                componentTypes: viewModel.componentTypes,
-                selectedType: viewModel.selectedComponentType,
-                onTypeSelected: (type) {
-                  viewModel.setSelectedComponentType(type);
-
-                  // If selecting a new component type, add a new component
-                  if (type != null) {
-                    viewModel.addComponentByType(type);
-                  }
-                },
-                label: 'Ajouter un composant',
-              ),
-            ),
+            // Component selector - only show if no components exist
+            if (!hasComponents) _buildComponentSelector(viewModel),
 
             // Display components by type with collapsible cards
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0),
-              child: _buildComponentSections(viewModel, currentFloor),
-            ),
+            if (hasComponents) _buildComponentSections(viewModel, currentFloor),
+
+            // If no components, show empty state
+            if (!hasComponents) _buildEmptyFloorState(viewModel),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildComponentSelector(TechnicalVisitReportViewModel viewModel) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade50, Colors.indigo.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.add_circle_outline,
+                  color: Colors.blue.shade700,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sélectionner un composant',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Choisissez le type de composant à documenter',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showComponentTypeDialog(viewModel),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Choisir un composant'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -109,10 +167,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter une baie',
           emptyStateMessage: 'Aucune baie informatique ajoutée',
           componentType: 'Baie Informatique',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (cabinet, index) => _buildCabinetForm(cabinet, index, viewModel),
         ),
@@ -133,10 +189,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un percement',
           emptyStateMessage: 'Aucun percement ajouté',
           componentType: 'Percement',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (perforation, index) =>
                   _buildPerforationForm(perforation, index, viewModel),
@@ -158,10 +212,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter une trappe',
           emptyStateMessage: 'Aucune trappe d\'accès ajoutée',
           componentType: 'Trappe d\'accès',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (trap, index) => _buildAccessTrapForm(trap, index, viewModel),
         ),
@@ -182,10 +234,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un chemin',
           emptyStateMessage: 'Aucun chemin de câbles ajouté',
           componentType: 'Chemin de câbles',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (path, index) => _buildCablePathForm(path, index, viewModel),
         ),
@@ -206,10 +256,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter une goulotte',
           emptyStateMessage: 'Aucune goulotte ajoutée',
           componentType: 'Goulotte',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (trunking, index) =>
                   _buildCableTrunkingForm(trunking, index, viewModel),
@@ -231,10 +279,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un conduit',
           emptyStateMessage: 'Aucun conduit ajouté',
           componentType: 'Conduit',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (conduit, index) => _buildConduitForm(conduit, index, viewModel),
         ),
@@ -255,10 +301,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un câblage cuivre',
           emptyStateMessage: 'Aucun câblage cuivre ajouté',
           componentType: 'Câblage cuivre',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (cabling, index) =>
                   _buildCopperCablingForm(cabling, index, viewModel),
@@ -280,10 +324,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un câblage fibre',
           emptyStateMessage: 'Aucun câblage fibre optique ajouté',
           componentType: 'Câblage fibre optique',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (cabling, index) =>
                   _buildFiberOpticCablingForm(cabling, index, viewModel),
@@ -305,19 +347,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un composant personnalisé',
           emptyStateMessage: 'Aucun composant personnalisé ajouté',
           componentType: 'Composant personnalisé',
-          onAddOtherComponentType: () {
-            viewModel.setSelectedComponentType(null);
-            _showComponentTypeSelector(context, viewModel);
-          },
+          initiallyExpanded: true,
+          onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (component, index) =>
                   _buildCustomComponentForm(component, index, viewModel),
         ),
       );
-    }
-
-    if (sections.isEmpty) {
-      return _buildEmptyFloorState(viewModel);
     }
 
     return Column(children: sections);
@@ -375,54 +411,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 32),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade600, Colors.blue.shade700],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: () => _showComponentTypeSelector(context, viewModel),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                'Ajouter un composant',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
   /// Display a modern dialog to select a component type
-  void _showComponentTypeSelector(
-    BuildContext context,
-    TechnicalVisitReportViewModel viewModel,
-  ) {
+  void _showComponentTypeDialog(TechnicalVisitReportViewModel viewModel) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
