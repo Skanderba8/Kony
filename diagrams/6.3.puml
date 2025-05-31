@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+skinparam participant {
+  BackgroundColor lightgreen
+  BorderColor black
+}
+
+participant "Admin" as A
+participant "AdminDashboard" as AD
+participant "ValidationService" as VS
+participant "NotificationService" as NS
+participant "Firebase" as FB
+participant "Technicien" as T
+
+A -> AD: Consulter rapports soumis
+AD -> FB: getReportsByStatus("SOUMIS")
+FB --> AD: List<Report>
+AD --> A: Afficher liste
+
+A -> AD: Sélectionner rapport
+AD -> VS: examineReport(reportId)
+VS -> FB: updateStatus("EXAMINE")
+VS -> NS: notifyStatusChange()
+NS -> FB: updateNotifications()
+
+A -> AD: Valider rapport
+AD -> VS: approveReport(reportId, comments)
+VS -> FB: updateStatus("APPROUVE")
+VS -> NS: notifyApproval()
+NS -> T: Notification "Rapport approuvé"
+NS -> AD: updateBadgeCount()
+AD --> A: Confirmation validation
+
+@enduml

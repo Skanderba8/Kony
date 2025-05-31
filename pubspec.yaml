@@ -16,6 +16,8 @@ dependencies:
   firebase_auth: ^5.3.3
   cloud_firestore: ^5.5.0
   firebase_storage: ^12.3.6
+  cloudinary_public: ^0.21.0
+  http: ^1.1.0
 
   # State management
   provider: ^6.0.5

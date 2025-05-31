@@ -1,0 +1,47 @@
+@startuml
+!theme plain
+skinparam backgroundColor white
+skinparam actor {
+  BackgroundColor lightgreen
+  BorderColor black
+}
+skinparam usecase {
+  BackgroundColor lightyellow
+  BorderColor black
+}
+
+actor "Administrateur Mobile" as adminM
+actor "Administrateur Web" as adminW
+
+package "Système KONY - Release 3" {
+  usecase "Valider rapports" as UC1
+  usecase "Consulter statistiques" as UC2
+  usecase "Gérer utilisateurs" as UC3
+  usecase "Recevoir notifications" as UC4
+  usecase "Exporter données PDF" as UC5
+  usecase "Exporter données CSV" as UC6
+  usecase "Créer comptes admins" as UC7
+  usecase "Navigation sidebar" as UC8
+}
+
+adminM --> UC1
+adminM --> UC2
+adminM --> UC3
+adminM --> UC4
+adminM --> UC5
+adminM --> UC8
+
+adminW --> UC1
+adminW --> UC2
+adminW --> UC3
+adminW --> UC4
+adminW --> UC5
+adminW --> UC6
+adminW --> UC7
+
+UC1 ..> UC4 : <<include>>
+UC2 ..> UC5 : <<extend>>
+UC2 ..> UC6 : <<extend>>
+UC3 ..> UC7 : <<extend>>
+
+@enduml

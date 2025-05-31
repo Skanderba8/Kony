@@ -6,8 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
+import 'universal_photo_service.dart';
 
-class PhotoUploadService {
+class PhotoUploadService implements PhotoUploadInterface {
   static PhotoUploadService? _instance;
   static PhotoUploadService get instance =>
       _instance ??= PhotoUploadService._();
@@ -15,19 +16,20 @@ class PhotoUploadService {
 
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  /// Upload photo to Firebase Storage and return the download URL
+  @override
   Future<String> uploadPhoto({
     required File imageFile,
     required String reportId,
     required String componentId,
     String? photoId,
+    Function(double)? onProgress,
   }) async {
     try {
       // Generate unique photo ID if not provided
       photoId ??= const Uuid().v4();
 
       debugPrint(
-        'Starting photo upload for report: $reportId, component: $componentId, photo: $photoId',
+        'Starting Firebase upload for report: $reportId, component: $componentId, photo: $photoId',
       );
 
       // Compress image before upload
@@ -38,7 +40,7 @@ class PhotoUploadService {
       final storagePath =
           'reports/$reportId/components/$componentId/photos/$fileName';
 
-      debugPrint('Storage path: $storagePath');
+      debugPrint('Firebase storage path: $storagePath');
 
       // Create reference to Firebase Storage
       final Reference storageRef = _storage.ref().child(storagePath);
@@ -54,14 +56,19 @@ class PhotoUploadService {
         },
       );
 
-      // Upload file
-      debugPrint(
-        'Uploading compressed image (${compressedImage.length} bytes)',
-      );
+      // Upload file with progress tracking
       final UploadTask uploadTask = storageRef.putData(
         compressedImage,
         metadata,
       );
+
+      // Listen to progress if callback provided
+      if (onProgress != null) {
+        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          onProgress(progress);
+        });
+      }
 
       // Wait for upload to complete
       final TaskSnapshot snapshot = await uploadTask;
@@ -69,15 +76,42 @@ class PhotoUploadService {
       if (snapshot.state == TaskState.success) {
         // Get download URL
         final String downloadUrl = await storageRef.getDownloadURL();
-        debugPrint('Photo uploaded successfully. URL: $downloadUrl');
+        debugPrint('Firebase upload successful. URL: $downloadUrl');
         return downloadUrl;
       } else {
         throw Exception('Upload failed with state: ${snapshot.state}');
       }
     } catch (e) {
-      debugPrint('Error uploading photo: $e');
+      debugPrint('Error uploading photo to Firebase: $e');
       rethrow;
     }
+  }
+
+  @override
+  Future<List<String>> uploadMultiplePhotos({
+    required List<File> imageFiles,
+    required String reportId,
+    required String componentId,
+    Function(int completed, int total)? onProgress,
+  }) async {
+    final List<String> uploadedUrls = [];
+
+    for (int i = 0; i < imageFiles.length; i++) {
+      try {
+        final url = await uploadPhoto(
+          imageFile: imageFiles[i],
+          reportId: reportId,
+          componentId: componentId,
+        );
+        uploadedUrls.add(url);
+        onProgress?.call(i + 1, imageFiles.length);
+      } catch (e) {
+        debugPrint('Failed to upload photo ${i + 1} to Firebase: $e');
+        // Continue with other photos
+      }
+    }
+
+    return uploadedUrls;
   }
 
   /// Compress image to reduce file size while maintaining quality
@@ -116,14 +150,14 @@ class PhotoUploadService {
     }
   }
 
-  /// Delete photo from Firebase Storage
+  @override
   Future<void> deletePhoto(String photoUrl) async {
     try {
       final Reference photoRef = _storage.refFromURL(photoUrl);
       await photoRef.delete();
-      debugPrint('Photo deleted successfully: $photoUrl');
+      debugPrint('Photo deleted successfully from Firebase: $photoUrl');
     } catch (e) {
-      debugPrint('Error deleting photo: $e');
+      debugPrint('Error deleting photo from Firebase: $e');
       // Don't rethrow - deletion errors shouldn't block the app
     }
   }
@@ -139,7 +173,7 @@ class PhotoUploadService {
     }
   }
 
-  /// Batch delete photos for a component
+  @override
   Future<void> deleteComponentPhotos({
     required String reportId,
     required String componentId,
@@ -163,7 +197,7 @@ class PhotoUploadService {
     }
   }
 
-  /// Batch delete all photos for a report
+  @override
   Future<void> deleteReportPhotos(String reportId) async {
     try {
       final String folderPath = 'reports/$reportId/';

@@ -1,0 +1,62 @@
+@startuml
+!theme plain
+skinparam class {
+  BackgroundColor lightblue
+  BorderColor black
+  ArrowColor black
+}
+
+class AdminDashboard {
+  - adminId: String
+  - reportFilters: Map
+  - statisticsCache: Map
+  - notificationCount: int
+  + validateReport(String, String): void
+  + getFilteredReports(): List<Report>
+  + getStatistics(): Statistics
+  + exportData(String): File
+}
+
+class ReportValidation {
+  - reportId: String
+  - status: ValidationStatus
+  - reviewerComments: String
+  - validatedAt: DateTime
+  - validatedBy: String
+  + approve(): void
+  + reject(String): void
+  + requestModification(String): void
+}
+
+class NotificationService {
+  - notifications: List<Notification>
+  - subscribers: List<String>
+  + sendNotification(String, String): void
+  + markAsRead(String): void
+  + getUnreadCount(): int
+  + subscribeToUpdates(String): void
+}
+
+class Statistics {
+  - reportCount: int
+  - averageCompletionTime: double
+  - technicianPerformance: Map
+  - geographicDistribution: Map
+  + calculateMetrics(): void
+  + generateCharts(): List<Chart>
+  + exportToCsv(): File
+}
+
+enum ValidationStatus {
+  SOUMIS
+  EXAMINE
+  APPROUVE
+  REJETE
+}
+
+AdminDashboard ||--o{ ReportValidation : manages
+AdminDashboard ||--|| NotificationService : uses
+AdminDashboard ||--|| Statistics : displays
+ReportValidation ||--|| ValidationStatus : has
+
+@enduml

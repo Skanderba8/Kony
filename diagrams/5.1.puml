@@ -1,0 +1,39 @@
+@startuml
+!theme plain
+skinparam backgroundColor white
+skinparam actor {
+  BackgroundColor lightblue
+  BorderColor black
+}
+skinparam usecase {
+  BackgroundColor lightyellow
+  BorderColor black
+}
+
+actor "Technicien" as tech
+
+package "Système KONY - Release 2" {
+  usecase "Créer nouveau rapport" as UC1
+  usecase "Gérer informations générales" as UC2
+  usecase "Documenter composants" as UC3
+  usecase "Gérer étages" as UC4
+  usecase "Capturer photos" as UC5
+  usecase "Ajouter commentaires" as UC6
+  usecase "Prévisualiser rapport" as UC7
+  usecase "Générer PDF" as UC8
+  usecase "Sauvegarder brouillon" as UC9
+}
+
+tech --> UC1
+tech --> UC2
+tech --> UC7
+tech --> UC8
+tech --> UC9
+
+UC1 ..> UC2 : <<include>>
+UC1 ..> UC3 : <<include>>
+UC3 ..> UC4 : <<include>>
+UC3 ..> UC5 : <<include>>
+UC5 ..> UC6 : <<extend>>
+
+@enduml

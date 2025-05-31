@@ -1,0 +1,58 @@
+@startuml
+!theme plain
+skinparam class {
+  BackgroundColor lightblue
+  BorderColor black
+  ArrowColor black
+}
+
+class TechnicalVisitReport {
+  - id: String
+  - technicianId: String  
+  - date: DateTime
+  - clientName: String
+  - location: String
+  - projectContext: String
+  - conclusion: String
+  - status: String
+  - floors: List<Floor>
+  + createDraft(): TechnicalVisitReport
+  + toJson(): Map<String, dynamic>
+  + fromJson(): TechnicalVisitReport
+}
+
+class Floor {
+  - id: String
+  - name: String
+  - description: String
+  - components: List<Component>
+  - notes: String
+  + addComponent(Component): void
+  + removeComponent(String): void
+}
+
+class Component {
+  - id: String
+  - type: String
+  - specifications: Map
+  - location: String
+  - photos: List<Photo>
+  - notes: String
+  + addPhoto(Photo): void
+  + updateSpecs(Map): void
+}
+
+class Photo {
+  - id: String
+  - url: String
+  - comment: String
+  - takenAt: DateTime
+  - compressed: bool
+  + compress(): void
+}
+
+TechnicalVisitReport ||--o{ Floor : contains
+Floor ||--o{ Component : contains
+Component ||--o{ Photo : contains
+
+@enduml

@@ -1,0 +1,146 @@
+@startuml
+!theme plain
+
+skinparam class {
+    BackgroundColor lightblue
+    BorderColor darkblue
+}
+
+class User {
+    - id: String
+    - email: String
+    - name: String
+    - role: String
+    - phoneNumber: String
+    - createdAt: DateTime
+    - isActive: Boolean
+    + authenticate()
+    + updateProfile()
+}
+
+class TechnicalVisitReport {
+    - id: String
+    - technicianId: String
+    - date: DateTime
+    - clientName: String
+    - location: String
+    - status: String
+    - projectContext: String
+    - conclusion: String
+    - floors: List<Floor>
+    + createDraft()
+    + submit()
+    + validate()
+}
+
+class Floor {
+    - id: String
+    - name: String
+    - networkCabinets: List<NetworkCabinet>
+    - perforations: List<Perforation>
+    - accessTraps: List<AccessTrap>
+    - cablePaths: List<CablePath>
+    - cableTrunkings: List<CableTrunking>
+    - conduits: List<Conduit>
+    - copperCablings: List<CopperCabling>
+    - fiberOpticCablings: List<FiberOpticCabling>
+    - customComponents: List<CustomComponent>
+    + totalComponentCount: int
+    + hasComponents: Boolean
+}
+
+abstract class TechnicalComponent {
+    - id: String
+    - location: String
+    - notes: String
+    - photos: List<Photo>
+    + toJson()
+    + validate()
+    + addPhoto()
+    + removePhoto()
+}
+
+class NetworkCabinet {
+    - name: String
+    - cabinetState: String
+    - isPowered: Boolean
+    - availableOutlets: Integer
+}
+
+class Perforation {
+    - wallType: String
+    - wallDepth: Double
+}
+
+class AccessTrap {
+    - trapSize: String
+}
+
+class CablePath {
+    - size: String
+    - lengthInMeters: Double
+    - fixationType: String
+}
+
+class CableTrunking {
+    - size: String
+    - lengthInMeters: Double
+    - innerAngles: Integer
+}
+
+class Conduit {
+    - size: String
+    - lengthInMeters: Double
+}
+
+class CopperCabling {
+    - category: String
+    - lengthInMeters: Double
+    - pathDescription: String
+}
+
+class FiberOpticCabling {
+    - fiberType: String
+    - drawerCount: Integer
+    - conduitCount: Integer
+}
+
+class CustomComponent {
+    - name: String
+    - description: String
+}
+
+class Photo {
+    - id: String
+    - url: String
+    - comment: String
+    - takenAt: DateTime
+    + upload()
+    + compress()
+}
+
+User ||--o{ TechnicalVisitReport : "creates"
+TechnicalVisitReport ||--o{ Floor : "contains"
+Floor ||--o{ NetworkCabinet : "has"
+Floor ||--o{ Perforation : "has"
+Floor ||--o{ AccessTrap : "has"
+Floor ||--o{ CablePath : "has"
+Floor ||--o{ CableTrunking : "has"
+Floor ||--o{ Conduit : "has"
+Floor ||--o{ CopperCabling : "has"
+Floor ||--o{ FiberOpticCabling : "has"
+Floor ||--o{ CustomComponent : "has"
+
+TechnicalComponent <|-- NetworkCabinet
+TechnicalComponent <|-- Perforation
+TechnicalComponent <|-- AccessTrap
+TechnicalComponent <|-- CablePath
+TechnicalComponent <|-- CableTrunking
+TechnicalComponent <|-- Conduit
+TechnicalComponent <|-- CopperCabling
+TechnicalComponent <|-- FiberOpticCabling
+TechnicalComponent <|-- CustomComponent
+
+TechnicalComponent ||--o{ Photo : "contains"
+
+@enduml

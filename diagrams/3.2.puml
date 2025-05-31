@@ -1,18 +1,31 @@
+puml
 @startuml
 !theme plain
-participant "App Mobile" as App
-participant "Cache Local" as Cache
-participant "Service Sync" as Sync
-participant "Firestore" as Cloud
+skinparam linetype ortho
 
-== Mode Hors-ligne ==
-App -> Cache : Créer/Modifier Rapport
-Cache -> Cache : Marquer "Dirty"
+actor "Technicien" as TECH
 
-== Retour Connexion ==
-App -> Sync : Détecter connexion
-Sync -> Cache : Récupérer éléments "Dirty"
-Sync -> Cloud : Synchroniser données
-Cloud -> Sync : Confirmer
-Sync -> Cache : Marquer "Clean"
+rectangle "Application Mobile" as APP {
+    rectangle "Report Form\n(4 étapes)" as UI
+    rectangle "Local Storage\n(Draft Reports)" as LOCAL_DB
+    rectangle "Sync Manager\n(Auto-sync)" as SYNC
+    rectangle "Photo Upload\nService" as PHOTO_SERVICE
+}
+
+cloud "Firebase Cloud" as CLOUD {
+    database "Firestore\n(Reports + Metadata)" as FIRESTORE
+    database "Firebase Storage\n(Photos + PDFs)" as STORAGE
+}
+
+TECH --> UI : "Create Report"
+UI --> LOCAL_DB : "Save Draft"
+LOCAL_DB --> SYNC : "Queue for Sync"
+
+SYNC --> FIRESTORE : "Upload Report Data"
+PHOTO_SERVICE --> STORAGE : "Upload Photos"
+UI --> PHOTO_SERVICE : "Capture Photos"
+
+note right of SYNC : "Auto-retry on failure\nBatch upload optimization"
+note bottom of LOCAL_DB : "SQLite with encryption\nDraft persistence"
+
 @enduml

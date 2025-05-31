@@ -18,47 +18,24 @@ import '../models/report_sections/copper_cabling.dart';
 import '../models/report_sections/fiber_optic_cabling.dart';
 import '../services/auth_service.dart';
 import '../services/technical_visit_report_service.dart';
-import '../services/photo_upload_service.dart';
+import '../services/universal_photo_service.dart';
 import '../services/pdf_generation_service.dart';
 import 'package:open_file/open_file.dart';
 
-/// ViewModel for creating and managing technical visit reports.
-///
-/// This ViewModel implements the floor-based organization approach, allowing users
-/// to create and manage floors with multiple component types in each floor.
-/// It handles all business logic for the report creation workflow, including:
-/// - Loading and saving reports
-/// - Managing floor navigation
-/// - Adding/updating/removing technical components
-/// - Photo management with Firebase Storage
-/// - Validation of report data
-/// - PDF generation
-///
-/// Follows MVVM architectural pattern with unidirectional data flow:
-/// 1. UI events trigger ViewModel methods
-/// 2. ViewModel updates models and notifies listeners
-/// 3. UI rebuilds based on ViewModel state changes
 class TechnicalVisitReportViewModel extends ChangeNotifier {
-  // Services for persistence and functionality
   final TechnicalVisitReportService _reportService;
   final AuthService _authService;
   final PdfGenerationService _pdfService;
 
-  // Current report being edited
   TechnicalVisitReport? _currentReport;
-
-  // State variables
   bool _isLoading = false;
   String? _errorMessage;
   int _currentStep = 0;
   int _currentFloorIndex = 0;
   String? _selectedComponentType;
-
-  // Auto-save timer
   Timer? _autoSaveTimer;
   bool _hasUnsavedChanges = false;
 
-  // Possible component types that can be added to a floor
   final List<String> componentTypes = [
     'Baie Informatique',
     'Percement',
@@ -71,7 +48,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     'Composant personnalisé',
   ];
 
-  // Getters to expose state to the UI layer
   TechnicalVisitReport? get currentReport => _currentReport;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -89,7 +65,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
   String? get selectedComponentType => _selectedComponentType;
   bool get hasUnsavedChanges => _hasUnsavedChanges;
 
-  /// Constructor with dependency injection for services
   TechnicalVisitReportViewModel({
     required TechnicalVisitReportService reportService,
     required AuthService authService,
@@ -100,7 +75,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     _initAutoSave();
   }
 
-  /// Initialize auto-save functionality
   void _initAutoSave() {
     _autoSaveTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       if (_hasUnsavedChanges && _currentReport?.status == 'draft') {
@@ -109,7 +83,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     });
   }
 
-  /// Initialize a new draft report
   Future<void> initNewReport() async {
     _setLoading(true);
     _clearError();
@@ -140,7 +113,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// Load an existing report for editing
   Future<void> loadReport(String reportId) async {
     _setLoading(true);
     _clearError();
@@ -165,7 +137,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// Save the current report as a draft
   Future<bool> saveDraft() async {
     if (_currentReport == null) {
       _setError('No report to save');
@@ -180,16 +151,10 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
         lastModified: DateTime.now(),
       );
 
-      debugPrint('Saving draft report with ID: ${updatedReport.id}');
-
       if (_isNewReport()) {
-        debugPrint('Creating new draft report in Firestore');
         await _reportService.createReport(updatedReport);
-        debugPrint('New draft saved successfully with ID: ${updatedReport.id}');
       } else {
-        debugPrint('Updating existing draft report in Firestore');
         await _reportService.updateReport(updatedReport);
-        debugPrint('Draft updated successfully with ID: ${updatedReport.id}');
       }
 
       _currentReport = updatedReport;
@@ -197,7 +162,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Error saving draft: $e');
       _setError('Failed to save draft: $e');
       return false;
     } finally {
@@ -205,7 +169,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// Auto-save functionality to prevent data loss
   Future<void> _autoSave() async {
     if (_currentReport == null || !_hasUnsavedChanges) return;
 
@@ -213,14 +176,12 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       if (_currentReport!.status == 'draft') {
         await _reportService.updateReport(_currentReport!);
         _hasUnsavedChanges = false;
-        debugPrint('Report auto-saved successfully');
       }
     } catch (e) {
-      debugPrint('Auto-save failed: $e');
+      // Silent fail for auto-save
     }
   }
 
-  /// Submit the completed report
   Future<bool> submitReport() async {
     if (_currentReport == null) {
       _setError('No report to submit');
@@ -231,7 +192,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     _clearError();
 
     try {
-      // Validate that all photos have been uploaded
       if (!await _validateAllPhotosUploaded()) {
         _setError(
           'Some photos are still uploading. Please wait and try again.',
@@ -239,39 +199,25 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
         return false;
       }
 
-      // Perform validation
       if (!validateAllSections()) {
         _setError('Veuillez compléter toutes les sections requises');
         return false;
       }
 
-      debugPrint('Preparing submission for report ID: ${_currentReport!.id}');
-
-      // First ensure the report exists in Firestore by saving it
       await _reportService.createReport(_currentReport!);
-      debugPrint('Ensured report exists in Firestore');
 
-      // Create a fully prepared report with all changes in a single object
       final reportToSubmit = _currentReport!.copyWith(
         status: 'submitted',
         submittedAt: DateTime.now(),
         lastModified: DateTime.now(),
       );
 
-      // Log the operation for debugging
-      debugPrint('Submitting report with status: ${reportToSubmit.status}');
-
-      // SINGLE ATOMIC OPERATION
       await _reportService.updateReport(reportToSubmit);
-      debugPrint('Report successfully submitted to Firestore');
 
-      // Update local state after successful submission
       _currentReport = reportToSubmit;
       _hasUnsavedChanges = false;
 
-      // Handle PDF generation separately
       try {
-        debugPrint('Starting PDF generation');
         final pdfFile = await _pdfService.generateTechnicalReportPdf(
           reportToSubmit,
         );
@@ -285,13 +231,11 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
           try {
             await OpenFile.open(pdfFile.path);
           } catch (e) {
-            debugPrint('Error opening PDF: $e');
+            // Silent fail for PDF opening
           }
         }
       } catch (pdfError) {
-        debugPrint(
-          'PDF generation failed but report was successfully submitted: $pdfError',
-        );
+        // PDF generation failed but report was successfully submitted
       }
 
       notifyListeners();
@@ -305,12 +249,10 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       } else {
         errorMsg = 'Erreur Firebase: ${e.message}';
       }
-      debugPrint(errorMsg);
       _setError(errorMsg);
       return false;
     } catch (e) {
       final errorMsg = 'Erreur lors de la soumission: $e';
-      debugPrint(errorMsg);
       _setError(errorMsg);
       return false;
     } finally {
@@ -318,57 +260,47 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// Validate that all photos have been uploaded to Firebase Storage
   Future<bool> _validateAllPhotosUploaded() async {
     if (_currentReport == null) return true;
 
     for (final floor in _currentReport!.floors) {
-      // Check custom components
       for (final component in floor.customComponents) {
         for (final photo in component.photos) {
-          if (photo.url.isEmpty ||
-              !photo.url.startsWith('https://firebasestorage.googleapis.com')) {
-            debugPrint('Photo not uploaded: ${photo.id}');
+          if (photo.url.isEmpty) {
+            return false;
+          }
+
+          final isValidUrl =
+              photo.url.startsWith('https://firebasestorage.googleapis.com') ||
+              photo.url.startsWith('https://res.cloudinary.com') ||
+              photo.url.startsWith('https://');
+
+          if (!isValidUrl) {
             return false;
           }
         }
       }
-
-      // Add similar validation for other component types when they support photos
     }
 
     return true;
   }
 
-  /// Get all draft reports for the current technician
   Stream<List<TechnicalVisitReport>> getDraftReportsStream() {
     final user = _authService.currentUser;
     if (user == null) {
-      debugPrint(
-        'User not authenticated, returning empty draft reports stream',
-      );
       return Stream.value([]);
     }
-    debugPrint('Fetching draft reports stream for user: ${user.uid}');
     return _reportService.getDraftReportsStream(user.uid);
   }
 
-  /// Get all submitted reports for the current technician
   Stream<List<TechnicalVisitReport>> getSubmittedReportsStream() {
     final user = _authService.currentUser;
     if (user == null) {
-      debugPrint(
-        'User not authenticated, returning empty submitted reports stream',
-      );
       return Stream.value([]);
     }
-    debugPrint('Fetching submitted reports stream for user: ${user.uid}');
     return _reportService.getSubmittedReportsStream(user.uid);
   }
 
-  // ====================== NAVIGATION METHODS ======================
-
-  /// Navigate to a specific step in the report form
   void navigateToStep(int step) {
     if (step >= 0 && step <= 6) {
       _currentStep = step;
@@ -376,7 +308,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// Move to the next step in the report form
   bool nextStep() {
     if (_currentStep < 6) {
       _currentStep++;
@@ -386,7 +317,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     return false;
   }
 
-  /// Move to the previous step in the report form
   bool previousStep() {
     if (_currentStep > 0) {
       _currentStep--;
@@ -396,7 +326,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     return false;
   }
 
-  /// Set the current floor index
   void setCurrentFloorIndex(int index) {
     if (_currentReport != null &&
         index >= 0 &&
@@ -407,15 +336,11 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// Set the selected component type
   void setSelectedComponentType(String? type) {
     _selectedComponentType = type;
     notifyListeners();
   }
 
-  // ====================== FLOOR MANAGEMENT METHODS ======================
-
-  /// Add a new floor to the report
   void addFloor() {
     if (_currentReport == null) return;
 
@@ -442,7 +367,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a floor's name
   void updateFloorName(int index, String name) {
     if (_currentReport == null ||
         index < 0 ||
@@ -461,7 +385,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Delete a floor
   void deleteFloor(int index) {
     if (_currentReport == null ||
         index < 0 ||
@@ -485,9 +408,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== NETWORK CABINET METHODS ======================
-
-  /// Add a network cabinet to the current floor
   void addNetworkCabinet() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -511,7 +431,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a network cabinet in the current floor
   void updateNetworkCabinet(int index, NetworkCabinet updatedCabinet) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -537,7 +456,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a network cabinet from the current floor
   void removeNetworkCabinet(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -563,9 +481,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== PERFORATION METHODS ======================
-
-  /// Add a perforation to the current floor
   void addPerforation() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -587,7 +502,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a perforation in the current floor
   void updatePerforation(int index, Perforation updatedPerforation) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -613,7 +527,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a perforation from the current floor
   void removePerforation(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -639,9 +552,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== ACCESS TRAP METHODS ======================
-
-  /// Add an access trap to the current floor
   void addAccessTrap() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -663,7 +573,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update an access trap in the current floor
   void updateAccessTrap(int index, AccessTrap updatedTrap) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -689,7 +598,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove an access trap from the current floor
   void removeAccessTrap(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -715,9 +623,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== CABLE PATH METHODS ======================
-
-  /// Add a cable path to the current floor
   void addCablePath() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -737,7 +642,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a cable path in the current floor
   void updateCablePath(int index, CablePath updatedPath) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -761,7 +665,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a cable path from the current floor
   void removeCablePath(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -785,9 +688,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== CABLE TRUNKING METHODS ======================
-
-  /// Add a cable trunking to the current floor
   void addCableTrunking() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -811,7 +711,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a cable trunking in the current floor
   void updateCableTrunking(int index, CableTrunking updatedTrunking) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -839,7 +738,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a cable trunking from the current floor
   void removeCableTrunking(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -867,9 +765,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== CONDUIT METHODS ======================
-
-  /// Add a conduit to the current floor
   void addConduit() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -889,7 +784,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a conduit in the current floor
   void updateConduit(int index, Conduit updatedConduit) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -913,7 +807,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a conduit from the current floor
   void removeConduit(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -937,9 +830,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== COPPER CABLING METHODS ======================
-
-  /// Add copper cabling to the current floor
   void addCopperCabling() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -963,7 +853,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update copper cabling in the current floor
   void updateCopperCabling(int index, CopperCabling updatedCabling) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -991,7 +880,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove copper cabling from the current floor
   void removeCopperCabling(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -1019,9 +907,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== FIBER OPTIC CABLING METHODS ======================
-
-  /// Add fiber optic cabling to the current floor
   void addFiberOpticCabling() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -1045,7 +930,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update fiber optic cabling in the current floor
   void updateFiberOpticCabling(int index, FiberOpticCabling updatedCabling) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -1073,7 +957,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove fiber optic cabling from the current floor
   void removeFiberOpticCabling(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -1101,9 +984,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== CUSTOM COMPONENT METHODS ======================
-
-  /// Add a custom component to the current floor
   void addCustomComponent() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -1127,7 +1007,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update a custom component in the current floor
   void updateCustomComponent(int index, CustomComponent updatedComponent) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -1155,7 +1034,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a custom component from the current floor
   void removeCustomComponent(int index) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -1183,9 +1061,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== PHOTO MANAGEMENT METHODS ======================
-
-  /// Add a photo to a custom component with proper Firebase Storage upload
   Future<void> addPhotoToCustomComponent(
     int componentIndex,
     File imageFile,
@@ -1209,16 +1084,15 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
         comment: comment,
       );
 
-      debugPrint('Uploading photo for component: ${component.id}');
-
-      final photoUrl = await PhotoUploadService.instance.uploadPhoto(
+      final photoUrl = await UniversalPhotoService.instance.uploadPhoto(
         imageFile: imageFile,
         reportId: _currentReport!.id,
         componentId: component.id,
         photoId: tempPhoto.id,
+        onProgress: (progress) {
+          // Progress callback
+        },
       );
-
-      debugPrint('Photo uploaded successfully: $photoUrl');
 
       final photo = tempPhoto.copyWith(url: photoUrl);
       component = component.addPhoto(photo);
@@ -1240,17 +1114,14 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
 
       await _autoSave();
       _markAsChanged();
-      debugPrint('Photo added successfully to component');
       notifyListeners();
     } catch (e) {
-      debugPrint('Error adding photo to component: $e');
       _setError('Failed to upload photo: ${e.toString()}');
     } finally {
       _setLoading(false);
     }
   }
 
-  /// Update a photo's comment
   void updatePhotoComment(int componentIndex, int photoIndex, String comment) {
     if (_currentReport == null ||
         currentFloor == null ||
@@ -1288,7 +1159,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a photo from a custom component
   Future<void> removePhotoFromCustomComponent(
     int componentIndex,
     int photoIndex,
@@ -1309,10 +1179,9 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
 
       if (photo.url.isNotEmpty) {
         try {
-          await PhotoUploadService.instance.deletePhoto(photo.url);
-          debugPrint('Photo deleted from storage: ${photo.url}');
+          await UniversalPhotoService.instance.deletePhoto(photo.url);
         } catch (e) {
-          debugPrint('Failed to delete photo from storage: $e');
+          // Silent fail for photo deletion
         }
       }
 
@@ -1333,19 +1202,14 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
 
       await _autoSave();
       _markAsChanged();
-      debugPrint('Photo removed successfully from component');
       notifyListeners();
     } catch (e) {
-      debugPrint('Error removing photo from component: $e');
       _setError('Failed to remove photo: ${e.toString()}');
     } finally {
       _setLoading(false);
     }
   }
 
-  // ====================== COMPONENT FACTORY METHOD ======================
-
-  /// Add a component based on the selected type
   void addComponentByType(String type) {
     switch (type) {
       case 'Baie Informatique':
@@ -1380,9 +1244,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  // ====================== REPORT DATA UPDATE METHODS ======================
-
-  /// Update basic information of the report
   void updateBasicInfo({
     DateTime? date,
     String? clientName,
@@ -1407,7 +1268,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update the project context section
   void updateProjectContext(String context) {
     if (_currentReport == null) return;
 
@@ -1420,7 +1280,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update conclusion section
   void updateConclusion({
     String? conclusion,
     int? estimatedDurationDays,
@@ -1439,9 +1298,6 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ====================== VALIDATION METHODS ======================
-
-  /// Validate all required sections of the report
   bool validateAllSections() {
     if (_currentReport == null) return false;
 
@@ -1507,44 +1363,34 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  // ====================== UTILITY METHODS ======================
-
-  /// Helper method to check if this is a completely new report
   bool _isNewReport() {
     return _currentReport?.id.isEmpty ?? true;
   }
 
-  /// Mark report as having unsaved changes
   void _markAsChanged() {
     _hasUnsavedChanges = true;
   }
 
-  /// Helper method to set loading state
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
   }
 
-  /// Helper method to set error message
   void _setError(String message) {
     _errorMessage = message;
     notifyListeners();
   }
 
-  /// Helper method to clear error message
   void _clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
-  /// Enhanced delete report method that cleans up photos
   Future<void> deleteReport(String reportId) async {
     try {
-      await PhotoUploadService.instance.deleteReportPhotos(reportId);
+      await UniversalPhotoService.instance.deleteReportPhotos(reportId);
       await _reportService.deleteReport(reportId);
-      debugPrint('Report and all associated photos deleted: $reportId');
     } catch (e) {
-      debugPrint('Error deleting report: $e');
       _setError('Failed to delete report: ${e.toString()}');
     }
   }

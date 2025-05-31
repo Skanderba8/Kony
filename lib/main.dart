@@ -12,6 +12,7 @@ import 'services/firebase_initialization_service.dart';
 import 'services/pdf_generation_service.dart';
 import 'services/statistics_service.dart';
 import 'services/notification_service.dart';
+import 'services/universal_photo_service.dart';
 import 'view_models/login_view_model.dart';
 import 'view_models/technician_view_model.dart';
 import 'view_models/admin_view_model.dart';
@@ -28,6 +29,12 @@ void main() async {
   // Initialize Firestore collections
   final firebaseInitService = FirebaseInitializationService();
   await firebaseInitService.initializeFirestoreCollections();
+
+  // Initialize Photo Service with Cloudinary
+  // Change to PhotoStorageService.firebase if you prefer Firebase Storage
+  UniversalPhotoService.instance.initialize(
+    service: PhotoStorageService.cloudinary,
+  );
 
   runApp(const KonyApp());
 }
@@ -94,7 +101,6 @@ class KonyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Kony',
-        // ✅ THIS LINE REMOVES THE DEBUG BANNER
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,

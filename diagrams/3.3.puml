@@ -1,0 +1,56 @@
+@startuml
+!theme plain
+skinparam linetype ortho
+
+rectangle "View Layer" as VIEW {
+    rectangle "Screens\n(14 écrans)" as SCREENS
+    rectangle "Widgets\n(25+ composants)" as WIDGETS
+}
+
+rectangle "ViewModel Layer" as VIEWMODEL {
+    rectangle "LoginViewModel" as LOGIN_VM
+    rectangle "ReportViewModel" as REPORT_VM
+    rectangle "AdminViewModel" as ADMIN_VM
+    rectangle "StatisticsViewModel" as STATS_VM
+}
+
+rectangle "Model Layer" as MODEL {
+    rectangle "UserModel" as USER_MODEL
+    rectangle "TechnicalReport" as REPORT_MODEL
+    rectangle "Floor + Components" as FLOOR_MODEL
+    rectangle "Statistics" as STATS_MODEL
+}
+
+rectangle "Service Layer" as SERVICE {
+    rectangle "AuthService" as AUTH_SERVICE
+    rectangle "ReportService" as REPORT_SERVICE
+    rectangle "PhotoService" as PHOTO_SERVICE
+    rectangle "NotificationService" as NOTIF_SERVICE
+}
+
+rectangle "Data Layer" as DATA {
+    rectangle "Firebase" as FIREBASE
+    rectangle "Local Storage" as LOCAL
+}
+
+SCREENS --> LOGIN_VM
+SCREENS --> REPORT_VM
+SCREENS --> ADMIN_VM
+WIDGETS --> STATS_VM
+
+LOGIN_VM --> USER_MODEL
+REPORT_VM --> REPORT_MODEL
+ADMIN_VM --> FLOOR_MODEL
+STATS_VM --> STATS_MODEL
+
+LOGIN_VM --> AUTH_SERVICE
+REPORT_VM --> REPORT_SERVICE
+REPORT_VM --> PHOTO_SERVICE
+ADMIN_VM --> NOTIF_SERVICE
+
+AUTH_SERVICE --> FIREBASE
+REPORT_SERVICE --> FIREBASE
+REPORT_SERVICE --> LOCAL
+PHOTO_SERVICE --> FIREBASE
+
+@enduml

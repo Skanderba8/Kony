@@ -1,0 +1,57 @@
+@startuml
+!theme plain
+
+skinparam rectangle {
+    BackgroundColor lightblue
+    BorderColor darkblue
+}
+skinparam database {
+    BackgroundColor lightyellow
+    BorderColor orange
+}
+skinparam cloud {
+    BackgroundColor lightgreen
+    BorderColor darkgreen
+}
+
+rectangle "Application Mobile\n(Flutter)" as MOBILE {
+    rectangle "UI Screens" as UI
+    rectangle "ViewModels\n(Provider)" as VM
+    rectangle "Services" as SERVICES
+    rectangle "SQLite\n(Hors-ligne)" as SQLITE
+}
+
+rectangle "Interface Web\n(React.js)" as WEB {
+    rectangle "Admin Dashboard" as DASHBOARD
+    rectangle "Components React" as REACT_COMP
+}
+
+cloud "Firebase Backend" as FIREBASE {
+    database "Firestore\n(NoSQL)" as FIRESTORE
+    database "Firebase Storage\n(Photos)" as STORAGE
+    rectangle "Firebase Auth" as AUTH
+    rectangle "Cloud Functions" as FUNCTIONS
+}
+
+rectangle "Services Externes" as EXTERNAL {
+    rectangle "PDF Generation" as PDF
+    rectangle "Notifications" as NOTIF
+}
+
+UI --> VM
+VM --> SERVICES
+SERVICES --> SQLITE : "Offline"
+SERVICES --> FIREBASE : "Online Sync"
+
+DASHBOARD --> REACT_COMP
+REACT_COMP --> FIREBASE
+
+FIREBASE --> AUTH
+FIREBASE --> FIRESTORE
+FIREBASE --> STORAGE
+FIREBASE --> FUNCTIONS
+
+SERVICES --> PDF
+FUNCTIONS --> NOTIF
+
+@enduml

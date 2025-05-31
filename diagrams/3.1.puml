@@ -1,29 +1,50 @@
+puml
 @startuml
 !theme plain
-skinparam componentStyle rectangle
+skinparam linetype ortho
 
-package "Couche Présentation" {
-  [Application Mobile\nFlutter] as Mobile
-  [Interface Web Admin\nReact] as Web
+rectangle "Frontend Applications" as FRONTEND {
+    rectangle "Mobile App (Flutter)" as MOBILE {
+        rectangle "14 Screens\n+ 25+ Widgets" as UI
+        rectangle "6 ViewModels\n(Provider State)" as VM
+        rectangle "Local Storage\n(Hors-ligne)" as LOCAL
+    }
+    
+    rectangle "Web Interface\n(React.js)" as WEB {
+        rectangle "Admin Dashboard" as DASHBOARD
+        rectangle "Statistics Interface" as WEB_STATS
+    }
 }
 
-package "Couche Services" {
-  [Firebase Functions] as Functions
-  [Firebase Auth] as Auth
-  [Service Synchronisation] as Sync
+cloud "Firebase Backend" as BACKEND {
+    database "Firestore\n(NoSQL Database)" as FIRESTORE
+    database "Firebase Storage\n(Photos & Files)" as STORAGE
+    rectangle "Firebase Auth\n(JWT Tokens)" as AUTH
+    rectangle "Cloud Functions\n(Notifications)" as FUNCTIONS
 }
 
-package "Couche Données" {
-  [Firestore Database] as DB
-  [Firebase Storage] as Storage
-  [Cache Local SQLite] as Cache
+rectangle "Services (10 Services)" as SERVICES {
+    rectangle "PDF Generation\n(Native Dart)" as PDF
+    rectangle "Photo Upload\n(Compression)" as PHOTO_UPLOAD
+    rectangle "Statistics\n(Real-time)" as STATS
+    rectangle "Notifications\n(Local)" as NOTIF
 }
 
-Mobile --> Functions : HTTPS/REST
-Web --> Functions : HTTPS/REST
-Functions --> Auth : Authentification
-Functions --> DB : Opérations CRUD
-Mobile --> Cache : Stockage Hors-ligne
-Sync --> DB : Synchronisation
-Functions --> Storage : Photos/PDF
+UI --> VM
+VM --> LOCAL
+VM --> FIRESTORE
+DASHBOARD --> WEB_STATS
+WEB_STATS --> FIRESTORE
+
+MOBILE --> AUTH
+WEB --> AUTH
+VM --> STORAGE
+
+VM --> PDF
+VM --> PHOTO_UPLOAD
+VM --> STATS
+FUNCTIONS --> NOTIF
+
+LOCAL -.-> FIRESTORE : "Auto-sync when online"
+
 @enduml

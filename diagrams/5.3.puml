@@ -1,0 +1,44 @@
+@startuml
+!theme plain
+skinparam participant {
+  BackgroundColor lightblue
+  BorderColor black
+}
+
+participant "Technicien" as T
+participant "ReportFormScreen" as UI
+participant "ReportViewModel" as VM
+participant "ReportService" as RS
+participant "Firebase" as FB
+
+T -> UI: Créer nouveau rapport
+UI -> VM: createNewReport()
+VM -> RS: createReport(technicianId)
+RS -> RS: generateReportId()
+RS -> FB: saveReport(report)
+FB --> RS: success
+RS --> VM: report created
+VM --> UI: updateState()
+UI --> T: Afficher formulaire
+
+T -> UI: Saisir informations générales
+UI -> VM: updateGeneralInfo(data)
+VM -> RS: autoSave(report)
+RS -> FB: updateReport(report)
+
+T -> UI: Ajouter composant
+UI -> VM: addComponent(floorId, component)
+VM -> VM: updateLocalReport()
+VM -> RS: autoSave(report)
+RS -> FB: updateReport(report)
+
+T -> UI: Capturer photo
+UI -> UI: openCamera()
+UI -> VM: addPhoto(componentId, photo)
+VM -> RS: uploadPhoto(photo)
+RS -> FB: Storage.upload(photo)
+FB --> RS: photoUrl
+RS --> VM: photo saved
+VM --> UI: updateUI()
+
+@enduml

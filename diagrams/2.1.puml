@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+left to right direction
+
+skinparam usecase {
+    BackgroundColor lightblue
+    BorderColor darkblue
+}
+skinparam actor {
+    BackgroundColor lightgreen
+    BorderColor darkgreen
+}
+
+actor "Technicien" as TECH
+actor "Administrateur" as ADMIN
+
+rectangle "Système KONY" {
+    usecase "S'authentifier" as AUTH
+    usecase "Se connecter" as LOGIN
+    usecase "Gérer profil" as PROFILE
+    usecase "Créer rapport technique" as CREATE_REPORT
+    usecase "Gérer ses rapports" as MANAGE_REPORTS
+    usecase "Gérer composants" as MANAGE_COMP
+    usecase "Capturer photos" as CAPTURE_PHOTO
+    usecase "Valider rapports" as VALIDATE
+    usecase "Gérer utilisateurs" as MANAGE_USERS
+    usecase "Consulter statistiques" as STATS
+    usecase "Exporter données" as EXPORT
+}
+
+TECH --> LOGIN
+TECH --> PROFILE
+TECH --> CREATE_REPORT
+TECH --> MANAGE_REPORTS
+
+ADMIN --> LOGIN
+ADMIN --> PROFILE
+ADMIN --> VALIDATE
+ADMIN --> MANAGE_USERS
+ADMIN --> STATS
+ADMIN --> EXPORT
+
+LOGIN ..> AUTH : <<include>>
+PROFILE ..> AUTH : <<include>>
+CREATE_REPORT ..> AUTH : <<include>>
+MANAGE_REPORTS ..> AUTH : <<include>>
+VALIDATE ..> AUTH : <<include>>
+MANAGE_USERS ..> AUTH : <<include>>
+STATS ..> AUTH : <<include>>
+EXPORT ..> AUTH : <<include>>
+
+CREATE_REPORT ..> MANAGE_COMP : <<include>>
+CREATE_REPORT ..> CAPTURE_PHOTO : <<include>>
+
+@enduml
