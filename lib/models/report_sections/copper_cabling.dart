@@ -1,5 +1,6 @@
 // lib/models/report_sections/copper_cabling.dart
 import 'package:uuid/uuid.dart';
+import '../photo.dart';
 
 /// Model for representing copper network cabling
 class CopperCabling {
@@ -11,6 +12,7 @@ class CopperCabling {
   final bool isInterior;
   final double workHeight;
   final String notes;
+  final List<Photo> photos;
 
   CopperCabling({
     required this.id,
@@ -21,6 +23,7 @@ class CopperCabling {
     required this.isInterior,
     required this.workHeight,
     this.notes = '',
+    this.photos = const [],
   });
 
   /// Factory method to create a new empty copper cabling entry with a UUID
@@ -47,6 +50,7 @@ class CopperCabling {
       'isInterior': isInterior,
       'workHeight': workHeight,
       'notes': notes,
+      'photos': photos.map((photo) => photo.toJson()).toList(),
     };
   }
 
@@ -61,6 +65,11 @@ class CopperCabling {
       isInterior: json['isInterior'] as bool? ?? true,
       workHeight: (json['workHeight'] as num?)?.toDouble() ?? 0.0,
       notes: json['notes'] as String? ?? '',
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -74,6 +83,7 @@ class CopperCabling {
     bool? isInterior,
     double? workHeight,
     String? notes,
+    List<Photo>? photos,
   }) {
     return CopperCabling(
       id: id ?? this.id,
@@ -84,6 +94,28 @@ class CopperCabling {
       isInterior: isInterior ?? this.isInterior,
       workHeight: workHeight ?? this.workHeight,
       notes: notes ?? this.notes,
+      photos: photos ?? this.photos,
     );
+  }
+
+  // Photo management helper methods
+  CopperCabling addPhoto(Photo photo) {
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.add(photo);
+    return copyWith(photos: updatedPhotos);
+  }
+
+  CopperCabling updatePhoto(int index, Photo updatedPhoto) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos[index] = updatedPhoto;
+    return copyWith(photos: updatedPhotos);
+  }
+
+  CopperCabling removePhoto(int index) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.removeAt(index);
+    return copyWith(photos: updatedPhotos);
   }
 }

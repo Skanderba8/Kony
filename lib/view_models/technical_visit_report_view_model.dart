@@ -26,6 +26,8 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
   final TechnicalVisitReportService _reportService;
   final AuthService _authService;
   final PdfGenerationService _pdfService;
+  String? _lastAddedComponentType;
+  String? get lastAddedComponentType => _lastAddedComponentType;
 
   TechnicalVisitReport? _currentReport;
   bool _isLoading = false;
@@ -264,25 +266,61 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     if (_currentReport == null) return true;
 
     for (final floor in _currentReport!.floors) {
+      // Check all component types for photos
       for (final component in floor.customComponents) {
         for (final photo in component.photos) {
-          if (photo.url.isEmpty) {
-            return false;
-          }
-
-          final isValidUrl =
-              photo.url.startsWith('https://firebasestorage.googleapis.com') ||
-              photo.url.startsWith('https://res.cloudinary.com') ||
-              photo.url.startsWith('https://');
-
-          if (!isValidUrl) {
-            return false;
-          }
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.networkCabinets) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.perforations) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.accessTraps) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.cablePaths) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.cableTrunkings) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.conduits) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.copperCablings) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
+        }
+      }
+      for (final component in floor.fiberOpticCablings) {
+        for (final photo in component.photos) {
+          if (photo.url.isEmpty || !_isValidPhotoUrl(photo.url)) return false;
         }
       }
     }
 
     return true;
+  }
+
+  bool _isValidPhotoUrl(String url) {
+    return url.startsWith('https://firebasestorage.googleapis.com') ||
+        url.startsWith('https://res.cloudinary.com') ||
+        url.startsWith('https://');
   }
 
   Stream<List<TechnicalVisitReport>> getDraftReportsStream() {
@@ -408,6 +446,12 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _setLastAddedComponentType(String componentType) {
+    _lastAddedComponentType = componentType;
+    notifyListeners();
+  }
+
+  // Network Cabinet methods
   void addNetworkCabinet() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -426,6 +470,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('NetworkCabinet'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -481,6 +526,45 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Network Cabinet
+  Future<void> addPhotoToNetworkCabinet(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'NetworkCabinet',
+    );
+  }
+
+  void updateNetworkCabinetPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'NetworkCabinet',
+    );
+  }
+
+  Future<void> removePhotoFromNetworkCabinet(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(
+      componentIndex,
+      photoIndex,
+      'NetworkCabinet',
+    );
+  }
+
+  // Perforation methods
   void addPerforation() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -522,7 +606,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
-
+    _setLastAddedComponentType('Perforation'); // Track last added
     _markAsChanged();
     notifyListeners();
   }
@@ -552,6 +636,41 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Perforation
+  Future<void> addPhotoToPerforation(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'Perforation',
+    );
+  }
+
+  void updatePerforationPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'Perforation',
+    );
+  }
+
+  Future<void> removePhotoFromPerforation(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(componentIndex, photoIndex, 'Perforation');
+  }
+
+  // Access Trap methods
   void addAccessTrap() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -568,6 +687,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('AccessTrap'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -623,6 +743,41 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Access Trap
+  Future<void> addPhotoToAccessTrap(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'AccessTrap',
+    );
+  }
+
+  void updateAccessTrapPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'AccessTrap',
+    );
+  }
+
+  Future<void> removePhotoFromAccessTrap(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(componentIndex, photoIndex, 'AccessTrap');
+  }
+
+  // Cable Path methods
   void addCablePath() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -637,6 +792,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('CablePath'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -688,6 +844,36 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Cable Path
+  Future<void> addPhotoToCablePath(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(componentIndex, imageFile, comment, 'CablePath');
+  }
+
+  void updateCablePathPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'CablePath',
+    );
+  }
+
+  Future<void> removePhotoFromCablePath(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(componentIndex, photoIndex, 'CablePath');
+  }
+
+  // Cable Trunking methods
   void addCableTrunking() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -733,6 +919,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('CableTrunking'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -765,6 +952,45 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Cable Trunking
+  Future<void> addPhotoToCableTrunking(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'CableTrunking',
+    );
+  }
+
+  void updateCableTrunkingPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'CableTrunking',
+    );
+  }
+
+  Future<void> removePhotoFromCableTrunking(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(
+      componentIndex,
+      photoIndex,
+      'CableTrunking',
+    );
+  }
+
+  // Conduit methods
   void addConduit() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -802,6 +1028,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('Conduit'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -830,6 +1057,36 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Conduit
+  Future<void> addPhotoToConduit(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(componentIndex, imageFile, comment, 'Conduit');
+  }
+
+  void updateConduitPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'Conduit',
+    );
+  }
+
+  Future<void> removePhotoFromConduit(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(componentIndex, photoIndex, 'Conduit');
+  }
+
+  // Copper Cabling methods
   void addCopperCabling() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -848,6 +1105,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('CopperCabling'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -907,6 +1165,45 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Copper Cabling
+  Future<void> addPhotoToCopperCabling(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'CopperCabling',
+    );
+  }
+
+  void updateCopperCablingPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'CopperCabling',
+    );
+  }
+
+  Future<void> removePhotoFromCopperCabling(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(
+      componentIndex,
+      photoIndex,
+      'CopperCabling',
+    );
+  }
+
+  // Fiber Optic Cabling methods
   void addFiberOpticCabling() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -925,6 +1222,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('FiberOpticCabling'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -984,6 +1282,45 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Fiber Optic Cabling
+  Future<void> addPhotoToFiberOpticCabling(
+    int componentIndex,
+    File imageFile,
+    String comment,
+  ) async {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'FiberOpticCabling',
+    );
+  }
+
+  void updateFiberOpticCablingPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+  ) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'FiberOpticCabling',
+    );
+  }
+
+  Future<void> removePhotoFromFiberOpticCabling(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(
+      componentIndex,
+      photoIndex,
+      'FiberOpticCabling',
+    );
+  }
+
+  // Custom Component methods (existing)
   void addCustomComponent() {
     if (_currentReport == null || currentFloor == null) return;
 
@@ -1002,6 +1339,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       floors: floors,
       lastModified: DateTime.now(),
     );
+    _setLastAddedComponentType('CustomComponent'); // Track last added
 
     _markAsChanged();
     notifyListeners();
@@ -1061,15 +1399,48 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Photo methods for Custom Component (existing)
   Future<void> addPhotoToCustomComponent(
     int componentIndex,
     File imageFile,
     String comment,
   ) async {
-    if (_currentReport == null ||
-        currentFloor == null ||
-        componentIndex < 0 ||
-        componentIndex >= currentFloor!.customComponents.length) {
+    await _addPhotoToComponent(
+      componentIndex,
+      imageFile,
+      comment,
+      'CustomComponent',
+    );
+  }
+
+  void updatePhotoComment(int componentIndex, int photoIndex, String comment) {
+    _updateComponentPhotoComment(
+      componentIndex,
+      photoIndex,
+      comment,
+      'CustomComponent',
+    );
+  }
+
+  Future<void> removePhotoFromCustomComponent(
+    int componentIndex,
+    int photoIndex,
+  ) async {
+    await _removePhotoFromComponent(
+      componentIndex,
+      photoIndex,
+      'CustomComponent',
+    );
+  }
+
+  // Generic photo management methods
+  Future<void> _addPhotoToComponent(
+    int componentIndex,
+    File imageFile,
+    String comment,
+    String componentType,
+  ) async {
+    if (_currentReport == null || currentFloor == null || componentIndex < 0) {
       _setError('Invalid component or report state');
       return;
     }
@@ -1077,17 +1448,58 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      var component = currentFloor!.customComponents[componentIndex];
-
       final tempPhoto = Photo.create(
         localPath: imageFile.path,
         comment: comment,
       );
 
+      String componentId;
+      switch (componentType) {
+        case 'NetworkCabinet':
+          if (componentIndex >= currentFloor!.networkCabinets.length) return;
+          componentId = currentFloor!.networkCabinets[componentIndex].id;
+          break;
+        case 'Perforation':
+          if (componentIndex >= currentFloor!.perforations.length) return;
+          componentId = currentFloor!.perforations[componentIndex].id;
+          break;
+        case 'AccessTrap':
+          if (componentIndex >= currentFloor!.accessTraps.length) return;
+          componentId = currentFloor!.accessTraps[componentIndex].id;
+          break;
+        case 'CablePath':
+          if (componentIndex >= currentFloor!.cablePaths.length) return;
+          componentId = currentFloor!.cablePaths[componentIndex].id;
+          break;
+        case 'CableTrunking':
+          if (componentIndex >= currentFloor!.cableTrunkings.length) return;
+          componentId = currentFloor!.cableTrunkings[componentIndex].id;
+          break;
+        case 'Conduit':
+          if (componentIndex >= currentFloor!.conduits.length) return;
+          componentId = currentFloor!.conduits[componentIndex].id;
+          break;
+        case 'CopperCabling':
+          if (componentIndex >= currentFloor!.copperCablings.length) return;
+          componentId = currentFloor!.copperCablings[componentIndex].id;
+          break;
+        case 'FiberOpticCabling':
+          if (componentIndex >= currentFloor!.fiberOpticCablings.length) return;
+          componentId = currentFloor!.fiberOpticCablings[componentIndex].id;
+          break;
+        case 'CustomComponent':
+          if (componentIndex >= currentFloor!.customComponents.length) return;
+          componentId = currentFloor!.customComponents[componentIndex].id;
+          break;
+        default:
+          _setError('Unknown component type: $componentType');
+          return;
+      }
+
       final photoUrl = await UniversalPhotoService.instance.uploadPhoto(
         imageFile: imageFile,
         reportId: _currentReport!.id,
-        componentId: component.id,
+        componentId: componentId,
         photoId: tempPhoto.id,
         onProgress: (progress) {
           // Progress callback
@@ -1095,22 +1507,7 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       );
 
       final photo = tempPhoto.copyWith(url: photoUrl);
-      component = component.addPhoto(photo);
-
-      final floors = List<Floor>.from(_currentReport!.floors);
-      final customComponents = List<CustomComponent>.from(
-        currentFloor!.customComponents,
-      );
-      customComponents[componentIndex] = component;
-
-      floors[_currentFloorIndex] = currentFloor!.copyWith(
-        customComponents: customComponents,
-      );
-
-      _currentReport = _currentReport!.copyWith(
-        floors: floors,
-        lastModified: DateTime.now(),
-      );
+      _updateComponentWithPhoto(componentIndex, componentType, photo);
 
       await _autoSave();
       _markAsChanged();
@@ -1122,32 +1519,167 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     }
   }
 
-  void updatePhotoComment(int componentIndex, int photoIndex, String comment) {
+  void _updateComponentPhotoComment(
+    int componentIndex,
+    int photoIndex,
+    String comment,
+    String componentType,
+  ) {
     if (_currentReport == null ||
         currentFloor == null ||
         componentIndex < 0 ||
-        componentIndex >= currentFloor!.customComponents.length)
+        photoIndex < 0)
       return;
 
-    final component = currentFloor!.customComponents[componentIndex];
-    if (photoIndex < 0 || photoIndex >= component.photos.length) return;
-
     final floors = List<Floor>.from(_currentReport!.floors);
-    final customComponents = List<CustomComponent>.from(
-      currentFloor!.customComponents,
-    );
 
-    final photo = component.photos[photoIndex];
-    final updatedPhoto = photo.copyWith(comment: comment);
-
-    customComponents[componentIndex] = component.updatePhoto(
-      photoIndex,
-      updatedPhoto,
-    );
-
-    floors[_currentFloorIndex] = currentFloor!.copyWith(
-      customComponents: customComponents,
-    );
+    switch (componentType) {
+      case 'NetworkCabinet':
+        if (componentIndex >= currentFloor!.networkCabinets.length) return;
+        final cabinets = List<NetworkCabinet>.from(
+          currentFloor!.networkCabinets,
+        );
+        final cabinet = cabinets[componentIndex];
+        if (photoIndex >= cabinet.photos.length) return;
+        final photo = cabinet.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        cabinets[componentIndex] = cabinet.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          networkCabinets: cabinets,
+        );
+        break;
+      case 'Perforation':
+        if (componentIndex >= currentFloor!.perforations.length) return;
+        final perforations = List<Perforation>.from(currentFloor!.perforations);
+        final perforation = perforations[componentIndex];
+        if (photoIndex >= perforation.photos.length) return;
+        final photo = perforation.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        perforations[componentIndex] = perforation.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          perforations: perforations,
+        );
+        break;
+      case 'AccessTrap':
+        if (componentIndex >= currentFloor!.accessTraps.length) return;
+        final accessTraps = List<AccessTrap>.from(currentFloor!.accessTraps);
+        final accessTrap = accessTraps[componentIndex];
+        if (photoIndex >= accessTrap.photos.length) return;
+        final photo = accessTrap.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        accessTraps[componentIndex] = accessTrap.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          accessTraps: accessTraps,
+        );
+        break;
+      case 'CablePath':
+        if (componentIndex >= currentFloor!.cablePaths.length) return;
+        final cablePaths = List<CablePath>.from(currentFloor!.cablePaths);
+        final cablePath = cablePaths[componentIndex];
+        if (photoIndex >= cablePath.photos.length) return;
+        final photo = cablePath.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        cablePaths[componentIndex] = cablePath.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          cablePaths: cablePaths,
+        );
+        break;
+      case 'CableTrunking':
+        if (componentIndex >= currentFloor!.cableTrunkings.length) return;
+        final cableTrunkings = List<CableTrunking>.from(
+          currentFloor!.cableTrunkings,
+        );
+        final cableTrunking = cableTrunkings[componentIndex];
+        if (photoIndex >= cableTrunking.photos.length) return;
+        final photo = cableTrunking.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        cableTrunkings[componentIndex] = cableTrunking.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          cableTrunkings: cableTrunkings,
+        );
+        break;
+      case 'Conduit':
+        if (componentIndex >= currentFloor!.conduits.length) return;
+        final conduits = List<Conduit>.from(currentFloor!.conduits);
+        final conduit = conduits[componentIndex];
+        if (photoIndex >= conduit.photos.length) return;
+        final photo = conduit.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        conduits[componentIndex] = conduit.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(conduits: conduits);
+        break;
+      case 'CopperCabling':
+        if (componentIndex >= currentFloor!.copperCablings.length) return;
+        final copperCablings = List<CopperCabling>.from(
+          currentFloor!.copperCablings,
+        );
+        final copperCabling = copperCablings[componentIndex];
+        if (photoIndex >= copperCabling.photos.length) return;
+        final photo = copperCabling.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        copperCablings[componentIndex] = copperCabling.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          copperCablings: copperCablings,
+        );
+        break;
+      case 'FiberOpticCabling':
+        if (componentIndex >= currentFloor!.fiberOpticCablings.length) return;
+        final fiberOpticCablings = List<FiberOpticCabling>.from(
+          currentFloor!.fiberOpticCablings,
+        );
+        final fiberOpticCabling = fiberOpticCablings[componentIndex];
+        if (photoIndex >= fiberOpticCabling.photos.length) return;
+        final photo = fiberOpticCabling.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        fiberOpticCablings[componentIndex] = fiberOpticCabling.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          fiberOpticCablings: fiberOpticCablings,
+        );
+        break;
+      case 'CustomComponent':
+        if (componentIndex >= currentFloor!.customComponents.length) return;
+        final customComponents = List<CustomComponent>.from(
+          currentFloor!.customComponents,
+        );
+        final customComponent = customComponents[componentIndex];
+        if (photoIndex >= customComponent.photos.length) return;
+        final photo = customComponent.photos[photoIndex];
+        final updatedPhoto = photo.copyWith(comment: comment);
+        customComponents[componentIndex] = customComponent.updatePhoto(
+          photoIndex,
+          updatedPhoto,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          customComponents: customComponents,
+        );
+        break;
+      default:
+        return;
+    }
 
     _currentReport = _currentReport!.copyWith(
       floors: floors,
@@ -1159,41 +1691,188 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> removePhotoFromCustomComponent(
+  Future<void> _removePhotoFromComponent(
     int componentIndex,
     int photoIndex,
+    String componentType,
   ) async {
     if (_currentReport == null ||
         currentFloor == null ||
         componentIndex < 0 ||
-        componentIndex >= currentFloor!.customComponents.length)
+        photoIndex < 0)
       return;
-
-    final component = currentFloor!.customComponents[componentIndex];
-    if (photoIndex < 0 || photoIndex >= component.photos.length) return;
 
     _setLoading(true);
 
     try {
-      final photo = component.photos[photoIndex];
+      String? photoUrl;
 
-      if (photo.url.isNotEmpty) {
+      // Get photo URL for deletion
+      switch (componentType) {
+        case 'NetworkCabinet':
+          if (componentIndex >= currentFloor!.networkCabinets.length) return;
+          final cabinet = currentFloor!.networkCabinets[componentIndex];
+          if (photoIndex >= cabinet.photos.length) return;
+          photoUrl = cabinet.photos[photoIndex].url;
+          break;
+        case 'Perforation':
+          if (componentIndex >= currentFloor!.perforations.length) return;
+          final perforation = currentFloor!.perforations[componentIndex];
+          if (photoIndex >= perforation.photos.length) return;
+          photoUrl = perforation.photos[photoIndex].url;
+          break;
+        case 'AccessTrap':
+          if (componentIndex >= currentFloor!.accessTraps.length) return;
+          final accessTrap = currentFloor!.accessTraps[componentIndex];
+          if (photoIndex >= accessTrap.photos.length) return;
+          photoUrl = accessTrap.photos[photoIndex].url;
+          break;
+        case 'CablePath':
+          if (componentIndex >= currentFloor!.cablePaths.length) return;
+          final cablePath = currentFloor!.cablePaths[componentIndex];
+          if (photoIndex >= cablePath.photos.length) return;
+          photoUrl = cablePath.photos[photoIndex].url;
+          break;
+        case 'CableTrunking':
+          if (componentIndex >= currentFloor!.cableTrunkings.length) return;
+          final cableTrunking = currentFloor!.cableTrunkings[componentIndex];
+          if (photoIndex >= cableTrunking.photos.length) return;
+          photoUrl = cableTrunking.photos[photoIndex].url;
+          break;
+        case 'Conduit':
+          if (componentIndex >= currentFloor!.conduits.length) return;
+          final conduit = currentFloor!.conduits[componentIndex];
+          if (photoIndex >= conduit.photos.length) return;
+          photoUrl = conduit.photos[photoIndex].url;
+          break;
+        case 'CopperCabling':
+          if (componentIndex >= currentFloor!.copperCablings.length) return;
+          final copperCabling = currentFloor!.copperCablings[componentIndex];
+          if (photoIndex >= copperCabling.photos.length) return;
+          photoUrl = copperCabling.photos[photoIndex].url;
+          break;
+        case 'FiberOpticCabling':
+          if (componentIndex >= currentFloor!.fiberOpticCablings.length) return;
+          final fiberOpticCabling =
+              currentFloor!.fiberOpticCablings[componentIndex];
+          if (photoIndex >= fiberOpticCabling.photos.length) return;
+          photoUrl = fiberOpticCabling.photos[photoIndex].url;
+          break;
+        case 'CustomComponent':
+          if (componentIndex >= currentFloor!.customComponents.length) return;
+          final customComponent =
+              currentFloor!.customComponents[componentIndex];
+          if (photoIndex >= customComponent.photos.length) return;
+          photoUrl = customComponent.photos[photoIndex].url;
+          break;
+        default:
+          return;
+      }
+
+      // Delete photo from storage
+      if (photoUrl.isNotEmpty) {
         try {
-          await UniversalPhotoService.instance.deletePhoto(photo.url);
+          await UniversalPhotoService.instance.deletePhoto(photoUrl);
         } catch (e) {
           // Silent fail for photo deletion
         }
       }
 
+      // Remove photo from component
       final floors = List<Floor>.from(_currentReport!.floors);
-      final customComponents = List<CustomComponent>.from(
-        currentFloor!.customComponents,
-      );
-      customComponents[componentIndex] = component.removePhoto(photoIndex);
 
-      floors[_currentFloorIndex] = currentFloor!.copyWith(
-        customComponents: customComponents,
-      );
+      switch (componentType) {
+        case 'NetworkCabinet':
+          final cabinets = List<NetworkCabinet>.from(
+            currentFloor!.networkCabinets,
+          );
+          cabinets[componentIndex] = cabinets[componentIndex].removePhoto(
+            photoIndex,
+          );
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            networkCabinets: cabinets,
+          );
+          break;
+        case 'Perforation':
+          final perforations = List<Perforation>.from(
+            currentFloor!.perforations,
+          );
+          perforations[componentIndex] = perforations[componentIndex]
+              .removePhoto(photoIndex);
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            perforations: perforations,
+          );
+          break;
+        case 'AccessTrap':
+          final accessTraps = List<AccessTrap>.from(currentFloor!.accessTraps);
+          accessTraps[componentIndex] = accessTraps[componentIndex].removePhoto(
+            photoIndex,
+          );
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            accessTraps: accessTraps,
+          );
+          break;
+        case 'CablePath':
+          final cablePaths = List<CablePath>.from(currentFloor!.cablePaths);
+          cablePaths[componentIndex] = cablePaths[componentIndex].removePhoto(
+            photoIndex,
+          );
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            cablePaths: cablePaths,
+          );
+          break;
+        case 'CableTrunking':
+          final cableTrunkings = List<CableTrunking>.from(
+            currentFloor!.cableTrunkings,
+          );
+          cableTrunkings[componentIndex] = cableTrunkings[componentIndex]
+              .removePhoto(photoIndex);
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            cableTrunkings: cableTrunkings,
+          );
+          break;
+        case 'Conduit':
+          final conduits = List<Conduit>.from(currentFloor!.conduits);
+          conduits[componentIndex] = conduits[componentIndex].removePhoto(
+            photoIndex,
+          );
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            conduits: conduits,
+          );
+          break;
+        case 'CopperCabling':
+          final copperCablings = List<CopperCabling>.from(
+            currentFloor!.copperCablings,
+          );
+          copperCablings[componentIndex] = copperCablings[componentIndex]
+              .removePhoto(photoIndex);
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            copperCablings: copperCablings,
+          );
+          break;
+        case 'FiberOpticCabling':
+          final fiberOpticCablings = List<FiberOpticCabling>.from(
+            currentFloor!.fiberOpticCablings,
+          );
+          fiberOpticCablings[componentIndex] =
+              fiberOpticCablings[componentIndex].removePhoto(photoIndex);
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            fiberOpticCablings: fiberOpticCablings,
+          );
+          break;
+        case 'CustomComponent':
+          final customComponents = List<CustomComponent>.from(
+            currentFloor!.customComponents,
+          );
+          customComponents[componentIndex] = customComponents[componentIndex]
+              .removePhoto(photoIndex);
+          floors[_currentFloorIndex] = currentFloor!.copyWith(
+            customComponents: customComponents,
+          );
+          break;
+        default:
+          return;
+      }
 
       _currentReport = _currentReport!.copyWith(
         floors: floors,
@@ -1208,6 +1887,114 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  void _updateComponentWithPhoto(
+    int componentIndex,
+    String componentType,
+    Photo photo,
+  ) {
+    if (_currentReport == null || currentFloor == null) return;
+
+    final floors = List<Floor>.from(_currentReport!.floors);
+
+    switch (componentType) {
+      case 'NetworkCabinet':
+        if (componentIndex >= currentFloor!.networkCabinets.length) return;
+        final cabinets = List<NetworkCabinet>.from(
+          currentFloor!.networkCabinets,
+        );
+        cabinets[componentIndex] = cabinets[componentIndex].addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          networkCabinets: cabinets,
+        );
+        break;
+      case 'Perforation':
+        if (componentIndex >= currentFloor!.perforations.length) return;
+        final perforations = List<Perforation>.from(currentFloor!.perforations);
+        perforations[componentIndex] = perforations[componentIndex].addPhoto(
+          photo,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          perforations: perforations,
+        );
+        break;
+      case 'AccessTrap':
+        if (componentIndex >= currentFloor!.accessTraps.length) return;
+        final accessTraps = List<AccessTrap>.from(currentFloor!.accessTraps);
+        accessTraps[componentIndex] = accessTraps[componentIndex].addPhoto(
+          photo,
+        );
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          accessTraps: accessTraps,
+        );
+        break;
+      case 'CablePath':
+        if (componentIndex >= currentFloor!.cablePaths.length) return;
+        final cablePaths = List<CablePath>.from(currentFloor!.cablePaths);
+        cablePaths[componentIndex] = cablePaths[componentIndex].addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          cablePaths: cablePaths,
+        );
+        break;
+      case 'CableTrunking':
+        if (componentIndex >= currentFloor!.cableTrunkings.length) return;
+        final cableTrunkings = List<CableTrunking>.from(
+          currentFloor!.cableTrunkings,
+        );
+        cableTrunkings[componentIndex] = cableTrunkings[componentIndex]
+            .addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          cableTrunkings: cableTrunkings,
+        );
+        break;
+      case 'Conduit':
+        if (componentIndex >= currentFloor!.conduits.length) return;
+        final conduits = List<Conduit>.from(currentFloor!.conduits);
+        conduits[componentIndex] = conduits[componentIndex].addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(conduits: conduits);
+        break;
+      case 'CopperCabling':
+        if (componentIndex >= currentFloor!.copperCablings.length) return;
+        final copperCablings = List<CopperCabling>.from(
+          currentFloor!.copperCablings,
+        );
+        copperCablings[componentIndex] = copperCablings[componentIndex]
+            .addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          copperCablings: copperCablings,
+        );
+        break;
+      case 'FiberOpticCabling':
+        if (componentIndex >= currentFloor!.fiberOpticCablings.length) return;
+        final fiberOpticCablings = List<FiberOpticCabling>.from(
+          currentFloor!.fiberOpticCablings,
+        );
+        fiberOpticCablings[componentIndex] = fiberOpticCablings[componentIndex]
+            .addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          fiberOpticCablings: fiberOpticCablings,
+        );
+        break;
+      case 'CustomComponent':
+        if (componentIndex >= currentFloor!.customComponents.length) return;
+        final customComponents = List<CustomComponent>.from(
+          currentFloor!.customComponents,
+        );
+        customComponents[componentIndex] = customComponents[componentIndex]
+            .addPhoto(photo);
+        floors[_currentFloorIndex] = currentFloor!.copyWith(
+          customComponents: customComponents,
+        );
+        break;
+      default:
+        return;
+    }
+
+    _currentReport = _currentReport!.copyWith(
+      floors: floors,
+      lastModified: DateTime.now(),
+    );
   }
 
   void addComponentByType(String type) {

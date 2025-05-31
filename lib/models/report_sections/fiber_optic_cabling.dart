@@ -1,5 +1,6 @@
 // lib/models/report_sections/fiber_optic_cabling.dart
 import 'package:uuid/uuid.dart';
+import '../photo.dart';
 
 /// Model for representing fiber optic network cabling
 class FiberOpticCabling {
@@ -12,6 +13,7 @@ class FiberOpticCabling {
   final bool isInterior;
   final double workHeight;
   final String notes;
+  final List<Photo> photos;
 
   FiberOpticCabling({
     required this.id,
@@ -23,6 +25,7 @@ class FiberOpticCabling {
     required this.isInterior,
     required this.workHeight,
     this.notes = '',
+    this.photos = const [],
   });
 
   /// Factory method to create a new empty fiber optic cabling entry with a UUID
@@ -51,6 +54,7 @@ class FiberOpticCabling {
       'isInterior': isInterior,
       'workHeight': workHeight,
       'notes': notes,
+      'photos': photos.map((photo) => photo.toJson()).toList(),
     };
   }
 
@@ -66,6 +70,11 @@ class FiberOpticCabling {
       isInterior: json['isInterior'] as bool? ?? true,
       workHeight: (json['workHeight'] as num?)?.toDouble() ?? 0.0,
       notes: json['notes'] as String? ?? '',
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -80,6 +89,7 @@ class FiberOpticCabling {
     bool? isInterior,
     double? workHeight,
     String? notes,
+    List<Photo>? photos,
   }) {
     return FiberOpticCabling(
       id: id ?? this.id,
@@ -91,6 +101,28 @@ class FiberOpticCabling {
       isInterior: isInterior ?? this.isInterior,
       workHeight: workHeight ?? this.workHeight,
       notes: notes ?? this.notes,
+      photos: photos ?? this.photos,
     );
+  }
+
+  // Photo management helper methods
+  FiberOpticCabling addPhoto(Photo photo) {
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.add(photo);
+    return copyWith(photos: updatedPhotos);
+  }
+
+  FiberOpticCabling updatePhoto(int index, Photo updatedPhoto) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos[index] = updatedPhoto;
+    return copyWith(photos: updatedPhotos);
+  }
+
+  FiberOpticCabling removePhoto(int index) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.removeAt(index);
+    return copyWith(photos: updatedPhotos);
   }
 }

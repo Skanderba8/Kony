@@ -1,4 +1,5 @@
 // lib/views/screens/report_form/report_form_screen.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -773,6 +774,8 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     );
   }
 
+  // In report_form_screen.dart, replace the _buildTechniciansSection() method:
+
   Widget _buildTechniciansSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -780,7 +783,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         Row(
           children: [
             const Text(
-              'Techniciens présents',
+              'Technicien présent', // Changed from plural to singular
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -800,57 +803,61 @@ class _ReportFormScreenState extends State<ReportFormScreen>
         ),
         const SizedBox(height: 8),
 
-        // List of technicians
-        if (_technicians.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade100),
-            ),
-            child: Column(
-              children:
-                  _technicians.asMap().entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.person,
-                            color: Colors.blue.shade600,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(entry.value)),
-                          IconButton(
-                            onPressed: () => _removeTechnician(entry.key),
-                            icon: const Icon(
-                              Icons.remove_circle_outline,
-                              size: 18,
-                            ),
-                            color: Colors.red.shade400,
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-            ),
+        // Auto-populated current technician info
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade100),
           ),
-
-        const SizedBox(height: 8),
-
-        OutlinedButton.icon(
-          onPressed: _addTechnician,
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Ajouter un technicien'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.blue.shade700,
-            side: BorderSide(color: Colors.blue.shade300),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+          child: Row(
+            children: [
+              Icon(Icons.person, color: Colors.blue.shade600, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      FirebaseAuth.instance.currentUser?.displayName ??
+                          FirebaseAuth.instance.currentUser?.email
+                              ?.split('@')
+                              .first ??
+                          'Technicien',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    if (FirebaseAuth.instance.currentUser?.email != null)
+                      Text(
+                        FirebaseAuth.instance.currentUser!.email!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Automatique',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
 

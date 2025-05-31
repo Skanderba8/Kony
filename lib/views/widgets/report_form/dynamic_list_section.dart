@@ -25,8 +25,8 @@ class DynamicListSection<T> extends StatelessWidget {
     required this.icon,
     required this.items,
     required this.itemBuilder,
-    required this.onAddItem,
     required this.onRemoveItem,
+    required this.onAddItem,
     this.addButtonLabel = 'Ajouter',
     this.emptyStateMessage = 'Aucun élément ajouté',
     this.onAddOtherComponentType,
@@ -39,6 +39,7 @@ class DynamicListSection<T> extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // Prevent overflow
         children: [
           // Section header
           Container(
@@ -69,6 +70,7 @@ class DynamicListSection<T> extends StatelessWidget {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min, // Prevent overflow
                     children: [
                       Text(
                         title,
@@ -77,6 +79,8 @@ class DynamicListSection<T> extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.blue.shade800,
                         ),
+                        overflow: TextOverflow.ellipsis, // Handle text overflow
+                        maxLines: 1,
                       ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 2),
@@ -86,6 +90,9 @@ class DynamicListSection<T> extends StatelessWidget {
                             fontSize: 12,
                             color: Colors.blue.shade600,
                           ),
+                          overflow:
+                              TextOverflow.ellipsis, // Handle text overflow
+                          maxLines: 2,
                         ),
                       ],
                     ],
@@ -113,17 +120,19 @@ class DynamicListSection<T> extends StatelessWidget {
             ),
           ),
 
-          // Items list or empty state
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
+          // Items list or empty state - wrapped in flexible container
+          Flexible(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+                border: Border.all(color: Colors.blue.shade100),
               ),
-              border: Border.all(color: Colors.blue.shade100),
+              child: items.isEmpty ? _buildEmptyState() : _buildItemsList(),
             ),
-            child: items.isEmpty ? _buildEmptyState() : _buildItemsList(),
           ),
         ],
       ),
@@ -134,6 +143,7 @@ class DynamicListSection<T> extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(32),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // Prevent overflow
         children: [
           Icon(Icons.info_outline, size: 48, color: Colors.grey.shade400),
           const SizedBox(height: 16),
@@ -145,6 +155,7 @@ class DynamicListSection<T> extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
+            overflow: TextOverflow.visible, // Allow text to wrap
           ),
           const SizedBox(height: 24),
           _buildActionButtons(),
@@ -155,69 +166,88 @@ class DynamicListSection<T> extends StatelessWidget {
 
   Widget _buildItemsList() {
     return Column(
+      mainAxisSize: MainAxisSize.min, // Prevent overflow
       children: [
-        // Items
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          separatorBuilder:
-              (context, index) =>
-                  Divider(color: Colors.grey.shade200, height: 1),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Item header with name and delete button
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade100),
-                        ),
-                        child: Text(
-                          '${_getComponentShortName(componentType)} ${index + 1}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
+        // Items - wrapped in constraints to prevent overflow
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxHeight: 600, // Maximum height to prevent overflow
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const ClampingScrollPhysics(), // Better scroll behavior
+            itemCount: items.length,
+            separatorBuilder:
+                (context, index) =>
+                    Divider(color: Colors.grey.shade200, height: 1),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, // Prevent overflow
+                  children: [
+                    // Item header with name and delete button
+                    Row(
+                      children: [
+                        Flexible(
+                          // Prevent overflow in the badge
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade100),
+                            ),
+                            child: Text(
+                              '${_getComponentShortName(componentType)} ${index + 1}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: Colors.red.shade400,
-                          size: 20,
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: Colors.red.shade400,
+                            size: 20,
+                          ),
+                          onPressed: () => onRemoveItem(index),
+                          tooltip: 'Supprimer',
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          visualDensity: VisualDensity.compact,
                         ),
-                        onPressed: () => onRemoveItem(index),
-                        tooltip: 'Supprimer',
-                        constraints: const BoxConstraints(
-                          minWidth: 40,
-                          minHeight: 40,
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        visualDensity: VisualDensity.compact,
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Item content - wrapped to prevent overflow
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: 400, // Limit individual item height
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Item content
-                  itemBuilder(item, index),
-                ],
-              ),
-            );
-          },
+                      child: SingleChildScrollView(
+                        child: itemBuilder(item, index),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
 
         // Action buttons at bottom
@@ -238,6 +268,7 @@ class DynamicListSection<T> extends StatelessWidget {
 
   Widget _buildActionButtons() {
     return Column(
+      mainAxisSize: MainAxisSize.min, // Prevent overflow
       children: [
         // Add same component type button
         SizedBox(
@@ -247,6 +278,8 @@ class DynamicListSection<T> extends StatelessWidget {
             icon: const Icon(Icons.add, size: 18),
             label: Text(
               'Ajouter un autre ${_getComponentShortName(componentType)}',
+              overflow: TextOverflow.ellipsis, // Handle text overflow
+              maxLines: 1,
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.blue.shade700,
@@ -266,7 +299,11 @@ class DynamicListSection<T> extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onAddOtherComponentType,
               icon: const Icon(Icons.category_outlined, size: 18),
-              label: const Text('Ajouter un autre composant'),
+              label: const Text(
+                'Ajouter un autre composant',
+                overflow: TextOverflow.ellipsis, // Handle text overflow
+                maxLines: 1,
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,

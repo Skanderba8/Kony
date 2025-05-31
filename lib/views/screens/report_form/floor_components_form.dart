@@ -153,6 +153,43 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
   ) {
     final List<Widget> sections = [];
 
+    // Only expand the section that matches the last added component type
+    String? lastAdded = viewModel.lastAddedComponentType;
+
+    // Track which section should be expanded (only the most recently added)
+    Map<String, int> componentCounts = {};
+
+    if (floor.networkCabinets.isNotEmpty) {
+      componentCounts['NetworkCabinet'] = floor.networkCabinets.length;
+    }
+    if (floor.perforations.isNotEmpty) {
+      componentCounts['Perforation'] = floor.perforations.length;
+    }
+    if (floor.accessTraps.isNotEmpty) {
+      componentCounts['AccessTrap'] = floor.accessTraps.length;
+    }
+    if (floor.cablePaths.isNotEmpty) {
+      componentCounts['CablePath'] = floor.cablePaths.length;
+    }
+    if (floor.cableTrunkings.isNotEmpty) {
+      componentCounts['CableTrunking'] = floor.cableTrunkings.length;
+    }
+    if (floor.conduits.isNotEmpty) {
+      componentCounts['Conduit'] = floor.conduits.length;
+    }
+    if (floor.copperCablings.isNotEmpty) {
+      componentCounts['CopperCabling'] = floor.copperCablings.length;
+    }
+    if (floor.fiberOpticCablings.isNotEmpty) {
+      componentCounts['FiberOpticCabling'] = floor.fiberOpticCablings.length;
+    }
+    if (floor.customComponents.isNotEmpty) {
+      componentCounts['CustomComponent'] = floor.customComponents.length;
+    }
+
+    // If only one component type exists, expand it. Otherwise, expand only the last added
+    bool shouldExpandAll = componentCounts.length == 1;
+
     // Network cabinets
     if (floor.networkCabinets.isNotEmpty) {
       sections.add(
@@ -167,7 +204,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter une baie',
           emptyStateMessage: 'Aucune baie informatique ajoutée',
           componentType: 'Baie Informatique',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'NetworkCabinet',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (cabinet, index) => _buildCabinetForm(cabinet, index, viewModel),
@@ -189,7 +226,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un percement',
           emptyStateMessage: 'Aucun percement ajouté',
           componentType: 'Percement',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'Perforation',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (perforation, index) =>
@@ -212,7 +249,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter une trappe',
           emptyStateMessage: 'Aucune trappe d\'accès ajoutée',
           componentType: 'Trappe d\'accès',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'AccessTrap',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (trap, index) => _buildAccessTrapForm(trap, index, viewModel),
@@ -234,7 +271,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un chemin',
           emptyStateMessage: 'Aucun chemin de câbles ajouté',
           componentType: 'Chemin de câbles',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'CablePath',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (path, index) => _buildCablePathForm(path, index, viewModel),
@@ -256,7 +293,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter une goulotte',
           emptyStateMessage: 'Aucune goulotte ajoutée',
           componentType: 'Goulotte',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'CableTrunking',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (trunking, index) =>
@@ -279,7 +316,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un conduit',
           emptyStateMessage: 'Aucun conduit ajouté',
           componentType: 'Conduit',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'Conduit',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (conduit, index) => _buildConduitForm(conduit, index, viewModel),
@@ -301,7 +338,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un câblage cuivre',
           emptyStateMessage: 'Aucun câblage cuivre ajouté',
           componentType: 'Câblage cuivre',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'CopperCabling',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (cabling, index) =>
@@ -324,7 +361,8 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un câblage fibre',
           emptyStateMessage: 'Aucun câblage fibre optique ajouté',
           componentType: 'Câblage fibre optique',
-          initiallyExpanded: true,
+          initiallyExpanded:
+              shouldExpandAll || lastAdded == 'FiberOpticCabling',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (cabling, index) =>
@@ -347,7 +385,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           addButtonLabel: 'Ajouter un composant personnalisé',
           emptyStateMessage: 'Aucun composant personnalisé ajouté',
           componentType: 'Composant personnalisé',
-          initiallyExpanded: true,
+          initiallyExpanded: shouldExpandAll || lastAdded == 'CustomComponent',
           onAddOtherComponentType: () => _showComponentTypeDialog(viewModel),
           itemBuilder:
               (component, index) =>
@@ -834,6 +872,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 100,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingPerforation = editingPerforation.copyWith(
@@ -853,6 +892,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             editingPerforation = editingPerforation.copyWith(notes: value);
             viewModel.updatePerforation(index, editingPerforation);
           },
+        ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: perforation.photos,
+          componentType: 'Percement',
         ),
       ],
     );
@@ -900,6 +946,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             viewModel.updateAccessTrap(index, editingTrap);
           },
         ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: trap.photos,
+          componentType: 'Trappe d\'accès',
+        ),
       ],
     );
   }
@@ -941,6 +994,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 1000,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingPath = editingPath.copyWith(
@@ -994,6 +1048,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 20,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingPath = editingPath.copyWith(
@@ -1013,6 +1068,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             editingPath = editingPath.copyWith(notes: value);
             viewModel.updateCablePath(index, editingPath);
           },
+        ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: path.photos,
+          componentType: 'Chemin de câbles',
         ),
       ],
     );
@@ -1055,6 +1117,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 1000,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingTrunking = editingTrunking.copyWith(
@@ -1073,6 +1136,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: false,
                 min: 0,
                 max: 100,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingTrunking = editingTrunking.copyWith(
@@ -1091,6 +1155,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: false,
                 min: 0,
                 max: 100,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingTrunking = editingTrunking.copyWith(
@@ -1112,6 +1177,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: false,
                 min: 0,
                 max: 100,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingTrunking = editingTrunking.copyWith(
@@ -1145,6 +1211,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 20,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingTrunking = editingTrunking.copyWith(
@@ -1164,6 +1231,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             editingTrunking = editingTrunking.copyWith(notes: value);
             viewModel.updateCableTrunking(index, editingTrunking);
           },
+        ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: trunking.photos,
+          componentType: 'Goulotte',
         ),
       ],
     );
@@ -1206,6 +1280,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 1000,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingConduit = editingConduit.copyWith(
@@ -1236,6 +1311,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: true,
                 min: 0,
                 max: 20,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingConduit = editingConduit.copyWith(
@@ -1258,6 +1334,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             editingConduit = editingConduit.copyWith(notes: value);
             viewModel.updateConduit(index, editingConduit);
           },
+        ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: conduit.photos,
+          componentType: 'Conduit',
         ),
       ],
     );
@@ -1320,6 +1403,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: true,
                 min: 0,
                 max: 1000,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingCabling = editingCabling.copyWith(
@@ -1351,6 +1435,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
           decimal: true,
           min: 0,
           max: 20,
+          showControls: true,
           onChanged: (value) {
             if (value != null) {
               editingCabling = editingCabling.copyWith(
@@ -1370,6 +1455,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             editingCabling = editingCabling.copyWith(notes: value);
             viewModel.updateCopperCabling(index, editingCabling);
           },
+        ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: cabling.photos,
+          componentType: 'Câblage cuivre',
         ),
       ],
     );
@@ -1405,6 +1497,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 min: 0,
                 max: 100,
                 decimal: false,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingCabling = editingCabling.copyWith(
@@ -1439,6 +1532,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 min: 0,
                 max: 100,
                 decimal: false,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingCabling = editingCabling.copyWith(
@@ -1457,6 +1551,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: true,
                 min: 0,
                 max: 1000,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingCabling = editingCabling.copyWith(
@@ -1490,6 +1585,7 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
                 decimal: true,
                 min: 0,
                 max: 20,
+                showControls: true,
                 onChanged: (value) {
                   if (value != null) {
                     editingCabling = editingCabling.copyWith(
@@ -1512,6 +1608,13 @@ class _FloorComponentsFormState extends State<FloorComponentsForm> {
             editingCabling = editingCabling.copyWith(notes: value);
             viewModel.updateFiberOpticCabling(index, editingCabling);
           },
+        ),
+        // Add photo section
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: cabling.photos,
+          componentType: 'Câblage fibre optique',
         ),
       ],
     );
@@ -1654,6 +1757,7 @@ class NetworkCabinetFormItem extends StatelessWidget {
                 value: editingCabinet.availableOutlets,
                 min: 0,
                 max: 100,
+                showControls: true,
                 onChanged: (value) {
                   editingCabinet = editingCabinet.copyWith(
                     availableOutlets: value as int? ?? 0,
@@ -1669,6 +1773,7 @@ class NetworkCabinetFormItem extends StatelessWidget {
                 value: editingCabinet.totalRackUnits,
                 min: 0,
                 max: 100,
+                showControls: true,
                 onChanged: (value) {
                   editingCabinet = editingCabinet.copyWith(
                     totalRackUnits: value as int? ?? 0,
@@ -1688,6 +1793,7 @@ class NetworkCabinetFormItem extends StatelessWidget {
                 value: editingCabinet.availableRackUnits,
                 min: 0,
                 max: editingCabinet.totalRackUnits,
+                showControls: true,
                 onChanged: (value) {
                   editingCabinet = editingCabinet.copyWith(
                     availableRackUnits: value as int? ?? 0,
@@ -1710,6 +1816,13 @@ class NetworkCabinetFormItem extends StatelessWidget {
             editingCabinet = editingCabinet.copyWith(notes: value);
             onUpdate(editingCabinet);
           },
+        ),
+        // Add photo section for network cabinet
+        const Divider(height: 32),
+        ComponentPhotoSection(
+          componentIndex: index,
+          photos: cabinet.photos,
+          componentType: 'Baie Informatique',
         ),
       ],
     );

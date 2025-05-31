@@ -1,5 +1,6 @@
 // lib/models/report_sections/network_cabinet.dart
 import 'package:uuid/uuid.dart';
+import '../photo.dart';
 
 /// Model for representing a network cabinet in the technical visit report
 ///
@@ -17,6 +18,7 @@ class NetworkCabinet {
   final int totalRackUnits;
   final int availableRackUnits;
   final String notes;
+  final List<Photo> photos;
 
   /// Constructor requiring all essential fields
   ///
@@ -32,6 +34,7 @@ class NetworkCabinet {
     required this.totalRackUnits,
     required this.availableRackUnits,
     this.notes = '',
+    this.photos = const [],
   });
 
   /// Factory method to create a new empty cabinet with a UUID
@@ -66,6 +69,7 @@ class NetworkCabinet {
       'totalRackUnits': totalRackUnits,
       'availableRackUnits': availableRackUnits,
       'notes': notes,
+      'photos': photos.map((photo) => photo.toJson()).toList(),
     };
   }
 
@@ -84,6 +88,11 @@ class NetworkCabinet {
       totalRackUnits: json['totalRackUnits'] as int? ?? 0,
       availableRackUnits: json['availableRackUnits'] as int? ?? 0,
       notes: json['notes'] as String? ?? '',
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -101,6 +110,7 @@ class NetworkCabinet {
     int? totalRackUnits,
     int? availableRackUnits,
     String? notes,
+    List<Photo>? photos,
   }) {
     return NetworkCabinet(
       id: id ?? this.id,
@@ -112,6 +122,28 @@ class NetworkCabinet {
       totalRackUnits: totalRackUnits ?? this.totalRackUnits,
       availableRackUnits: availableRackUnits ?? this.availableRackUnits,
       notes: notes ?? this.notes,
+      photos: photos ?? this.photos,
     );
+  }
+
+  // Photo management helper methods
+  NetworkCabinet addPhoto(Photo photo) {
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.add(photo);
+    return copyWith(photos: updatedPhotos);
+  }
+
+  NetworkCabinet updatePhoto(int index, Photo updatedPhoto) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos[index] = updatedPhoto;
+    return copyWith(photos: updatedPhotos);
+  }
+
+  NetworkCabinet removePhoto(int index) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.removeAt(index);
+    return copyWith(photos: updatedPhotos);
   }
 }

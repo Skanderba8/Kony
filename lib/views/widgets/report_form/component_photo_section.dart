@@ -19,13 +19,14 @@ class ComponentPhotoSection extends StatefulWidget {
   });
 
   @override
-  _ComponentPhotoSectionState createState() => _ComponentPhotoSectionState();
+  State<ComponentPhotoSection> createState() => _ComponentPhotoSectionState();
 }
 
 class _ComponentPhotoSectionState extends State<ComponentPhotoSection> {
   final TextEditingController _commentController = TextEditingController();
   bool _isAddingPhoto = false;
   File? _selectedImage;
+  bool _isUploading = false;
 
   @override
   void dispose() {
@@ -41,22 +42,40 @@ class _ComponentPhotoSectionState extends State<ComponentPhotoSection> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Choisir la source'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.add_a_photo, color: Colors.blue.shade600, size: 24),
+                const SizedBox(width: 12),
+                const Text('Choisir la source'),
+              ],
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ListTile(
-                  leading: const Icon(Icons.camera_alt),
-                  title: const Text('Appareil photo'),
+                _buildSourceOption(
+                  icon: Icons.camera_alt,
+                  title: 'Appareil photo',
+                  subtitle: 'Prendre une nouvelle photo',
                   onTap: () => Navigator.pop(context, ImageSource.camera),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.photo_library),
-                  title: const Text('Galerie'),
+                const SizedBox(height: 12),
+                _buildSourceOption(
+                  icon: Icons.photo_library,
+                  title: 'Galerie',
+                  subtitle: 'Choisir depuis la galerie',
                   onTap: () => Navigator.pop(context, ImageSource.gallery),
                 ),
               ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+            ],
           ),
     );
 
@@ -78,10 +97,76 @@ class _ComponentPhotoSectionState extends State<ComponentPhotoSection> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sélection de l\'image: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la sélection de l\'image: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
     }
+  }
+
+  Widget _buildSourceOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: Colors.blue.shade600),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: Colors.grey.shade400,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _addPhoto() async {
@@ -91,33 +176,121 @@ class _ComponentPhotoSectionState extends State<ComponentPhotoSection> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez ajouter un commentaire à la photo'),
+          backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
-      context,
-      listen: false,
-    );
+    setState(() => _isUploading = true);
 
-    // Based on the component type, call the appropriate method
-    if (widget.componentType == 'Composant personnalisé') {
-      await viewModel.addPhotoToCustomComponent(
-        widget.componentIndex,
-        _selectedImage!,
-        _commentController.text.trim(),
+    try {
+      final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+        context,
+        listen: false,
       );
-    }
-    // Add similar conditions for other component types
 
-    setState(() {
-      _selectedImage = null;
-      _isAddingPhoto = false;
-    });
+      // Call the appropriate method based on component type
+      switch (widget.componentType) {
+        case 'Baie Informatique':
+          await viewModel.addPhotoToNetworkCabinet(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Percement':
+          await viewModel.addPhotoToPerforation(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Trappe d\'accès':
+          await viewModel.addPhotoToAccessTrap(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Chemin de câbles':
+          await viewModel.addPhotoToCablePath(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Goulotte':
+          await viewModel.addPhotoToCableTrunking(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Conduit':
+          await viewModel.addPhotoToConduit(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Câblage cuivre':
+          await viewModel.addPhotoToCopperCabling(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Câblage fibre optique':
+          await viewModel.addPhotoToFiberOpticCabling(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        case 'Composant personnalisé':
+          await viewModel.addPhotoToCustomComponent(
+            widget.componentIndex,
+            _selectedImage!,
+            _commentController.text.trim(),
+          );
+          break;
+        default:
+          throw Exception(
+            'Type de composant non supporté: ${widget.componentType}',
+          );
+      }
+
+      if (mounted) {
+        setState(() {
+          _selectedImage = null;
+          _isAddingPhoto = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo ajoutée avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'ajout de la photo: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
   }
 
-  Future<void> _cancelAddPhoto() async {
+  void _cancelAddPhoto() {
     setState(() {
       _selectedImage = null;
       _isAddingPhoto = false;
@@ -126,361 +299,635 @@ class _ComponentPhotoSectionState extends State<ComponentPhotoSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Section header
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: Row(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Photos ${widget.photos.isEmpty ? '' : '(${widget.photos.length})'}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Icon(
+                    Icons.photo_camera,
+                    color: Colors.blue.shade600,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Photos ${widget.photos.isEmpty ? '' : '(${widget.photos.length})'}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              if (!_isAddingPhoto)
+              if (!_isAddingPhoto && !_isUploading)
                 ElevatedButton.icon(
                   onPressed: _pickImage,
-                  icon: const Icon(Icons.add_a_photo),
-                  label: const Text('Ajouter une photo'),
+                  icon: const Icon(Icons.add_a_photo, size: 18),
+                  label: const Text('Ajouter'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Colors.blue.shade600,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
             ],
           ),
-        ),
 
-        // Add new photo section
-        if (_isAddingPhoto && _selectedImage != null) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade200),
+          const SizedBox(height: 16),
+
+          // Add new photo section
+          if (_isAddingPhoto && _selectedImage != null) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.add_photo_alternate,
+                        color: Colors.blue.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Nouvelle photo',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Display the selected image
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      _selectedImage!,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Comment field
+                  TextField(
+                    controller: _commentController,
+                    decoration: InputDecoration(
+                      labelText: 'Commentaire *',
+                      hintText: 'Décrivez ce que montre cette photo...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _isUploading ? null : _cancelAddPhoto,
+                        child: const Text('Annuler'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _isUploading ? null : _addPhoto,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          foregroundColor: Colors.white,
+                        ),
+                        child:
+                            _isUploading
+                                ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                                : const Text('Enregistrer'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 16),
+          ],
+
+          // Display existing photos
+          if (widget.photos.isNotEmpty) ...[
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: widget.photos.length,
+              itemBuilder: (context, index) {
+                final photo = widget.photos[index];
+                return _buildPhotoCard(photo, index);
+              },
+            ),
+          ] else if (!_isAddingPhoto) ...[
+            _buildEmptyState(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoCard(Photo photo, int index) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Photo section
+          Expanded(
+            flex: 3,
+            child: Stack(
               children: [
-                const Text(
-                  'Nouvelle photo',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-
-                // Display the selected image
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    _selectedImage!,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: SizedBox(
                     width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
+                    height: double.infinity,
+                    child:
+                        photo.url.isNotEmpty
+                            ? Image.network(
+                              photo.url,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (
+                                context,
+                                child,
+                                loadingProgress,
+                              ) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey.shade200,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey.shade200,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      size: 32,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                            : photo.localPath != null
+                            ? Image.file(
+                              File(photo.localPath!),
+                              fit: BoxFit.cover,
+                            )
+                            : Container(
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.image,
+                                  size: 32,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                // Comment field
-                TextField(
-                  controller: _commentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Commentaire *',
-                    hintText:
-                        'Ajoutez un commentaire descriptif pour cette photo',
-                    border: OutlineInputBorder(),
+                // Photo number badge
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-
-                // Action buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: _cancelAddPhoto,
-                      child: const Text('Annuler'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _addPhoto,
-                      child: const Text('Enregistrer'),
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-        ],
 
-        // Display existing photos
-        if (widget.photos.isNotEmpty) ...[
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.photos.length,
-            itemBuilder: (context, index) {
-              final photo = widget.photos[index];
-              return _buildPhotoItem(photo, index);
-            },
-          ),
-        ] else if (!_isAddingPhoto) ...[
-          Center(
+          // Comment and actions section
+          Expanded(
+            flex: 2,
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(8),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.photo_library_outlined,
-                    size: 48,
-                    color: Colors.grey.shade400,
+                  // Comment text
+                  Expanded(
+                    child: Text(
+                      photo.comment.isNotEmpty
+                          ? photo.comment
+                          : 'Aucun commentaire',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            photo.comment.isNotEmpty
+                                ? Colors.black87
+                                : Colors.grey.shade500,
+                        fontStyle:
+                            photo.comment.isNotEmpty
+                                ? FontStyle.normal
+                                : FontStyle.italic,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+
                   const SizedBox(height: 8),
-                  Text(
-                    'Aucune photo ajoutée',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ajoutez des photos pour documenter visuellement ce composant',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                    textAlign: TextAlign.center,
+
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      InkWell(
+                        onTap: () => _editComment(index, photo.comment),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: Colors.blue.shade600,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _deletePhoto(index),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: Colors.red.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildPhotoItem(Photo photo, int index) {
-    // Controller for editing comment
-    final commentController = TextEditingController(text: photo.comment);
-
+  Widget _buildEmptyState() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Photo with index number in corner
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(11),
-                ),
-                child: Image.network(
-                  photo.url,
-                  width: double.infinity,
-                  height: 200,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      width: double.infinity,
-                      height: 200,
-                      color: Colors.grey.shade200,
-                      child: const Center(child: CircularProgressIndicator()),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: double.infinity,
-                      height: 200,
-                      color: Colors.grey.shade200,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Photo ${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Comment section
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Comment header
-                const Text(
-                  'Commentaire',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                // Comment text with edit option
-                InkWell(
-                  onTap: () {
-                    // Show dialog to edit comment
-                    showDialog(
-                      context: context,
-                      builder:
-                          (context) => AlertDialog(
-                            title: const Text('Modifier le commentaire'),
-                            content: TextField(
-                              controller: commentController,
-                              decoration: const InputDecoration(
-                                labelText: 'Commentaire',
-                                border: OutlineInputBorder(),
-                              ),
-                              maxLines: 3,
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Annuler'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  final viewModel = Provider.of<
-                                    TechnicalVisitReportViewModel
-                                  >(context, listen: false);
-
-                                  if (widget.componentType ==
-                                      'Composant personnalisé') {
-                                    viewModel.updatePhotoComment(
-                                      widget.componentIndex,
-                                      index,
-                                      commentController.text.trim(),
-                                    );
-                                  }
-                                  // Add similar conditions for other component types
-
-                                  Navigator.pop(context);
-                                },
-                                child: const Text('Enregistrer'),
-                              ),
-                            ],
-                          ),
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(photo.comment)),
-                        const Icon(Icons.edit, size: 16, color: Colors.blue),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Action row
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () async {
-                          // Confirm delete
-                          final confirm =
-                              await showDialog<bool>(
-                                context: context,
-                                builder:
-                                    (context) => AlertDialog(
-                                      title: const Text('Supprimer la photo'),
-                                      content: const Text(
-                                        'Êtes-vous sûr de vouloir supprimer cette photo ?',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed:
-                                              () =>
-                                                  Navigator.pop(context, false),
-                                          child: const Text('Annuler'),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed:
-                                              () =>
-                                                  Navigator.pop(context, true),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                          ),
-                                          child: const Text('Supprimer'),
-                                        ),
-                                      ],
-                                    ),
-                              ) ??
-                              false;
-
-                          if (confirm) {
-                            final viewModel =
-                                Provider.of<TechnicalVisitReportViewModel>(
-                                  context,
-                                  listen: false,
-                                );
-
-                            if (widget.componentType ==
-                                'Composant personnalisé') {
-                              await viewModel.removePhotoFromCustomComponent(
-                                widget.componentIndex,
-                                index,
-                              );
-                            }
-                            // Add similar conditions for other component types
-                          }
-                        },
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                        ),
-                        label: const Text(
-                          'Supprimer',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              shape: BoxShape.circle,
             ),
+            child: Icon(
+              Icons.photo_library_outlined,
+              size: 32,
+              color: Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Aucune photo ajoutée',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ajoutez des photos pour documenter visuellement ce composant',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
+  }
+
+  void _editComment(int photoIndex, String currentComment) {
+    final commentController = TextEditingController(text: currentComment);
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Modifier le commentaire'),
+            content: TextField(
+              controller: commentController,
+              decoration: InputDecoration(
+                labelText: 'Commentaire',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+                    context,
+                    listen: false,
+                  );
+
+                  // Call the appropriate method based on component type
+                  switch (widget.componentType) {
+                    case 'Baie Informatique':
+                      viewModel.updateNetworkCabinetPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Percement':
+                      viewModel.updatePerforationPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Trappe d\'accès':
+                      viewModel.updateAccessTrapPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Chemin de câbles':
+                      viewModel.updateCablePathPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Goulotte':
+                      viewModel.updateCableTrunkingPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Conduit':
+                      viewModel.updateConduitPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Câblage cuivre':
+                      viewModel.updateCopperCablingPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Câblage fibre optique':
+                      viewModel.updateFiberOpticCablingPhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                    case 'Composant personnalisé':
+                      viewModel.updatePhotoComment(
+                        widget.componentIndex,
+                        photoIndex,
+                        commentController.text.trim(),
+                      );
+                      break;
+                  }
+
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Enregistrer'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _deletePhoto(int photoIndex) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.warning_outlined,
+                  color: Colors.orange.shade600,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                const Text('Supprimer la photo'),
+              ],
+            ),
+            content: const Text(
+              'Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm == true) {
+      try {
+        final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+          context,
+          listen: false,
+        );
+
+        // Call the appropriate method based on component type
+        switch (widget.componentType) {
+          case 'Baie Informatique':
+            await viewModel.removePhotoFromNetworkCabinet(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Percement':
+            await viewModel.removePhotoFromPerforation(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Trappe d\'accès':
+            await viewModel.removePhotoFromAccessTrap(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Chemin de câbles':
+            await viewModel.removePhotoFromCablePath(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Goulotte':
+            await viewModel.removePhotoFromCableTrunking(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Conduit':
+            await viewModel.removePhotoFromConduit(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Câblage cuivre':
+            await viewModel.removePhotoFromCopperCabling(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Câblage fibre optique':
+            await viewModel.removePhotoFromFiberOpticCabling(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+          case 'Composant personnalisé':
+            await viewModel.removePhotoFromCustomComponent(
+              widget.componentIndex,
+              photoIndex,
+            );
+            break;
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo supprimée avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la suppression: $e'),
+              backgroundColor: Colors.red.shade600,
+            ),
+          );
+        }
+      }
+    }
   }
 }

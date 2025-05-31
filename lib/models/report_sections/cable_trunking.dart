@@ -1,5 +1,6 @@
 // lib/models/report_sections/cable_trunking.dart
 import 'package:uuid/uuid.dart';
+import '../photo.dart';
 
 /// Model for representing cable trunking (goulottes)
 class CableTrunking {
@@ -13,6 +14,7 @@ class CableTrunking {
   final bool isInterior;
   final double workHeight;
   final String notes;
+  final List<Photo> photos;
 
   CableTrunking({
     required this.id,
@@ -25,6 +27,7 @@ class CableTrunking {
     required this.isInterior,
     required this.workHeight,
     this.notes = '',
+    this.photos = const [],
   });
 
   /// Factory method to create a new empty cable trunking entry with a UUID
@@ -55,6 +58,7 @@ class CableTrunking {
       'isInterior': isInterior,
       'workHeight': workHeight,
       'notes': notes,
+      'photos': photos.map((photo) => photo.toJson()).toList(),
     };
   }
 
@@ -71,6 +75,11 @@ class CableTrunking {
       isInterior: json['isInterior'] as bool? ?? true,
       workHeight: (json['workHeight'] as num?)?.toDouble() ?? 0.0,
       notes: json['notes'] as String? ?? '',
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -86,6 +95,7 @@ class CableTrunking {
     bool? isInterior,
     double? workHeight,
     String? notes,
+    List<Photo>? photos,
   }) {
     return CableTrunking(
       id: id ?? this.id,
@@ -98,6 +108,28 @@ class CableTrunking {
       isInterior: isInterior ?? this.isInterior,
       workHeight: workHeight ?? this.workHeight,
       notes: notes ?? this.notes,
+      photos: photos ?? this.photos,
     );
+  }
+
+  // Photo management helper methods
+  CableTrunking addPhoto(Photo photo) {
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.add(photo);
+    return copyWith(photos: updatedPhotos);
+  }
+
+  CableTrunking updatePhoto(int index, Photo updatedPhoto) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos[index] = updatedPhoto;
+    return copyWith(photos: updatedPhotos);
+  }
+
+  CableTrunking removePhoto(int index) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.removeAt(index);
+    return copyWith(photos: updatedPhotos);
   }
 }

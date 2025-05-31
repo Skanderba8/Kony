@@ -2,25 +2,18 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
+import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'universal_photo_service.dart';
+import '../utils/cloudinary_config.dart';
 
 class CloudinaryService implements PhotoUploadInterface {
   static CloudinaryService? _instance;
-  static CloudinaryService get instance =>
-      _instance ??= CloudinaryService._internal();
-
-  // Cloudinary Configuration - Replace with your actual values
-  static const String _cloudName = 'duxn4ckur';
-  static const String _uploadPreset = 'kony-app-photos';
-
-  late final CloudinaryPublic _cloudinary;
-
-  CloudinaryService._internal() {
-    _cloudinary = CloudinaryPublic(_cloudName, _uploadPreset, cache: false);
-  }
+  static CloudinaryService get instance => _instance ??= CloudinaryService._();
+  CloudinaryService._();
 
   @override
   Future<String> uploadPhoto({
@@ -31,35 +24,71 @@ class CloudinaryService implements PhotoUploadInterface {
     Function(double)? onProgress,
   }) async {
     try {
+      // Generate unique photo ID if not provided
       photoId ??= const Uuid().v4();
 
-      debugPrint('Starting Cloudinary upload: $photoId');
+      debugPrint(
+        'Starting Cloudinary upload for report: $reportId, component: $componentId, photo: $photoId',
+      );
 
-      // Compress image
+      // Compress image before upload
       final compressedImage = await _compressImage(imageFile);
 
-      // Create folder structure and public ID
-      final folder = 'kony-app/reports/$reportId/components/$componentId';
+      // Create folder path for organization
+      final folderPath = CloudinaryConfig.getFolderPath(reportId, componentId);
 
-      // Upload to Cloudinary
-      final CloudinaryResponse response = await _cloudinary.uploadFile(
-        CloudinaryFile.fromBytesData(
+      // Create public ID with folder structure
+      final publicId = '$folderPath/$photoId';
+
+      debugPrint('Cloudinary public ID: $publicId');
+
+      // Prepare upload URL for unsigned upload
+      final uploadUrl =
+          'https://api.cloudinary.com/v1_1/${CloudinaryConfig.cloudName}/image/upload';
+
+      // Create multipart request
+      final request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+
+      // For UNSIGNED uploads - only use upload_preset
+      request.fields['upload_preset'] = CloudinaryConfig.uploadPreset;
+      request.fields['public_id'] = publicId;
+      request.fields['resource_type'] = 'image';
+
+      // Add metadata
+      request.fields['context'] =
+          'report_id=$reportId|component_id=$componentId|photo_id=$photoId';
+
+      // Add the image file
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
           compressedImage,
-          identifier: '$folder/$photoId',
-          folder: folder,
-          resourceType: CloudinaryResourceType.Image,
+          filename: '$photoId.jpg',
         ),
       );
 
-      // Check if we got a valid URL back
-      if (response.secureUrl.isNotEmpty) {
-        debugPrint('Upload successful: ${response.secureUrl}');
-        return response.secureUrl;
+      debugPrint('Uploading to Cloudinary with unsigned preset...');
+
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('Cloudinary response status: ${response.statusCode}');
+      debugPrint('Cloudinary response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        final String downloadUrl = responseData['secure_url'] as String;
+
+        debugPrint('Cloudinary upload successful. URL: $downloadUrl');
+        return downloadUrl;
       } else {
-        throw Exception('Upload failed - no URL returned');
+        final errorData = json.decode(response.body);
+        final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
+        throw Exception('Cloudinary upload failed: $errorMessage');
       }
     } catch (e) {
-      debugPrint('Cloudinary upload error: $e');
+      debugPrint('Error uploading photo to Cloudinary: $e');
       rethrow;
     }
   }
@@ -83,23 +112,27 @@ class CloudinaryService implements PhotoUploadInterface {
         uploadedUrls.add(url);
         onProgress?.call(i + 1, imageFiles.length);
       } catch (e) {
-        debugPrint('Failed to upload photo ${i + 1}: $e');
+        debugPrint('Failed to upload photo ${i + 1} to Cloudinary: $e');
+        // Continue with other photos
       }
     }
 
     return uploadedUrls;
   }
 
+  /// Compress image to reduce file size while maintaining quality
   Future<Uint8List> _compressImage(File imageFile) async {
     try {
-      final imageBytes = await imageFile.readAsBytes();
-      img.Image? image = img.decodeImage(imageBytes);
+      // Read image file
+      final Uint8List imageBytes = await imageFile.readAsBytes();
 
+      // Decode image
+      img.Image? image = img.decodeImage(imageBytes);
       if (image == null) {
         throw Exception('Failed to decode image');
       }
 
-      // Resize if too large
+      // Resize if too large (max 1200px on longest side)
       if (image.width > 1200 || image.height > 1200) {
         if (image.width > image.height) {
           image = img.copyResize(image, width: 1200);
@@ -108,15 +141,17 @@ class CloudinaryService implements PhotoUploadInterface {
         }
       }
 
-      final compressedBytes = img.encodeJpg(image, quality: 85);
+      // Encode as JPEG with 85% quality
+      final List<int> compressedBytes = img.encodeJpg(image, quality: 85);
 
       debugPrint(
-        'Image compressed: ${imageBytes.length} → ${compressedBytes.length} bytes',
+        'Image compressed: ${imageBytes.length} bytes → ${compressedBytes.length} bytes',
       );
 
       return Uint8List.fromList(compressedBytes);
     } catch (e) {
-      debugPrint('Compression error: $e');
+      debugPrint('Error compressing image: $e');
+      // If compression fails, return original bytes
       return await imageFile.readAsBytes();
     }
   }
@@ -124,12 +159,17 @@ class CloudinaryService implements PhotoUploadInterface {
   @override
   Future<void> deletePhoto(String photoUrl) async {
     try {
-      // Note: cloudinary_public package doesn't support delete operations
-      // Delete requires admin API with API secret
-      debugPrint('Delete not supported with cloudinary_public package');
-      debugPrint('Photo URL: $photoUrl');
+      // For unsigned uploads, we cannot delete photos programmatically
+      // This would require admin API credentials
+      debugPrint(
+        'Photo deletion not available with unsigned uploads: $photoUrl',
+      );
+      debugPrint(
+        'Note: Delete photos manually from Cloudinary dashboard if needed',
+      );
     } catch (e) {
-      debugPrint('Error in delete operation: $e');
+      debugPrint('Error deleting photo from Cloudinary: $e');
+      // Don't rethrow - deletion errors shouldn't block the app
     }
   }
 
@@ -138,58 +178,68 @@ class CloudinaryService implements PhotoUploadInterface {
     required String reportId,
     required String componentId,
   }) async {
-    debugPrint('Batch delete not supported with cloudinary_public package');
+    try {
+      debugPrint('Batch photo deletion not available with unsigned uploads');
+      debugPrint(
+        'Component photos for component $componentId not deleted from Cloudinary',
+      );
+    } catch (e) {
+      debugPrint('Error batch deleting photos: $e');
+    }
   }
 
   @override
   Future<void> deleteReportPhotos(String reportId) async {
-    debugPrint('Batch delete not supported with cloudinary_public package');
+    try {
+      debugPrint('Report photo deletion not available with unsigned uploads');
+      debugPrint('Photos for report $reportId not deleted from Cloudinary');
+    } catch (e) {
+      debugPrint('Error deleting report photos: $e');
+    }
   }
 
-  /// Get optimized URL with transformations
+  /// Get optimized image URL with transformations
   String getOptimizedUrl(
     String originalUrl, {
     int? width,
     int? height,
     String quality = 'auto',
-    String format = 'auto',
   }) {
     try {
-      if (!originalUrl.contains('cloudinary.com')) {
-        return originalUrl;
+      final uri = Uri.parse(originalUrl);
+      final pathSegments = uri.pathSegments.toList();
+
+      // Find upload segment and insert transformation
+      final uploadIndex = pathSegments.indexOf('upload');
+      if (uploadIndex != -1) {
+        final transformations = <String>[];
+
+        if (width != null) transformations.add('w_$width');
+        if (height != null) transformations.add('h_$height');
+        transformations.add('q_$quality');
+        transformations.add('f_auto');
+
+        if (transformations.isNotEmpty) {
+          pathSegments.insert(uploadIndex + 1, transformations.join(','));
+        }
+
+        final newUri = uri.replace(pathSegments: pathSegments);
+        return newUri.toString();
       }
 
-      // Extract the path after /upload/
-      final uploadIndex = originalUrl.indexOf('/upload/');
-      if (uploadIndex == -1) return originalUrl;
-
-      final beforeUpload = originalUrl.substring(0, uploadIndex + 8);
-      final afterUpload = originalUrl.substring(uploadIndex + 8);
-
-      // Build transformation string
-      final transformations = <String>[];
-      if (width != null) transformations.add('w_$width');
-      if (height != null) transformations.add('h_$height');
-      transformations.add('q_$quality');
-      transformations.add('f_$format');
-
-      final transformationString = transformations.join(',');
-
-      return '$beforeUpload$transformationString/$afterUpload';
+      return originalUrl;
     } catch (e) {
-      debugPrint('Error generating optimized URL: $e');
       return originalUrl;
     }
   }
 
-  /// Generate thumbnail URL
+  /// Get thumbnail URL
   String getThumbnailUrl(String originalUrl, {int size = 150}) {
     return getOptimizedUrl(
       originalUrl,
       width: size,
       height: size,
       quality: 'auto',
-      format: 'auto',
     );
   }
 }

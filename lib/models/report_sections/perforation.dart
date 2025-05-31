@@ -1,5 +1,6 @@
 // lib/models/report_sections/perforation.dart
 import 'package:uuid/uuid.dart';
+import '../photo.dart';
 
 /// Model for representing wall perforations needed for cable passage
 class Perforation {
@@ -11,6 +12,7 @@ class Perforation {
   final String perforationAccess;
   final String perforationConstraints;
   final String notes;
+  final List<Photo> photos;
 
   Perforation({
     required this.id,
@@ -21,6 +23,7 @@ class Perforation {
     required this.perforationAccess,
     required this.perforationConstraints,
     this.notes = '',
+    this.photos = const [],
   });
 
   /// Factory method to create a new empty perforation entry with a UUID
@@ -47,6 +50,7 @@ class Perforation {
       'perforationAccess': perforationAccess,
       'perforationConstraints': perforationConstraints,
       'notes': notes,
+      'photos': photos.map((photo) => photo.toJson()).toList(),
     };
   }
 
@@ -61,6 +65,11 @@ class Perforation {
       perforationAccess: json['perforationAccess'] as String? ?? '',
       perforationConstraints: json['perforationConstraints'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -74,6 +83,7 @@ class Perforation {
     String? perforationAccess,
     String? perforationConstraints,
     String? notes,
+    List<Photo>? photos,
   }) {
     return Perforation(
       id: id ?? this.id,
@@ -85,6 +95,28 @@ class Perforation {
       perforationConstraints:
           perforationConstraints ?? this.perforationConstraints,
       notes: notes ?? this.notes,
+      photos: photos ?? this.photos,
     );
+  }
+
+  // Photo management helper methods
+  Perforation addPhoto(Photo photo) {
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.add(photo);
+    return copyWith(photos: updatedPhotos);
+  }
+
+  Perforation updatePhoto(int index, Photo updatedPhoto) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos[index] = updatedPhoto;
+    return copyWith(photos: updatedPhotos);
+  }
+
+  Perforation removePhoto(int index) {
+    if (index < 0 || index >= photos.length) return this;
+    final updatedPhotos = List<Photo>.from(photos);
+    updatedPhotos.removeAt(index);
+    return copyWith(photos: updatedPhotos);
   }
 }

@@ -6,8 +6,6 @@ class Photo {
   final String url;
   final String comment;
   final DateTime takenAt;
-
-  // Local path for temporary storage before upload
   final String? localPath;
 
   Photo({

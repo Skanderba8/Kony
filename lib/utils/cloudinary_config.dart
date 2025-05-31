@@ -17,7 +17,7 @@ library;
 
 class CloudinaryConfig {
   // Replace with your actual Cloudinary cloud name
-  static const String cloudName = 'your-cloud-name';
+  static const String cloudName = 'duxn4ckur';
 
   // Replace with your actual upload preset name
   static const String uploadPreset = 'kony-app-photos';
