@@ -20,7 +20,7 @@ class LoginViewModel extends ChangeNotifier {
   String get lastErrorMessage =>
       _errorMessage ?? 'Une erreur inconnue s\'est produite';
 
-  /// Sign in with email and password
+  /// Sign in with email and password - UPDATED WITH ISACTIVE CHECK
   Future<UserModel?> signInWithEmailAndPassword(
     String email,
     String password, {
@@ -39,6 +39,15 @@ class LoginViewModel extends ChangeNotifier {
       );
 
       if (userModel != null) {
+        // Additional check for isActive (already handled in AuthService, but double-check)
+        if (!userModel.isActive) {
+          debugPrint('User account is inactive: ${userModel.email}');
+          _setError(
+            'Votre compte a été désactivé. Contactez l\'administrateur.',
+          );
+          return null;
+        }
+
         debugPrint('Authentication successful. User: ${userModel.email}');
         return userModel;
       } else {
@@ -58,13 +67,17 @@ class LoginViewModel extends ChangeNotifier {
           message = 'Adresse email invalide.';
           break;
         case 'user-disabled':
-          message = 'Ce compte a été désactivé.';
+          message =
+              'Votre compte a été désactivé. Contactez l\'administrateur.';
           break;
         case 'too-many-requests':
           message = 'Trop de tentatives. Veuillez réessayer plus tard.';
           break;
         case 'network-request-failed':
           message = 'Erreur de connexion réseau.';
+          break;
+        case 'invalid-credential':
+          message = 'Email ou mot de passe incorrect.';
           break;
         default:
           message = 'Erreur d\'authentification: ${e.message}';
@@ -179,6 +192,12 @@ class LoginViewModel extends ChangeNotifier {
     return _authService.isTechnician();
   }
 
+  /// Check if current user account is active
+  bool isUserActive() {
+    final userModel = getCurrentUserModel();
+    return userModel?.isActive ?? false;
+  }
+
   /// Add the missing isPhoneNumberMissing method
   Future<bool> isPhoneNumberMissing() async {
     try {
@@ -205,6 +224,57 @@ class LoginViewModel extends ChangeNotifier {
     }
   }
 
+  /// Validate user account status on app resume or periodic checks
+  Future<bool> validateAccountStatus() async {
+    try {
+      final currentUser = getCurrentUser();
+      if (currentUser == null) {
+        return false;
+      }
+
+      // Fetch latest user data from Firestore to check if account is still active
+      final userModel = await _authService.getUserById(currentUser.uid);
+
+      if (userModel == null) {
+        debugPrint('User account not found in database');
+        await signOut();
+        _setError('Votre compte n\'existe plus. Contactez l\'administrateur.');
+        return false;
+      }
+
+      if (!userModel.isActive) {
+        debugPrint('User account has been deactivated');
+        await signOut();
+        _setError('Votre compte a été désactivé. Contactez l\'administrateur.');
+        return false;
+      }
+
+      // Account is still valid and active
+      return true;
+    } catch (e) {
+      debugPrint('Error validating account status: $e');
+      return true; // Don't sign out on validation errors
+    }
+  }
+
+  /// Check if profile information is complete
+  bool isProfileComplete() {
+    final userModel = getCurrentUserModel();
+    return userModel?.isProfileComplete ?? false;
+  }
+
+  /// Get user display name
+  String? getUserDisplayName() {
+    final userModel = getCurrentUserModel();
+    return userModel?.displayName;
+  }
+
+  /// Get user email
+  String? getUserEmail() {
+    final userModel = getCurrentUserModel();
+    return userModel?.email;
+  }
+
   /// Clear any existing error
   void clearError() {
     _clearError();
@@ -226,5 +296,22 @@ class LoginViewModel extends ChangeNotifier {
   void _clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Refresh current user data
+  Future<void> refreshUserData() async {
+    try {
+      final currentUser = getCurrentUser();
+      if (currentUser != null) {
+        // Use the public method to get fresh user data
+        final userModel = await _authService.getUserById(currentUser.uid);
+        if (userModel != null) {
+          // The auth service will handle updating its internal state
+          debugPrint('User data refreshed successfully');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing user data: $e');
+    }
   }
 }

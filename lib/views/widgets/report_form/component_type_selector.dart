@@ -249,7 +249,7 @@ class ComponentTypeSelector extends StatelessWidget {
                                 componentTypes
                                     .where(
                                       (type) =>
-                                          type != 'Composant personnalisé',
+                                          type != 'Composant personnalise',
                                     )
                                     .toList()[index];
 

@@ -138,7 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       final user = authService.currentUser;
 
       if (user != null) {
-        _userRole = await authService.getUserRole();
+        _userRole = authService.getUserRole();
 
         final userService = UserManagementService();
         _userModel = await userService.getUserByAuthUid(user.uid);
@@ -429,6 +429,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  // Replace the _buildInfoCards method in your profile_screen.dart with this updated version:
+
   Widget _buildInfoCards() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -480,9 +482,38 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _userModel?.email ?? '',
                 Icons.email_outlined,
               ),
+              // ADD PASSWORD CHANGE BUTTON HERE
+              _buildPasswordChangeButton(),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // Add this new method to create the password change button:
+  Widget _buildPasswordChangeButton() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _showChangePasswordDialog,
+          icon: const Icon(Icons.lock_reset, size: 20),
+          label: const Text(
+            'Changer le mot de passe',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.indigo.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 2,
+          ),
+        ),
       ),
     );
   }
@@ -689,5 +720,831 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       ),
     );
+  }
+
+  // Add these methods to your profile_screen.dart
+
+  Widget _buildEditableSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+    VoidCallback? onEdit,
+    bool showEditButton = true,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: Colors.indigo.shade600,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    if (showEditButton)
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.edit,
+                          color: Colors.grey.shade600,
+                          size: 16,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ...children,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String? value, {IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: Colors.grey.shade600),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value ?? 'Non renseigné',
+              style: TextStyle(
+                fontSize: 14,
+                color: value != null ? Colors.black87 : Colors.grey.shade400,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Replace your existing profile sections with these clickable ones:
+
+  Widget _buildPersonalInfoSection() {
+    final user = context.watch<AuthService>().currentUserModel;
+
+    return _buildEditableSection(
+      title: 'Informations Personnelles',
+      icon: Icons.person_outline,
+      onEdit: () => _showEditPersonalInfoDialog(user),
+      children: [
+        _buildInfoRow('Nom complet', user?.name, icon: Icons.badge_outlined),
+        _buildInfoRow('Email', user?.email, icon: Icons.email_outlined),
+        _buildInfoRow(
+          'Téléphone',
+          user?.phoneNumber,
+          icon: Icons.phone_outlined,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfessionalInfoSection() {
+    final user = context.watch<AuthService>().currentUserModel;
+
+    return _buildEditableSection(
+      title: 'Informations Professionnelles',
+      icon: Icons.work_outline,
+      onEdit: () => _showEditProfessionalInfoDialog(user),
+      children: [
+        _buildInfoRow(
+          'Rôle',
+          user?.roleDisplayText,
+          icon: Icons.admin_panel_settings_outlined,
+        ),
+        _buildInfoRow(
+          'Département',
+          user?.department,
+          icon: Icons.business_outlined,
+        ),
+        _buildInfoRow(
+          'Adresse',
+          user?.address,
+          icon: Icons.location_on_outlined,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecuritySection() {
+    return _buildEditableSection(
+      title: 'Sécurité',
+      icon: Icons.security_outlined,
+      onEdit: () => _showChangePasswordDialog(),
+      children: [
+        _buildInfoRow('Mot de passe', '••••••••', icon: Icons.lock_outlined),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade600, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Cliquez pour changer votre mot de passe en toute sécurité',
+                  style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  // Dialog methods for editing profile sections:
+
+  void _showEditPersonalInfoDialog(UserModel? user) {
+    if (user == null) return;
+
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    final phoneController = TextEditingController(text: user.phoneNumber ?? '');
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.person_outline,
+                          color: Colors.indigo.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Informations Personnelles'),
+                    ],
+                  ),
+                  content: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            labelText: 'Nom complet',
+                            prefixIcon: const Icon(Icons.person),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator:
+                              (value) =>
+                                  value?.isEmpty == true ? 'Nom requis' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: const Icon(Icons.email),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value?.isEmpty == true) return 'Email requis';
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value!)) {
+                              return 'Email invalide';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: phoneController,
+                          decoration: InputDecoration(
+                            labelText: 'Téléphone',
+                            prefixIcon: const Icon(Icons.phone),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          isLoading ? null : () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          isLoading
+                              ? null
+                              : () async {
+                                if (formKey.currentState!.validate()) {
+                                  setState(() => isLoading = true);
+                                  await _updateProfile(
+                                    name: nameController.text,
+                                    email: emailController.text,
+                                    phoneNumber: phoneController.text,
+                                  );
+                                  if (mounted) Navigator.pop(context);
+                                }
+                              },
+                      child:
+                          isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Enregistrer'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+  }
+
+  void _showEditProfessionalInfoDialog(UserModel? user) {
+    if (user == null) return;
+
+    final departmentController = TextEditingController(
+      text: user.department ?? '',
+    );
+    final addressController = TextEditingController(text: user.address ?? '');
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.work_outline,
+                          color: Colors.indigo.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Informations Professionnelles'),
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: departmentController,
+                        decoration: InputDecoration(
+                          labelText: 'Département',
+                          prefixIcon: const Icon(Icons.business),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: addressController,
+                        decoration: InputDecoration(
+                          labelText: 'Adresse',
+                          prefixIcon: const Icon(Icons.location_on),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          isLoading ? null : () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          isLoading
+                              ? null
+                              : () async {
+                                setState(() => isLoading = true);
+                                await _updateProfile(
+                                  department: departmentController.text,
+                                  address: addressController.text,
+                                );
+                                if (mounted) Navigator.pop(context);
+                              },
+                      child:
+                          isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Enregistrer'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    final currentPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    bool obscurePassword = true;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.lock_outline,
+                          color: Colors.indigo.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Changer le Mot de Passe',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pour votre sécurité, veuillez d\'abord confirmer votre mot de passe actuel.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: currentPasswordController,
+                          obscureText: obscurePassword,
+                          decoration: InputDecoration(
+                            labelText: 'Mot de passe actuel',
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  obscurePassword = !obscurePassword;
+                                });
+                              },
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Le mot de passe actuel est requis';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade600,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Un email de réinitialisation sera envoyé à votre adresse email.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          isLoading ? null : () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          isLoading
+                              ? null
+                              : () async {
+                                if (formKey.currentState!.validate()) {
+                                  setState(() => isLoading = true);
+
+                                  try {
+                                    final authService =
+                                        context.read<AuthService>();
+
+                                    // Initiate password change (verify current password + send reset email)
+                                    await authService.initiatePasswordChange(
+                                      currentPasswordController.text,
+                                    );
+
+                                    if (mounted) {
+                                      Navigator.pop(context);
+
+                                      // Show success dialog
+                                      _showPasswordResetSuccessDialog();
+                                    }
+                                  } on FirebaseAuthException catch (e) {
+                                    if (mounted) {
+                                      setState(() => isLoading = false);
+
+                                      String message;
+                                      switch (e.code) {
+                                        case 'wrong-password':
+                                          message =
+                                              'Le mot de passe actuel est incorrect.';
+                                          break;
+                                        case 'too-many-requests':
+                                          message =
+                                              'Trop de tentatives. Réessayez plus tard.';
+                                          break;
+                                        default:
+                                          message = 'Erreur: ${e.message}';
+                                          break;
+                                      }
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.error,
+                                                color: Colors.white,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(child: Text(message)),
+                                            ],
+                                          ),
+                                          backgroundColor: Colors.red.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      setState(() => isLoading = false);
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.error,
+                                                color: Colors.white,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'Erreur inattendue: $e',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          backgroundColor: Colors.red.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo.shade600,
+                        foregroundColor: Colors.white,
+                      ),
+                      child:
+                          isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Envoyer l\'email'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+  }
+
+  // Add this new method to show success dialog
+  void _showPasswordResetSuccessDialog() {
+    final userEmail = context.read<AuthService>().currentUserModel?.email ?? '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.check_circle, color: Colors.green.shade600),
+                ),
+                const SizedBox(width: 12),
+                const Text('Email Envoyé'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.email, size: 48, color: Colors.green.shade600),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Email de Réinitialisation Envoyé',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Un email de réinitialisation a été envoyé à:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.green.shade700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        userEmail,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Vérifiez votre boîte de réception et suivez les instructions pour changer votre mot de passe.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green.shade700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Compris'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // Update profile method
+  Future<void> _updateProfile({
+    String? name,
+    String? email,
+    String? phoneNumber,
+    String? department,
+    String? address,
+  }) async {
+    try {
+      final authService = context.read<AuthService>();
+      final currentUser = authService.currentUserModel;
+
+      if (currentUser == null) return;
+
+      final updatedUser = currentUser.copyWith(
+        name: name ?? currentUser.name,
+        email: email ?? currentUser.email,
+        phoneNumber: phoneNumber ?? currentUser.phoneNumber,
+        department: department ?? currentUser.department,
+        address: address ?? currentUser.address,
+      );
+
+      await authService.updateUserProfile(updatedUser);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Profil mis à jour avec succès!'),
+              ],
+            ),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Erreur: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
   }
 }

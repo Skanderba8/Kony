@@ -115,7 +115,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Sign in with email and password
+  // Update the signInWithEmailAndPassword method in auth_service.dart to handle invitations:
+
+  /// Sign in with email and password - UPDATED TO HANDLE INVITATIONS
   Future<UserModel?> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -124,21 +126,111 @@ class AuthService extends ChangeNotifier {
     try {
       debugPrint('Attempting sign in for: $email');
 
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      // FIRST: Try normal Firebase Auth login
+      try {
+        final credential = await _auth.signInWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        );
 
-      if (credential.user != null) {
-        // Load user profile
-        final userModel = await _loadUserProfile(credential.user!.uid);
+        if (credential.user != null) {
+          // Load user profile
+          final userModel = await _loadUserProfile(credential.user!.uid);
 
-        if (userModel != null) {
-          // Start new session
-          await _startNewSession(keepLoggedIn: keepLoggedIn);
-          debugPrint('Sign in successful for: $email');
-          return userModel;
+          if (userModel != null) {
+            // CHECK IF USER IS ACTIVE
+            if (!userModel.isActive) {
+              await _auth.signOut();
+              throw FirebaseAuthException(
+                code: 'user-disabled',
+                message:
+                    'Votre compte a été désactivé. Contactez l\'administrateur.',
+              );
+            }
+
+            // Start new session
+            await _startNewSession(keepLoggedIn: keepLoggedIn);
+            debugPrint('Sign in successful for: $email');
+            return userModel;
+          }
         }
+      } on FirebaseAuthException catch (e) {
+        // If user-not-found, check if they have an invitation
+        if (e.code == 'user-not-found') {
+          debugPrint(
+            'User not found in Firebase Auth, checking for invitation: $email',
+          );
+
+          // Check if user has a pending invitation
+          final querySnapshot =
+              await _firestore
+                  .collection('users')
+                  .where('email', isEqualTo: email.trim())
+                  .where('accountStatus', isEqualTo: 'invitation_pending')
+                  .limit(1)
+                  .get();
+
+          if (querySnapshot.docs.isNotEmpty) {
+            final userDoc = querySnapshot.docs.first;
+            final userData = userDoc.data();
+
+            // Check if the password matches the invitation password
+            if (userData['invitationPassword'] == password) {
+              debugPrint(
+                'Valid invitation found, creating Firebase Auth account for: $email',
+              );
+
+              // Create Firebase Auth account for the invited user
+              final newCredential = await _auth.createUserWithEmailAndPassword(
+                email: email.trim(),
+                password: password,
+              );
+
+              if (newCredential.user != null) {
+                // Update the user document with the real Firebase Auth UID
+                final updatedUserData = {
+                  ...userData,
+                  'authUid': newCredential.user!.uid,
+                  'accountStatus': 'active',
+                  'firstLoginAt': FieldValue.serverTimestamp(),
+                };
+
+                // Remove the temporary password
+                updatedUserData.remove('invitationPassword');
+
+                // Create new document with Firebase Auth UID as document ID
+                await _firestore
+                    .collection('users')
+                    .doc(newCredential.user!.uid)
+                    .set(updatedUserData);
+
+                // Delete the old document with temporary ID
+                await _firestore.collection('users').doc(userDoc.id).delete();
+
+                // Load the user profile with the new UID
+                final userModel = await _loadUserProfile(
+                  newCredential.user!.uid,
+                );
+
+                if (userModel != null) {
+                  // Start new session
+                  await _startNewSession(keepLoggedIn: keepLoggedIn);
+                  debugPrint('First login successful for invited user: $email');
+                  return userModel;
+                }
+              }
+            } else {
+              debugPrint('Invalid invitation password for: $email');
+              throw FirebaseAuthException(
+                code: 'wrong-password',
+                message: 'Mot de passe incorrect.',
+              );
+            }
+          }
+        }
+
+        // Re-throw the original exception if not handled above
+        rethrow;
       }
 
       return null;
@@ -148,6 +240,24 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Sign in error: $e');
       rethrow;
+    }
+  }
+
+  // Also add this helper method to check if an email has a pending invitation
+  Future<bool> hasUserInvitation(String email) async {
+    try {
+      final querySnapshot =
+          await _firestore
+              .collection('users')
+              .where('email', isEqualTo: email.trim())
+              .where('accountStatus', isEqualTo: 'invitation_pending')
+              .limit(1)
+              .get();
+
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error checking user invitation: $e');
+      return false;
     }
   }
 
@@ -441,18 +551,15 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Delete user account
-  Future<void> deleteUserAccount(String uid) async {
+  /// Toggle user active status (NEW METHOD)
+  Future<void> toggleUserActiveStatus(String uid, bool isActive) async {
     try {
-      // Delete from Firestore
-      await _firestore.collection('users').doc(uid).delete();
-
-      // Note: Cannot delete Firebase Auth user from another account
-      // This would need to be done via Firebase Admin SDK on the server
-
-      debugPrint('User account deleted from Firestore: $uid');
+      await _firestore.collection('users').doc(uid).update({
+        'isActive': isActive,
+      });
+      debugPrint('User active status updated: $uid -> $isActive');
     } catch (e) {
-      debugPrint('Error deleting user account: $e');
+      debugPrint('Error updating user active status: $e');
       rethrow;
     }
   }
@@ -488,15 +595,75 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Toggle user active status
-  Future<void> toggleUserActiveStatus(String uid, bool isActive) async {
+  // Add these methods to your auth_service.dart after the existing methods
+
+  /// Verify current user's password by attempting reauthentication
+  Future<bool> verifyCurrentPassword(String currentPassword) async {
     try {
-      await _firestore.collection('users').doc(uid).update({
-        'isActive': isActive,
-      });
-      debugPrint('User active status updated: $uid -> $isActive');
+      if (_currentUser == null || _currentUser!.email == null) {
+        throw Exception('No authenticated user or email');
+      }
+
+      // Create credential for reauthentication
+      final credential = EmailAuthProvider.credential(
+        email: _currentUser!.email!,
+        password: currentPassword,
+      );
+
+      // Attempt to reauthenticate
+      await _currentUser!.reauthenticateWithCredential(credential);
+      debugPrint('Password verification successful');
+      return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Password verification failed: ${e.code} - ${e.message}');
+      return false;
     } catch (e) {
-      debugPrint('Error updating user active status: $e');
+      debugPrint('Error verifying password: $e');
+      return false;
+    }
+  }
+
+  /// Send password reset email for the currently authenticated user
+  Future<void> sendPasswordResetEmailForCurrentUser() async {
+    try {
+      if (_currentUser == null || _currentUser!.email == null) {
+        throw Exception('No authenticated user or email');
+      }
+
+      await _auth.sendPasswordResetEmail(email: _currentUser!.email!);
+      debugPrint(
+        'Password reset email sent to current user: ${_currentUser!.email}',
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'Password reset error for current user: ${e.code} - ${e.message}',
+      );
+      rethrow;
+    } catch (e) {
+      debugPrint('Error sending password reset email for current user: $e');
+      rethrow;
+    }
+  }
+
+  /// Change password flow: verify current password then send reset email
+  Future<bool> initiatePasswordChange(String currentPassword) async {
+    try {
+      // First verify the current password
+      final isPasswordValid = await verifyCurrentPassword(currentPassword);
+
+      if (!isPasswordValid) {
+        throw FirebaseAuthException(
+          code: 'wrong-password',
+          message: 'Le mot de passe actuel est incorrect.',
+        );
+      }
+
+      // If password is valid, send reset email
+      await sendPasswordResetEmailForCurrentUser();
+      debugPrint('Password change initiated successfully');
+      return true;
+    } catch (e) {
+      debugPrint('Error initiating password change: $e');
       rethrow;
     }
   }
