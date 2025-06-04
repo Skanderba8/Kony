@@ -34,8 +34,6 @@ class AdminViewModel extends ChangeNotifier {
        _authService = authService,
        _pdfService = pdfService;
 
-  /// Get a stream of all submitted technical visit reports
-  ///
   Stream<List<TechnicalVisitReport>> getSubmittedReportsStreamForAdmin() {
     return _reportService.getSubmittedReportsStreamForAdmin();
   }
@@ -55,13 +53,16 @@ class AdminViewModel extends ChangeNotifier {
     return _reportService.getApprovedReportsStream();
   }
 
+  // ADD: Get rejected reports stream
+  Stream<List<TechnicalVisitReport>> getRejectedReportsStream() {
+    return _reportService.getRejectedReportsStream();
+  }
+
   Stream<List<TechnicalVisitReport>> getAllReportsStream() {
     return _reportService.getAllReportsStream();
   }
 
   /// Update the status of a technical visit report
-  ///
-  /// This method marks a report as reviewed or approved
   Future<bool> updateReportStatus(String reportId, String newStatus) async {
     _setLoading(true);
     _clearMessages();
@@ -72,6 +73,22 @@ class AdminViewModel extends ChangeNotifier {
       return true;
     } catch (e) {
       _setErrorMessage('Failed to update report status: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> rejectReport(String reportId, String comment) async {
+    _setLoading(true);
+    _clearMessages();
+
+    try {
+      await _reportService.rejectReport(reportId, comment);
+      _setSuccessMessage('Report rejected successfully');
+      return true;
+    } catch (e) {
+      _setErrorMessage('Failed to reject report: $e');
       return false;
     } finally {
       _setLoading(false);

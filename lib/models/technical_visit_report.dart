@@ -31,10 +31,15 @@ class TechnicalVisitReport {
   final List<String> assumptions;
 
   // Status tracking
-  final String status; // 'draft', 'submitted', 'reviewed', 'approved'
+  final String
+  status; // 'draft', 'submitted', 'reviewed', 'approved', 'rejected'
   final DateTime createdAt;
   final DateTime? submittedAt;
   final DateTime? lastModified;
+
+  // ADD: Rejection support
+  final String? rejectionComment;
+  final DateTime? rejectedAt;
 
   /// Primary constructor with all required fields
   TechnicalVisitReport({
@@ -56,6 +61,8 @@ class TechnicalVisitReport {
     required this.createdAt,
     this.submittedAt,
     this.lastModified,
+    this.rejectionComment, // ADD
+    this.rejectedAt, // ADD
   });
 
   /// Factory method to create a new draft report
@@ -86,6 +93,8 @@ class TechnicalVisitReport {
       status: 'draft',
       createdAt: DateTime.now(),
       lastModified: DateTime.now(),
+      rejectionComment: null, // ADD
+      rejectedAt: null, // ADD
     );
   }
 
@@ -111,6 +120,8 @@ class TechnicalVisitReport {
       'submittedAt': submittedAt?.toIso8601String(),
       'lastModified':
           lastModified?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'rejectionComment': rejectionComment, // ADD
+      'rejectedAt': rejectedAt?.toIso8601String(), // ADD
     };
   }
 
@@ -176,6 +187,8 @@ class TechnicalVisitReport {
       createdAt: parseDateTime(json['createdAt']),
       submittedAt: parseNullableDateTime(json['submittedAt']),
       lastModified: parseNullableDateTime(json['lastModified']),
+      rejectionComment: json['rejectionComment'] as String?, // ADD
+      rejectedAt: parseNullableDateTime(json['rejectedAt']),
     );
   }
 
@@ -199,6 +212,8 @@ class TechnicalVisitReport {
     DateTime? createdAt,
     DateTime? submittedAt,
     DateTime? lastModified,
+    String? rejectionComment, // ADD
+    DateTime? rejectedAt, // ADD
   }) {
     return TechnicalVisitReport(
       id: id ?? this.id,
@@ -220,6 +235,8 @@ class TechnicalVisitReport {
       createdAt: createdAt ?? this.createdAt,
       submittedAt: submittedAt ?? this.submittedAt,
       lastModified: DateTime.now(),
+      rejectionComment: rejectionComment ?? this.rejectionComment, // ADD
+      rejectedAt: rejectedAt ?? this.rejectedAt, // ADD
     );
   }
 

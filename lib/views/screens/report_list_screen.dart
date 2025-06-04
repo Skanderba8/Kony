@@ -50,13 +50,20 @@ class _ReportListScreenState extends State<ReportListScreen>
       'label': 'Brouillons',
       'color': Colors.orange,
       'icon': Icons.edit_note,
-      'description': 'Rapports en cours d\'édition',
+      'description': 'Rapports en cours d\'edition',
     },
     'submitted': {
       'label': 'Soumis',
       'color': Colors.blue,
       'icon': Icons.send,
-      'description': 'En attente de réponse',
+      'description': 'En attente de reponse',
+    },
+    // ADD: Rejected filter for technicians
+    'rejected': {
+      'label': 'Rejetes',
+      'color': Colors.red,
+      'icon': Icons.cancel,
+      'description': 'Rapports rejetes par l\'admin',
     },
   };
 
@@ -566,6 +573,7 @@ class _ReportListScreenState extends State<ReportListScreen>
     );
   }
 
+  // Update the _buildReportCard method to handle rejected reports
   Widget _buildReportCard(TechnicalVisitReport report) {
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
     final DateFormat timeFormat = DateFormat('HH:mm');
@@ -585,16 +593,28 @@ class _ReportListScreenState extends State<ReportListScreen>
         statusColor = Colors.blue;
         statusLabel = 'SOUMIS';
         break;
+      case 'reviewed':
+        statusIcon = Icons.fact_check;
+        statusColor = Colors.teal;
+        statusLabel = 'EXAMINE';
+        break;
+      case 'approved':
+        statusIcon = Icons.check_circle;
+        statusColor = Colors.green;
+        statusLabel = 'APPROUVE';
+        break;
+      case 'rejected': // ADD: Handle rejected status
+        statusIcon = Icons.cancel;
+        statusColor = Colors.red;
+        statusLabel = 'REJETE';
+        break;
       default:
         statusIcon = Icons.help_outline;
         statusColor = Colors.grey;
         statusLabel = 'INCONNU';
     }
 
-    final displayDate =
-        report.status == 'draft'
-            ? report.lastModified ?? report.createdAt
-            : report.submittedAt ?? report.createdAt;
+    final displayDate = _getDisplayDateForReport(report);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -618,7 +638,12 @@ class _ReportListScreenState extends State<ReportListScreen>
             debugPrint(
               'Card tapped for report: ${report.id}, status: ${report.status}',
             );
-            _navigateToForm(report.id); // Pass the report ID here
+            // Only allow editing of draft reports or viewing rejected reports
+            if (report.status == 'draft') {
+              _navigateToForm(report.id);
+            } else if (report.status == 'rejected') {
+              _showRejectionDialog(report);
+            }
           },
           borderRadius: BorderRadius.circular(20),
           child: Column(
@@ -699,7 +724,7 @@ class _ReportListScreenState extends State<ReportListScreen>
                           child: Text(
                             report.location.isNotEmpty
                                 ? report.location
-                                : 'Lieu non spécifié',
+                                : 'Lieu non specifie',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey.shade600,
@@ -722,7 +747,7 @@ class _ReportListScreenState extends State<ReportListScreen>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Responsable: ${report.projectManager.isNotEmpty ? report.projectManager : "Non spécifié"}',
+                            'Responsable: ${report.projectManager.isNotEmpty ? report.projectManager : "Non specifie"}',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade600,
@@ -731,6 +756,55 @@ class _ReportListScreenState extends State<ReportListScreen>
                         ),
                       ],
                     ),
+
+                    // ADD: Show rejection comment if report is rejected
+                    if (report.status == 'rejected' &&
+                        report.rejectionComment != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.red.shade600,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Commentaire de l\'admin:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    report.rejectionComment!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red.shade600,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 20),
 
@@ -746,6 +820,17 @@ class _ReportListScreenState extends State<ReportListScreen>
     );
   }
 
+  DateTime _getDisplayDateForReport(TechnicalVisitReport report) {
+    switch (report.status) {
+      case 'draft':
+        return report.lastModified ?? report.createdAt;
+      case 'rejected':
+        return report.rejectedAt ?? report.createdAt;
+      default:
+        return report.submittedAt ?? report.createdAt;
+    }
+  }
+
   Widget _buildActionButtons(TechnicalVisitReport report) {
     return Row(
       children: [
@@ -754,7 +839,7 @@ class _ReportListScreenState extends State<ReportListScreen>
             child: OutlinedButton.icon(
               onPressed: () {
                 debugPrint('Edit button pressed for report: ${report.id}');
-                _navigateToForm(report.id); // Make sure this passes the ID
+                _navigateToForm(report.id);
               },
               icon: const Icon(Icons.edit, size: 16),
               label: const Text('Modifier'),
@@ -782,8 +867,9 @@ class _ReportListScreenState extends State<ReportListScreen>
               padding: const EdgeInsets.all(12),
             ),
           ),
-        ],
-        if (report.status == 'submitted') ...[
+        ] else if (report.status == 'submitted' ||
+            report.status == 'reviewed' ||
+            report.status == 'approved') ...[
           Expanded(
             child: ElevatedButton.icon(
               onPressed: () => _viewReportPdf(report),
@@ -800,9 +886,263 @@ class _ReportListScreenState extends State<ReportListScreen>
               ),
             ),
           ),
+        ] else if (report.status == 'rejected') ...[
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _showRejectionDialog(report),
+              icon: const Icon(Icons.info_outline, size: 16),
+              label: const Text('Voir details'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade600,
+                side: BorderSide(color: Colors.red.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => _createNewReportFromRejected(report),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Corriger'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
         ],
       ],
     );
+  }
+
+  // ADD: Method to show rejection dialog
+  void _showRejectionDialog(TechnicalVisitReport report) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 8,
+            backgroundColor: Colors.white,
+            contentPadding: EdgeInsets.zero,
+            title: null,
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.shade400, Colors.red.shade500],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.cancel,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Rapport rejete',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Commentaire de l\'administrateur',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Raison du rejet:',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Text(
+                            report.rejectionComment ??
+                                'Aucun commentaire fourni.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.red.shade700,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Vous pouvez corriger ce rapport en cliquant sur "Corriger" pour creer un nouveau rapport base sur celui-ci.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Actions
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Fermer'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              _createNewReportFromRejected(report);
+                            },
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Corriger'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  // ADD: Method to create new report from rejected one
+  Future<void> _createNewReportFromRejected(
+    TechnicalVisitReport rejectedReport,
+  ) async {
+    // Create a new draft based on the rejected report
+    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+      context,
+      listen: false,
+    );
+
+    try {
+      // Initialize new report with data from rejected report
+      await viewModel.initNewReport();
+
+      // Copy data from rejected report (excluding status and rejection info)
+      final newReport = viewModel.currentReport?.copyWith(
+        clientName: rejectedReport.clientName,
+        location: rejectedReport.location,
+        projectManager: rejectedReport.projectManager,
+        accompanyingPerson: rejectedReport.accompanyingPerson,
+        projectContext: rejectedReport.projectContext,
+        floors: rejectedReport.floors,
+        conclusion: rejectedReport.conclusion,
+        estimatedDurationDays: rejectedReport.estimatedDurationDays,
+        assumptions: rejectedReport.assumptions,
+        status: 'draft', // Set as draft
+        rejectionComment: null, // Clear rejection info
+        rejectedAt: null,
+      );
+
+      if (newReport != null) {
+        await viewModel.saveDraft();
+
+        if (mounted) {
+          NotificationUtils.showSuccess(
+            context,
+            'Nouveau brouillon cree base sur le rapport rejete',
+          );
+
+          // Navigate to edit the new draft
+          _navigateToForm(newReport.id);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        NotificationUtils.showError(
+          context,
+          'Erreur lors de la creation du nouveau rapport: $e',
+        );
+      }
+    }
   }
 
   Widget _buildEmptyState() {
@@ -888,6 +1228,8 @@ class _ReportListScreenState extends State<ReportListScreen>
         return 'brouillon';
       case 'submitted':
         return 'soumis';
+      case 'rejected':
+        return 'rejete';
       default:
         return 'disponible';
     }
@@ -904,16 +1246,20 @@ class _ReportListScreenState extends State<ReportListScreen>
         return viewModel.getDraftReportsStream();
       case 'submitted':
         return viewModel.getSubmittedReportsStream();
+      case 'rejected': // ADD: Handle rejected filter
+        return viewModel.getRejectedReportsStream();
       case 'all':
       default:
-        return Rx.combineLatest2(
+        return Rx.combineLatest3(
           viewModel.getDraftReportsStream(),
           viewModel.getSubmittedReportsStream(),
+          viewModel.getRejectedReportsStream(),
           (
             List<TechnicalVisitReport> drafts,
             List<TechnicalVisitReport> submitted,
+            List<TechnicalVisitReport> rejected,
           ) {
-            return [...drafts, ...submitted];
+            return [...drafts, ...submitted, ...rejected];
           },
         );
     }

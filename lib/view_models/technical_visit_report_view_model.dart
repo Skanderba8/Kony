@@ -373,6 +373,14 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     return _reportService.getSubmittedReportsStream(user.uid);
   }
 
+  Stream<List<TechnicalVisitReport>> getRejectedReportsStream() {
+    final user = _authService.currentUser;
+    if (user == null) {
+      return Stream.value([]);
+    }
+    return _reportService.getRejectedReportsStreamForTechnician(user.uid);
+  }
+
   void navigateToStep(int step) {
     if (step >= 0 && step <= 6) {
       _currentStep = step;

@@ -337,6 +337,70 @@ class TechnicalVisitReportService {
     return requiredFields.every((field) => data.containsKey(field));
   }
 
+  Stream<List<TechnicalVisitReport>> getRejectedReportsStream() {
+    return _submittedReports
+        .where('status', isEqualTo: 'rejected')
+        .snapshots()
+        .map(_parseReportsFromSnapshot);
+  }
+
+  // ADD: Reject a report with comment
+  Future<void> rejectReport(String reportId, String comment) async {
+    try {
+      debugPrint('Rejecting report: $reportId with comment: $comment');
+
+      await _submittedReports.doc(reportId).update({
+        'status': 'rejected',
+        'rejectionComment': comment,
+        'rejectedAt': DateTime.now().toIso8601String(),
+        'lastModified': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('Report rejected successfully: $reportId');
+    } catch (e) {
+      debugPrint('Error rejecting report: $e');
+      rethrow;
+    }
+  }
+
+  // ADD: Get rejected reports for technician (they should see their rejected reports)
+  Stream<List<TechnicalVisitReport>> getRejectedReportsStreamForTechnician(
+    String technicianId,
+  ) {
+    try {
+      return _submittedReports
+          .where('technicianId', isEqualTo: technicianId)
+          .where('status', isEqualTo: 'rejected')
+          .snapshots()
+          .map((snapshot) {
+            final reports =
+                snapshot.docs
+                    .map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      if (!_validateDocumentData(data)) {
+                        return null;
+                      }
+                      return TechnicalVisitReport.fromJson(data);
+                    })
+                    .where((report) => report != null)
+                    .cast<TechnicalVisitReport>()
+                    .toList();
+
+            // Sort by rejection date
+            reports.sort(
+              (a, b) => (b.rejectedAt ?? b.createdAt).compareTo(
+                a.rejectedAt ?? a.createdAt,
+              ),
+            );
+
+            return reports;
+          });
+    } catch (e) {
+      debugPrint('Error getting rejected reports for technician: $e');
+      return Stream.value([]);
+    }
+  }
+
   // Legacy method compatibility
   Stream<List<TechnicalVisitReport>> getReportsStream({
     String? statusFilter,
