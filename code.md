@@ -1,25 +1,34 @@
-```dart
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
-      - uses: subosito/flutter-action@v2
-      - name: Build APK Release
-        run: flutter build apk --release
-      - name: Upload to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          token: ${{ secrets.FIREBASE_TOKEN }}
-          groups: beta-testers
-          file: build/app/outputs/flutter-apk/app-release.apk
-name: Android Release
-on:
-  push:
-    tags: ['v*']
+```sql
 
-jobs:
-  build:
+
+{
+  "reportId": {
+    "generalInfo": {
+      "clientName": "Hotel Sofitel",
+      "location": "Paris 16ème",
+      "visitDate": "2024-03-15T14:30:00Z",
+      "technicians": ["Ahmed Ben Jaziri", "Yacine Werghemi"]
+    },
+    "projectContext": {
+      "description": "Installation infrastructure réseau",
+      "stakes": "Conformité normes hôtelières"
+    },
+    "floors": {
+      "RDC": {
+        "components": {
+          "cabinet_001": {
+            "type": "NetworkCabinet",
+            "specifications": { ... },
+            "photos": [ ... ]
+          }
+        }
+      }
+    },
+    "status": "submitted", // draft, submitted, reviewed, approved
+    "createdBy": "technicien@kony.com",
+    "createdAt": "2025-03-15T16:45:00Z"
+  }
+}
 
 
 

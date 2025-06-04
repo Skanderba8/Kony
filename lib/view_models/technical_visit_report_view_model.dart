@@ -2119,41 +2119,83 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Replace the validateAllSections method in technical_visit_report_view_model.dart
+
+  // Replace the validation methods in technical_visit_report_view_model.dart
+
   bool validateAllSections() {
-    if (_currentReport == null) return false;
+    if (_currentReport == null) {
+      debugPrint('❌ VALIDATION FAILED: No current report');
+      return false;
+    }
+
+    debugPrint('🔍 STARTING VALIDATION for report: ${_currentReport!.id}');
+
+    // 1. Basic Info Validation (REMOVED technicians check)
+    debugPrint('\n--- BASIC INFO VALIDATION ---');
+    debugPrint(
+      'Client Name: "${_currentReport!.clientName}" (empty: ${_currentReport!.clientName.isEmpty})',
+    );
+    debugPrint(
+      'Location: "${_currentReport!.location}" (empty: ${_currentReport!.location.isEmpty})',
+    );
+    debugPrint(
+      'Project Manager: "${_currentReport!.projectManager}" (empty: ${_currentReport!.projectManager.isEmpty})',
+    );
 
     final basicInfoValid =
         _currentReport!.clientName.isNotEmpty &&
         _currentReport!.location.isNotEmpty &&
-        _currentReport!.projectManager.isNotEmpty &&
-        _currentReport!.technicians.isNotEmpty;
+        _currentReport!.projectManager.isNotEmpty;
+    // REMOVED: && _currentReport!.technicians.isNotEmpty;
 
-    if (!basicInfoValid) return false;
+    debugPrint('✅ Basic Info Valid: $basicInfoValid');
 
-    if (_currentReport!.projectContext.isEmpty) return false;
+    if (!basicInfoValid) {
+      debugPrint('❌ VALIDATION FAILED: Basic info incomplete');
+      return false;
+    }
 
+    // 2. Project Context Validation
+    debugPrint('\n--- PROJECT CONTEXT VALIDATION ---');
+    if (_currentReport!.projectContext.isEmpty) {
+      debugPrint('❌ VALIDATION FAILED: Project context is empty');
+      return false;
+    }
+    debugPrint('✅ Project Context Valid: true');
+
+    // 3. Components Validation
+    debugPrint('\n--- COMPONENTS VALIDATION ---');
     final hasComponents =
         _currentReport!.floors.isNotEmpty &&
         _currentReport!.floors.any((floor) => floor.hasComponents);
-    if (!hasComponents) return false;
 
-    if (_currentReport!.conclusion.isEmpty) return false;
+    if (!hasComponents) {
+      debugPrint('❌ VALIDATION FAILED: No components found');
+      return false;
+    }
+    debugPrint('✅ Components Valid: true');
 
+    // 4. Conclusion Validation
+    debugPrint('\n--- CONCLUSION VALIDATION ---');
+    if (_currentReport!.conclusion.isEmpty) {
+      debugPrint('❌ VALIDATION FAILED: Conclusion is empty');
+      return false;
+    }
+    debugPrint('✅ Conclusion Valid: true');
+
+    debugPrint('\n🎉 ALL VALIDATION PASSED!');
     return true;
-  }
-
-  bool isConclusionValid() {
-    if (_currentReport == null) return false;
-    return _currentReport!.conclusion.isNotEmpty &&
-        _currentReport!.estimatedDurationDays > 0;
   }
 
   bool isBasicInfoValid() {
     if (_currentReport == null) return false;
+
+    // REMOVED technicians check
     return _currentReport!.clientName.isNotEmpty &&
         _currentReport!.location.isNotEmpty &&
-        _currentReport!.projectManager.isNotEmpty &&
-        _currentReport!.technicians.isNotEmpty;
+        _currentReport!.projectManager.isNotEmpty;
+    // REMOVED: && _currentReport!.technicians.isNotEmpty;
   }
 
   bool isProjectContextValid() {
@@ -2165,6 +2207,12 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     if (_currentReport == null) return false;
     return _currentReport!.floors.isNotEmpty &&
         _currentReport!.floors.any((floor) => floor.hasComponents);
+  }
+
+  bool isConclusionValid() {
+    if (_currentReport == null) return false;
+    return _currentReport!.conclusion.isNotEmpty &&
+        _currentReport!.estimatedDurationDays > 0;
   }
 
   bool isStepComplete(int step) {
