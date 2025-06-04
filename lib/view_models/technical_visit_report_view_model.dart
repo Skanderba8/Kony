@@ -120,9 +120,53 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
     _clearError();
 
     try {
+      debugPrint('ViewModel: Loading report with ID: $reportId');
+
+      // Use the updated service method that checks both collections
       final report = await _reportService.getReportById(reportId);
+
       if (report == null) {
         _setError('Report not found');
+        debugPrint('ViewModel: Report not found: $reportId');
+        return;
+      }
+
+      debugPrint('ViewModel: Report loaded successfully');
+      debugPrint('ViewModel: Report client: ${report.clientName}');
+      debugPrint('ViewModel: Report status: ${report.status}');
+      debugPrint('ViewModel: Report floors: ${report.floors.length}');
+
+      _currentReport = report;
+      _currentStep = 0;
+      _currentFloorIndex = 0;
+      _selectedComponentType = null;
+      _hasUnsavedChanges = false;
+
+      debugPrint('ViewModel: Report state updated, notifying listeners');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('ViewModel: Error loading report: $e');
+      _setError('Failed to load report: $e');
+    } finally {
+      _setLoading(false);
+      debugPrint('ViewModel: Loading completed');
+    }
+  }
+
+  Future<void> loadDraft(String reportId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final report = await _reportService.getReportById(reportId);
+      if (report == null) {
+        _setError('Draft not found');
+        return;
+      }
+
+      // Ensure we're loading a draft
+      if (report.status != 'draft') {
+        _setError('This report is not a draft');
         return;
       }
 
@@ -131,14 +175,17 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
       _currentFloorIndex = 0;
       _selectedComponentType = null;
       _hasUnsavedChanges = false;
+
+      debugPrint('Draft loaded successfully with pre-populated data');
       notifyListeners();
     } catch (e) {
-      _setError('Failed to load report: $e');
+      _setError('Failed to load draft: $e');
     } finally {
       _setLoading(false);
     }
   }
 
+  // Update the saveDraft method to use the new service method
   Future<bool> saveDraft() async {
     if (_currentReport == null) {
       _setError('No report to save');
@@ -150,14 +197,12 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
 
     try {
       final updatedReport = _currentReport!.copyWith(
+        status: 'draft', // Ensure it's marked as draft
         lastModified: DateTime.now(),
       );
 
-      if (_isNewReport()) {
-        await _reportService.createReport(updatedReport);
-      } else {
-        await _reportService.updateReport(updatedReport);
-      }
+      // Use the new saveDraft method which always saves to drafts collection
+      await _reportService.saveDraft(updatedReport);
 
       _currentReport = updatedReport;
       _hasUnsavedChanges = false;
@@ -206,26 +251,26 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
         return false;
       }
 
-      await _reportService.createReport(_currentReport!);
+      // Use the new submitReport method which moves from drafts to main collection
+      await _reportService.submitReport(_currentReport!);
 
-      final reportToSubmit = _currentReport!.copyWith(
+      // Update local state to reflect submission
+      _currentReport = _currentReport!.copyWith(
         status: 'submitted',
         submittedAt: DateTime.now(),
         lastModified: DateTime.now(),
       );
 
-      await _reportService.updateReport(reportToSubmit);
-
-      _currentReport = reportToSubmit;
       _hasUnsavedChanges = false;
 
+      // Generate PDF (existing logic)
       try {
         final pdfFile = await _pdfService.generateTechnicalReportPdf(
-          reportToSubmit,
+          _currentReport!,
         );
 
         await _reportService.recordPdfMetadata(
-          reportToSubmit.id,
+          _currentReport!.id,
           await pdfFile.length(),
         );
 
@@ -237,22 +282,11 @@ class TechnicalVisitReportViewModel extends ChangeNotifier {
           }
         }
       } catch (pdfError) {
-        // PDF generation failed but report was successfully submitted
+        debugPrint('PDF generation failed but report was submitted: $pdfError');
       }
 
       notifyListeners();
       return true;
-    } on FirebaseException catch (e) {
-      String errorMsg;
-      if (e.code == 'not-found') {
-        errorMsg = 'Le rapport n\'existe pas dans la base de données.';
-      } else if (e.code == 'permission-denied') {
-        errorMsg = 'Vous n\'avez pas les permissions nécessaires.';
-      } else {
-        errorMsg = 'Erreur Firebase: ${e.message}';
-      }
-      _setError(errorMsg);
-      return false;
     } catch (e) {
       final errorMsg = 'Erreur lors de la soumission: $e';
       _setError(errorMsg);

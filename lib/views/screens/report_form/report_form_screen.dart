@@ -41,6 +41,25 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late ScrollController _componentsScrollController;
+  String? _actualReportId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Get the report ID from route arguments if not passed directly
+    if (_actualReportId == null) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      _actualReportId = widget.reportId ?? args?['reportId'];
+
+      debugPrint('=== REPORT FORM ARGUMENTS ===');
+      debugPrint('Widget reportId: ${widget.reportId}');
+      debugPrint('Route arguments: $args');
+      debugPrint('Final reportId: $_actualReportId');
+      debugPrint('=============================');
+    }
+  }
 
   // Add overlay entry for custom notification
   OverlayEntry? _notificationOverlay;
@@ -130,6 +149,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   @override
   void initState() {
     super.initState();
+    _hasPopulatedForm = false; // Reset the flag
     _pageController = PageController();
     _componentsScrollController = ScrollController();
     _animationController = AnimationController(
@@ -145,6 +165,13 @@ class _ReportFormScreenState extends State<ReportFormScreen>
 
     _initializeReport();
     _animationController.forward();
+
+    // Check if we need to populate form after everything is set up
+    _checkAndPopulateForm();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeReport();
+    });
   }
 
   void _onComponentsScroll() {
@@ -185,31 +212,213 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     setState(() => _isLoading = true);
 
     try {
-      if (widget.reportId != null) {
-        await viewModel.loadReport(widget.reportId!);
-        _populateFormFields(viewModel);
+      if (_actualReportId != null && _actualReportId!.isNotEmpty) {
+        // Load existing report (could be draft or submitted)
+        debugPrint('Loading existing report with ID: $_actualReportId');
+        await viewModel.loadReport(_actualReportId!);
+
+        // Schedule form population for after the current build cycle
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final report = viewModel.currentReport;
+          if (report != null && mounted) {
+            debugPrint(
+              'Report loaded successfully: ${report.clientName}, Status: ${report.status}',
+            );
+            _populateFormFieldsSimple(viewModel);
+          } else {
+            debugPrint('Report failed to load or is null');
+          }
+        });
       } else {
+        // Create new report
+        debugPrint('Creating new report (no ID provided)');
         await viewModel.initNewReport();
       }
+    } catch (e) {
+      debugPrint('Error initializing report: $e');
+      if (mounted) {
+        _showCustomNotification(
+          'Erreur lors du chargement du rapport',
+          Icons.error,
+          Colors.red,
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
+  // Add this simple form population method
+  bool _hasPopulatedForm = false;
+
+  void _populateFormFieldsSimple(TechnicalVisitReportViewModel viewModel) {
+    final report = viewModel.currentReport;
+    if (report == null || _hasPopulatedForm) {
+      debugPrint('Cannot populate form: report is null or already populated');
+      return;
+    }
+
+    debugPrint('=== POPULATING FORM FIELDS ===');
+    debugPrint('Report ID: ${report.id}');
+    debugPrint('Client: ${report.clientName}');
+    debugPrint('Location: ${report.location}');
+    debugPrint('Status: ${report.status}');
+
+    // Set the flag first to prevent multiple populations
+    _hasPopulatedForm = true;
+
+    // Populate all form controllers
+    _clientNameController.text = report.clientName;
+    _locationController.text = report.location;
+    _projectManagerController.text = report.projectManager;
+    _accompanyingPersonController.text = report.accompanyingPerson;
+    _projectContextController.text = report.projectContext;
+    _conclusionController.text = report.conclusion;
+
+    // Populate lists
+    _technicians.clear();
+    _technicians.addAll(report.technicians);
+    _assumptions.clear();
+    _assumptions.addAll(report.assumptions);
+    _estimatedDays = report.estimatedDurationDays;
+
+    debugPrint('Form controllers populated:');
+    debugPrint('- Client: "${_clientNameController.text}"');
+    debugPrint('- Location: "${_locationController.text}"');
+    debugPrint('- Project Manager: "${_projectManagerController.text}"');
+    debugPrint(
+      '- Project Context length: ${_projectContextController.text.length}',
+    );
+    debugPrint('- Conclusion length: ${_conclusionController.text.length}');
+    debugPrint('================================');
+
+    // Force rebuild to show the populated data
+    if (mounted) {
+      setState(() {});
+    }
+
+    // Show success message for draft loading
+    if (report.status == 'draft') {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _showCustomNotification(
+            'Brouillon chargé avec toutes vos données',
+            Icons.check_circle,
+            Colors.green,
+          );
+        }
+      });
+    }
+  }
+
+  // 2. Update _populateFormFields method - Remove setState wrapper
   void _populateFormFields(TechnicalVisitReportViewModel viewModel) {
     final report = viewModel.currentReport;
-    if (report != null) {
-      _clientNameController.text = report.clientName;
-      _locationController.text = report.location;
-      _projectManagerController.text = report.projectManager;
-      _accompanyingPersonController.text = report.accompanyingPerson;
-      _projectContextController.text = report.projectContext;
-      _conclusionController.text = report.conclusion;
-      _technicians.clear();
-      _technicians.addAll(report.technicians);
-      _assumptions.clear();
-      _assumptions.addAll(report.assumptions);
-      _estimatedDays = report.estimatedDurationDays;
+    if (report == null) {
+      debugPrint('No report to populate from');
+      return;
+    }
+
+    debugPrint('=== POPULATING FORM FIELDS ===');
+    debugPrint('Report ID: ${report.id}');
+    debugPrint('Status: ${report.status}');
+    debugPrint('Client Name: "${report.clientName}"');
+    debugPrint('Location: "${report.location}"');
+    debugPrint('Project Manager: "${report.projectManager}"');
+    debugPrint('Project Context: "${report.projectContext}"');
+    debugPrint('Conclusion: "${report.conclusion}"');
+
+    // Basic info - Direct assignment without setState
+    _clientNameController.text = report.clientName;
+    _locationController.text = report.location;
+    _projectManagerController.text = report.projectManager;
+    _accompanyingPersonController.text = report.accompanyingPerson;
+
+    // Project context
+    _projectContextController.text = report.projectContext;
+
+    // Conclusion
+    _conclusionController.text = report.conclusion;
+
+    // Lists and values
+    _technicians.clear();
+    _technicians.addAll(report.technicians);
+
+    _assumptions.clear();
+    _assumptions.addAll(report.assumptions);
+
+    _estimatedDays = report.estimatedDurationDays;
+
+    // Debug form controllers after population
+    debugPrint('=== FORM CONTROLLERS AFTER POPULATION ===');
+    debugPrint('Client Controller: "${_clientNameController.text}"');
+    debugPrint('Location Controller: "${_locationController.text}"');
+    debugPrint(
+      'Project Manager Controller: "${_projectManagerController.text}"',
+    );
+    debugPrint(
+      'Project Context Controller: "${_projectContextController.text}"',
+    );
+    debugPrint('Conclusion Controller: "${_conclusionController.text}"');
+    debugPrint('Technicians List: $_technicians');
+    debugPrint('Assumptions List: $_assumptions');
+    debugPrint('Estimated Days: $_estimatedDays');
+
+    // Trigger a rebuild to show the populated data
+    if (mounted) {
+      setState(() {
+        // Just trigger rebuild
+      });
+    }
+
+    // Show success message for draft loading
+    if (report.status == 'draft') {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          _showCustomNotification(
+            'Brouillon chargé avec toutes vos données sauvegardées',
+            Icons.check_circle,
+            Colors.green,
+          );
+        }
+      });
+    }
+
+    debugPrint('=== FORM POPULATION COMPLETED ===');
+  }
+
+  void _checkAndPopulateForm() {
+    if (widget.reportId != null) {
+      // Use addPostFrameCallback to ensure this runs after build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+          context,
+          listen: false,
+        );
+
+        if (viewModel.currentReport != null &&
+            _clientNameController.text.isEmpty &&
+            viewModel.currentReport!.clientName.isNotEmpty) {
+          debugPrint('Detected unpopulated form, populating now...');
+          _populateFormFields(viewModel);
+        }
+      });
+    }
+  }
+
+  // 3. Add this method to force refresh form fields
+  void _forceRefreshFormFields() {
+    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+      context,
+      listen: false,
+    );
+
+    if (viewModel.currentReport != null) {
+      setState(() {
+        // This will trigger a rebuild and show the populated data
+      });
     }
   }
 
@@ -218,7 +427,16 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.grey.shade50,
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Chargement du rapport...'),
+            ],
+          ),
+        ),
       );
     }
 
@@ -1380,9 +1598,15 @@ class _ReportFormScreenState extends State<ReportFormScreen>
     );
 
     try {
-      await viewModel.saveDraft();
+      final success = await viewModel.saveDraft();
+      if (success) {
+        debugPrint('Draft saved successfully');
+      } else {
+        throw Exception('Failed to save draft');
+      }
     } catch (e) {
       debugPrint('Error saving draft: $e');
+      rethrow;
     }
   }
 
@@ -1404,11 +1628,19 @@ class _ReportFormScreenState extends State<ReportFormScreen>
   }
 
   void _showExitDialog() {
+    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
+      context,
+      listen: false,
+    );
+
+    final bool isDraft = viewModel.currentReport?.status == 'draft';
+    final bool hasChanges = viewModel.hasUnsavedChanges;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder:
-          (context) => AlertDialog(
+          (dialogContext) => AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
@@ -1453,11 +1685,11 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                           ),
                         ),
                         const SizedBox(width: 16),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Quitter le rapport',
                                 style: TextStyle(
                                   fontSize: 18,
@@ -1465,10 +1697,12 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                                   color: Colors.white,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Text(
-                                'Que souhaitez-vous faire ?',
-                                style: TextStyle(
+                                isDraft
+                                    ? 'Sauvegarder le brouillon ?'
+                                    : 'Que souhaitez-vous faire ?',
+                                style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.white70,
                                 ),
@@ -1486,7 +1720,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                     child: Column(
                       children: [
                         Text(
-                          'Voulez-vous sauvegarder vos modifications avant de quitter ?',
+                          hasChanges
+                              ? 'Vous avez des modifications non sauvegardées. Voulez-vous les sauvegarder en tant que brouillon ?'
+                              : 'Voulez-vous sauvegarder vos modifications avant de quitter ?',
                           style: TextStyle(
                             fontSize: 15,
                             color: Colors.grey.shade700,
@@ -1512,7 +1748,9 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Vos modifications seront sauvegardées en tant que brouillon',
+                                  isDraft
+                                      ? 'Le brouillon sera sauvegardé et vous pourrez le reprendre plus tard'
+                                      : 'Vos modifications seront sauvegardées en tant que brouillon',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.blue.shade700,
@@ -1536,28 +1774,46 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () async {
-                              Navigator.pop(context);
+                              // Close the dialog first
+                              Navigator.of(dialogContext).pop();
 
-                              final BuildContext loadingContext = context;
+                              // Show loading dialog
                               showDialog(
                                 context: context,
                                 barrierDismissible: false,
                                 builder:
-                                    (context) => const Center(
+                                    (loadingContext) => const Center(
                                       child: CircularProgressIndicator(),
                                     ),
                               );
 
-                              _saveDraft();
+                              try {
+                                // Save draft
+                                await _saveDraft();
 
-                              if (Navigator.canPop(loadingContext)) {
-                                Navigator.pop(loadingContext);
+                                // Close loading dialog and form
+                                if (mounted) {
+                                  Navigator.of(context).pop(); // Close loading
+                                  Navigator.of(context).pop(); // Close form
+                                }
+                              } catch (e) {
+                                // Close loading dialog and show error
+                                if (mounted) {
+                                  Navigator.of(context).pop(); // Close loading
+                                  _showCustomNotification(
+                                    'Erreur lors de la sauvegarde',
+                                    Icons.error,
+                                    Colors.red,
+                                  );
+                                }
                               }
-
-                              Navigator.pop(context);
                             },
                             icon: const Icon(Icons.save, size: 18),
-                            label: const Text('Sauvegarder et quitter'),
+                            label: Text(
+                              isDraft
+                                  ? 'Sauvegarder et quitter'
+                                  : 'Sauvegarder comme brouillon',
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade600,
                               foregroundColor: Colors.white,
@@ -1576,8 +1832,8 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.pop(context);
-                              Navigator.pop(context);
+                              Navigator.of(dialogContext).pop(); // Close dialog
+                              Navigator.of(context).pop(); // Close form
                             },
                             icon: Icon(
                               Icons.close,
@@ -1603,7 +1859,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                         SizedBox(
                           width: double.infinity,
                           child: TextButton(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
@@ -1611,7 +1867,7 @@ class _ReportFormScreenState extends State<ReportFormScreen>
                               ),
                             ),
                             child: Text(
-                              'Annuler',
+                              'Continuer l\'édition',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontWeight: FontWeight.w500,

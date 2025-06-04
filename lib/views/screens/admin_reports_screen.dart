@@ -41,7 +41,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
       'label': 'Tous',
       'color': Colors.indigo,
       'icon': Icons.list_alt,
-      'description': 'Tous les rapports',
+      'description': 'Tous les rapports soumis', // Changed description
     },
     'submitted': {
       'label': 'Soumis',
@@ -61,12 +61,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
       'icon': Icons.check_circle,
       'description': 'Finalisés et approuvés',
     },
-    'draft': {
-      'label': 'Brouillons',
-      'color': Colors.orange,
-      'icon': Icons.edit_note,
-      'description': 'Rapports en cours d\'édition',
-    },
+    // REMOVED: 'draft' option - admins should not see drafts
   };
 
   @override
@@ -827,25 +822,23 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
   ) {
     return Row(
       children: [
-        // PDF Button (for non-draft reports)
-        if (report.status != 'draft') ...[
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _viewReportPdf(report, viewModel),
-              icon: const Icon(Icons.picture_as_pdf, size: 16),
-              label: const Text('PDF'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red.shade600,
-                side: BorderSide(color: Colors.red.shade300),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+        // PDF Button (for all non-draft reports - which is all reports admin sees)
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _viewReportPdf(report, viewModel),
+            icon: const Icon(Icons.picture_as_pdf, size: 16),
+            label: const Text('PDF'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade600,
+              side: BorderSide(color: Colors.red.shade300),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-        ],
+        ),
+        const SizedBox(width: 12),
 
         // Status action button
         if (report.status == 'submitted') ...[
@@ -886,24 +879,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
               ),
             ),
           ),
-        ] else if (report.status == 'draft') ...[
-          Expanded(
-            flex: 2,
-            child: OutlinedButton.icon(
-              onPressed: () => _viewDraftReport(report),
-              icon: const Icon(Icons.edit, size: 16),
-              label: const Text('Modifier'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orange.shade600,
-                side: BorderSide(color: Colors.orange.shade300),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ] else ...[
+        ] else if (report.status == 'approved') ...[
           Expanded(
             flex: 2,
             child: Container(
@@ -1057,21 +1033,18 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
       switch (filter) {
         case 'submitted':
-          return viewModel.getSubmittedReportsStream();
+          return viewModel.getSubmittedReportsStreamForAdmin();
         case 'reviewed':
           return viewModel.getReviewedReportsStream();
         case 'approved':
           return viewModel.getApprovedReportsStream();
-        case 'draft':
-          return viewModel.getAllReportsStream().map(
-            (reports) => reports.where((r) => r.status == 'draft').toList(),
-          );
         case 'all':
         default:
-          return viewModel.getAllReportsStream();
+          // Admin sees ALL submitted reports (submitted, reviewed, approved)
+          // but NO drafts
+          return viewModel.getSubmittedReportsStreamForAdmin();
       }
     } catch (e) {
-      // If AdminViewModel is not available, return empty stream
       debugPrint('AdminViewModel not found: $e');
       return Stream.value(<TechnicalVisitReport>[]);
     }
@@ -1079,8 +1052,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
   String _getEmptyStateText() {
     switch (_selectedFilter) {
-      case 'draft':
-        return 'brouillon';
       case 'submitted':
         return 'soumis';
       case 'reviewed':
@@ -1245,13 +1216,5 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
         );
       }
     }
-  }
-
-  void _viewDraftReport(TechnicalVisitReport report) {
-    // Navigate to report editing screen for drafts
-    NotificationUtils.showInfo(
-      context,
-      'Fonctionnalité de modification des brouillons en cours de développement',
-    );
   }
 }

@@ -36,26 +36,27 @@ class AdminViewModel extends ChangeNotifier {
 
   /// Get a stream of all submitted technical visit reports
   ///
-  /// This provides real-time updates whenever reports change in the database
-  // Update the streams in AdminViewModel
+  Stream<List<TechnicalVisitReport>> getSubmittedReportsStreamForAdmin() {
+    return _reportService.getSubmittedReportsStreamForAdmin();
+  }
+
+  // Update existing methods to use the new service structure
   Stream<List<TechnicalVisitReport>> getSubmittedReportsStream() {
-    // Simplified query without complex indexing
-    return _reportService.getReportsStream(statusFilter: 'submitted');
+    return _reportService.getSubmittedReportsStreamForAdmin().map(
+      (reports) => reports.where((r) => r.status == 'submitted').toList(),
+    );
   }
 
   Stream<List<TechnicalVisitReport>> getReviewedReportsStream() {
-    // Simplified query without complex indexing
-    return _reportService.getReportsStream(statusFilter: 'reviewed');
+    return _reportService.getReviewedReportsStream();
   }
 
   Stream<List<TechnicalVisitReport>> getApprovedReportsStream() {
-    // Simplified query without complex indexing
-    return _reportService.getReportsStream(statusFilter: 'approved');
+    return _reportService.getApprovedReportsStream();
   }
 
   Stream<List<TechnicalVisitReport>> getAllReportsStream() {
-    // Fetch all reports, removing any complex indexing or sorting
-    return _reportService.getReportsStream();
+    return _reportService.getAllReportsStream();
   }
 
   /// Update the status of a technical visit report

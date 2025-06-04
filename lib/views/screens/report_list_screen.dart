@@ -169,6 +169,8 @@ class _ReportListScreenState extends State<ReportListScreen>
   }
 
   Future<void> _navigateToForm([String? reportId]) async {
+    debugPrint('Navigating to form with reportId: $reportId');
+
     final result = await Navigator.pushNamed(
       context,
       AppRoutes.reportForm,
@@ -612,7 +614,12 @@ class _ReportListScreenState extends State<ReportListScreen>
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          onTap: () => _navigateToForm(report.id),
+          onTap: () {
+            debugPrint(
+              'Card tapped for report: ${report.id}, status: ${report.status}',
+            );
+            _navigateToForm(report.id); // Pass the report ID here
+          },
           borderRadius: BorderRadius.circular(20),
           child: Column(
             children: [
@@ -745,7 +752,10 @@ class _ReportListScreenState extends State<ReportListScreen>
         if (report.status == 'draft') ...[
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => _navigateToForm(report.id),
+              onPressed: () {
+                debugPrint('Edit button pressed for report: ${report.id}');
+                _navigateToForm(report.id); // Make sure this passes the ID
+              },
               icon: const Icon(Icons.edit, size: 16),
               label: const Text('Modifier'),
               style: OutlinedButton.styleFrom(
