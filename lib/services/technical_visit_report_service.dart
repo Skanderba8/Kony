@@ -166,6 +166,10 @@ class TechnicalVisitReportService {
   }
 
   // Submit report - move from drafts to main collection
+  // In technical_visit_report_service.dart - Update the submitReport method
+
+  // In technical_visit_report_service.dart - Update the submitReport method
+
   Future<void> submitReport(TechnicalVisitReport report) async {
     try {
       debugPrint('Submitting report: ${report.id}');
@@ -175,15 +179,22 @@ class TechnicalVisitReportService {
         status: 'submitted',
         submittedAt: DateTime.now(),
         lastModified: DateTime.now(),
+        // Clear any remaining rejection data when resubmitting
+        rejectionComment: null,
+        rejectedAt: null,
       );
 
-      // Add to main collection
+      // Add/Update in main collection (this will overwrite if it already exists)
+      // This is where the rejected report gets replaced with submitted version
       await _submittedReports.doc(report.id).set(submittedReport.toJson());
 
       // Remove from drafts collection
       await _drafts.doc(report.id).delete();
 
       debugPrint('Report submitted successfully: ${report.id}');
+      debugPrint(
+        'If this was a rejected report, it is now submitted and removed from rejected list',
+      );
     } catch (e) {
       debugPrint('Error submitting report: $e');
       rethrow;

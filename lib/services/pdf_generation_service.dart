@@ -20,26 +20,25 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
 class PdfGenerationService {
-  // Add this method before generateTechnicalReportPdf
   Future<Map<String, Uint8List>> _downloadImages(
     TechnicalVisitReport report,
   ) async {
     final Map<String, Uint8List> imageCache = {};
 
-    // Helper function to download a single image
     Future<void> downloadImage(String url, String id) async {
       try {
         final response = await http.get(Uri.parse(url));
         if (response.statusCode == 200) {
           imageCache[id] = response.bodyBytes;
         }
-      } catch (e) {}
+      } catch (e) {
+        print('Error downloading image $id: $e');
+      }
     }
 
-    // Process each floor and component
     for (final floor in report.floors) {
-      // Download images for custom components
-      for (final component in floor.customComponents) {
+      // Network Cabinets
+      for (final component in floor.networkCabinets) {
         for (final photo in component.photos) {
           if (photo.url.isNotEmpty) {
             await downloadImage(photo.url, photo.id);
@@ -47,104 +46,147 @@ class PdfGenerationService {
         }
       }
 
-      // Add similar blocks for other component types when you implement photos for them
-      // For example:
-      // for (final cabinet in floor.networkCabinets) {
-      //   for (final photo in cabinet.photos) {
-      //     if (photo.url.isNotEmpty) {
-      //       await downloadImage(photo.url, photo.id);
-      //     }
-      //   }
-      // }
+      // Perforations
+      for (final component in floor.perforations) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Access Traps
+      for (final component in floor.accessTraps) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Cable Paths
+      for (final component in floor.cablePaths) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Cable Trunkings
+      for (final component in floor.cableTrunkings) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Conduits
+      for (final component in floor.conduits) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Copper Cablings
+      for (final component in floor.copperCablings) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Fiber Optic Cablings
+      for (final component in floor.fiberOpticCablings) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
+
+      // Custom Components
+      for (final component in floor.customComponents) {
+        for (final photo in component.photos) {
+          if (photo.url.isNotEmpty) {
+            await downloadImage(photo.url, photo.id);
+          }
+        }
+      }
     }
 
+    print('Downloaded ${imageCache.length} images total');
     return imageCache;
-  }
-
-  // Add these helper methods for the PDF generation
-  pw.Widget _buildImagePlaceholder(int index, pw.Font? font) {
-    return pw.Container(
-      height: 120,
-      width: 250,
-      alignment: pw.Alignment.center,
-      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-      child: pw.Text(
-        'Photo ${index + 1}\n(voir documentation numérique)',
-        textAlign: pw.TextAlign.center,
-        style: pw.TextStyle(font: font, fontSize: 10),
-      ),
-    );
   }
 
   Future<File> generateTechnicalReportPdf(TechnicalVisitReport report) async {
     final pdf = pw.Document(version: PdfVersion.pdf_1_5, compress: true);
 
-    // Try to load custom font (fallback to default if not available)
-    pw.Font? font;
+    pw.Font? regularFont;
+    pw.Font? boldFont;
     try {
-      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-      font = pw.Font.ttf(fontData);
+      final regularData = await rootBundle.load(
+        'assets/fonts/Roboto-Regular.ttf',
+      );
+      final boldData = await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
+      regularFont = pw.Font.ttf(regularData);
+      boldFont = pw.Font.ttf(boldData);
     } catch (e) {
-      print('Could not load custom font: $e');
+      print('Could not load custom fonts: $e');
     }
 
-    final Map<String, Uint8List> imageCache = await _downloadImages(report);
-
-    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+    final imageCache = await _downloadImages(report);
+    final dateFormat = DateFormat('dd/MM/yyyy');
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        header: (context) => _buildReportHeader(report, font, context),
-        footer: (context) => _buildFooter(context, font),
+        margin: const pw.EdgeInsets.all(40),
+        header: (context) => _buildHeader(report, regularFont, boldFont),
+        footer: (context) => _buildFooter(regularFont),
         build:
-            (pw.Context context) => [
-              // Title and Header
-              pw.SizedBox(height: 40),
-
-              // Basic Information Section
-              _buildBasicInfoSection(report, font, dateFormat),
-              pw.Divider(color: PdfColors.grey300),
-              pw.SizedBox(height: 20),
-
-              // Project Context Section
-              _buildProjectContextSection(report, font),
-              pw.Divider(color: PdfColors.grey300),
-              pw.SizedBox(height: 20),
-
-              // Technical Components by Type (not by floor)
-              ..._buildComponentSectionsByType(report, font, imageCache),
-
-              // Conclusion Section
-              _buildConclusionSection(report, font),
+            (context) => [
+              _buildTitleSection(report, regularFont, boldFont, dateFormat),
+              pw.SizedBox(height: 30),
+              _buildBasicInfoSection(report, regularFont, boldFont, dateFormat),
+              pw.SizedBox(height: 25),
+              _buildProjectContextSection(report, regularFont, boldFont),
+              pw.SizedBox(height: 25),
+              ..._buildComponentSections(
+                report,
+                regularFont,
+                boldFont,
+                imageCache,
+              ),
+              _buildConclusionSection(report, regularFont, boldFont),
             ],
       ),
     );
 
-    // Save PDF to device storage
     final output = await getTemporaryDirectory();
-    final file = File(
-      '${output.path}/rapport_visite_technique_${report.id}.pdf',
-    );
+    final fileName =
+        'Rapport_Technique_${report.clientName.replaceAll(' ', '_')}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
+    final file = File('${output.path}/$fileName');
     await file.writeAsBytes(await pdf.save());
 
-    // Optional: Upload PDF to Firestore
     await _uploadPdfToFirestore(report, file);
-
     return file;
   }
 
-  pw.Widget _buildReportHeader(
+  pw.Widget _buildHeader(
     TechnicalVisitReport report,
-    pw.Font? font,
-    pw.Context context,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
   ) {
     return pw.Container(
-      padding: const pw.EdgeInsets.only(bottom: 10),
+      padding: const pw.EdgeInsets.only(bottom: 20),
       decoration: const pw.BoxDecoration(
         border: pw.Border(
-          bottom: pw.BorderSide(color: PdfColors.grey300, width: 1),
+          bottom: pw.BorderSide(color: PdfColors.blue, width: 3),
         ),
       ),
       child: pw.Row(
@@ -154,30 +196,31 @@ class PdfGenerationService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'RAPPORT DE VISITE TECHNIQUE',
+                'KONY',
                 style: pw.TextStyle(
-                  font: font,
-                  fontSize: 14,
+                  font: boldFont,
+                  fontSize: 28,
                   fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.blue800,
                 ),
               ),
-              pw.SizedBox(height: 4),
               pw.Text(
-                'Kony - Solutions Réseaux Professionnelles',
+                'Solutions Réseaux Professionnelles',
                 style: pw.TextStyle(
-                  font: font,
-                  fontSize: 10,
+                  font: regularFont,
+                  fontSize: 12,
                   color: PdfColors.grey700,
                 ),
               ),
             ],
           ),
           pw.Text(
-            'Page ${context.pageNumber} / ${context.pagesCount}',
+            report.clientName,
             style: pw.TextStyle(
-              font: font,
-              fontSize: 10,
-              color: PdfColors.grey700,
+              font: boldFont,
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.grey800,
             ),
           ),
         ],
@@ -185,229 +228,303 @@ class PdfGenerationService {
     );
   }
 
-  pw.Widget _buildFooter(pw.Context context, pw.Font? font) {
+  pw.Widget _buildFooter(pw.Font? regularFont) {
     return pw.Container(
-      alignment: pw.Alignment.centerRight,
-      margin: const pw.EdgeInsets.only(top: 10),
-      child: pw.Text(
-        'Généré le ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
-        style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700),
+      padding: const pw.EdgeInsets.only(top: 15),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: PdfColors.grey400)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'Document confidentiel',
+            style: pw.TextStyle(
+              font: regularFont,
+              fontSize: 9,
+              color: PdfColors.grey600,
+            ),
+          ),
+          pw.Text(
+            'Généré le ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
+            style: pw.TextStyle(
+              font: regularFont,
+              fontSize: 9,
+              color: PdfColors.grey600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildTitleSection(
+    TechnicalVisitReport report,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    DateFormat dateFormat,
+  ) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(20),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 2),
+      ),
+      child: pw.Column(
+        children: [
+          pw.Text(
+            'RAPPORT DE VISITE TECHNIQUE',
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: 22,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
+          pw.SizedBox(height: 15),
+          pw.Text(
+            report.clientName,
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: 18,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            report.location,
+            style: pw.TextStyle(
+              font: regularFont,
+              fontSize: 14,
+              color: PdfColors.black,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Date de visite: ${dateFormat.format(report.date)}',
+            style: pw.TextStyle(
+              font: regularFont,
+              fontSize: 13,
+              color: PdfColors.black,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
   pw.Widget _buildBasicInfoSection(
     TechnicalVisitReport report,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
     DateFormat dateFormat,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Informations Générales',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        pw.Container(
-          padding: const pw.EdgeInsets.all(10),
-          decoration: pw.BoxDecoration(
-            color: PdfColors.grey100,
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-          ),
-          child: pw.Column(
-            children: [
-              _buildInfoRow('Client', report.clientName, font),
-              _buildInfoRow('Lieu', report.location, font),
-              _buildInfoRow(
-                'Date de visite',
-                dateFormat.format(report.date),
-                font,
-              ),
-              _buildInfoRow(
-                'Responsable de projet',
-                report.projectManager,
-                font,
-              ),
-              _buildInfoRow('Techniciens', report.technicians.join(", "), font),
-              if (report.accompanyingPerson.isNotEmpty)
-                _buildInfoRow('Accompagnant', report.accompanyingPerson, font),
-            ],
-          ),
+    return _buildSection(
+      'INFORMATIONS GÉNÉRALES',
+      [
+        _buildInfoGrid(
+          [
+            ['Client', report.clientName],
+            ['Lieu d\'intervention', report.location],
+            ['Date de visite', dateFormat.format(report.date)],
+            ['Chef de projet', report.projectManager],
+            ['Techniciens', report.technicians.join(', ')],
+            if (report.accompanyingPerson.isNotEmpty)
+              ['Personne accompagnatrice', report.accompanyingPerson],
+          ],
+          regularFont,
+          boldFont,
         ),
       ],
-    );
-  }
-
-  pw.Widget _buildInfoRow(String label, String value, pw.Font? font) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Container(
-            width: 120,
-            child: pw.Text(
-              '$label:',
-              style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold),
-            ),
-          ),
-          pw.Expanded(child: pw.Text(value, style: pw.TextStyle(font: font))),
-        ],
-      ),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildProjectContextSection(
     TechnicalVisitReport report,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
+    return _buildSection(
+      'CONTEXTE DU PROJET',
+      [
         pw.Text(
-          'Contexte du Projet',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        pw.Container(
-          padding: const pw.EdgeInsets.all(10),
-          decoration: pw.BoxDecoration(
-            color: PdfColors.grey100,
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-          ),
-          child: pw.Text(
-            report.projectContext,
-            style: pw.TextStyle(font: font),
-            textAlign: pw.TextAlign.justify,
-          ),
+          report.projectContext,
+          style: pw.TextStyle(font: regularFont, fontSize: 12, height: 1.5),
+          textAlign: pw.TextAlign.justify,
         ),
       ],
+      regularFont,
+      boldFont,
     );
   }
 
-  List<pw.Widget> _buildComponentSectionsByType(
+  List<pw.Widget> _buildComponentSections(
     TechnicalVisitReport report,
-    pw.Font? font,
-    Map<String, Uint8List> imageCache, // Add imageCache parameter
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    final List<pw.Widget> sections = [];
+    final sections = <pw.Widget>[];
 
-    // Network Cabinets section
+    // Network Cabinets
     final allCabinets = _collectAllComponentsOfType<NetworkCabinet>(
       report.floors,
       (floor) => floor.networkCabinets,
     );
-
     if (allCabinets.isNotEmpty) {
-      sections.add(_buildNetworkCabinetSection(allCabinets, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildNetworkCabinetSection(
+          allCabinets,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Perforations section
+    // Perforations
     final allPerforations = _collectAllComponentsOfType<Perforation>(
       report.floors,
       (floor) => floor.perforations,
     );
-
     if (allPerforations.isNotEmpty) {
-      sections.add(_buildPerforationSection(allPerforations, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildPerforationSection(
+          allPerforations,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Access Traps section
+    // Access Traps
     final allAccessTraps = _collectAllComponentsOfType<AccessTrap>(
       report.floors,
       (floor) => floor.accessTraps,
     );
-
     if (allAccessTraps.isNotEmpty) {
-      sections.add(_buildAccessTrapSection(allAccessTraps, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildAccessTrapSection(
+          allAccessTraps,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Cable Paths section
+    // Cable Paths
     final allCablePaths = _collectAllComponentsOfType<CablePath>(
       report.floors,
       (floor) => floor.cablePaths,
     );
-
     if (allCablePaths.isNotEmpty) {
-      sections.add(_buildCablePathSection(allCablePaths, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildCablePathSection(
+          allCablePaths,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Cable Trunkings section
+    // Cable Trunkings
     final allCableTrunkings = _collectAllComponentsOfType<CableTrunking>(
       report.floors,
       (floor) => floor.cableTrunkings,
     );
-
     if (allCableTrunkings.isNotEmpty) {
-      sections.add(_buildCableTrunkingSection(allCableTrunkings, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildCableTrunkingSection(
+          allCableTrunkings,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Conduits section
+    // Conduits
     final allConduits = _collectAllComponentsOfType<Conduit>(
       report.floors,
       (floor) => floor.conduits,
     );
-
     if (allConduits.isNotEmpty) {
-      sections.add(_buildConduitSection(allConduits, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildConduitSection(allConduits, regularFont, boldFont, imageCache),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Copper Cablings section
+    // Copper Cablings
     final allCopperCablings = _collectAllComponentsOfType<CopperCabling>(
       report.floors,
       (floor) => floor.copperCablings,
     );
-
     if (allCopperCablings.isNotEmpty) {
-      sections.add(_buildCopperCablingSection(allCopperCablings, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildCopperCablingSection(
+          allCopperCablings,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
 
-    // Fiber Optic Cablings section
+    // Fiber Optic Cablings
     final allFiberOpticCablings =
         _collectAllComponentsOfType<FiberOpticCabling>(
           report.floors,
           (floor) => floor.fiberOpticCablings,
         );
-
     if (allFiberOpticCablings.isNotEmpty) {
-      sections.add(_buildFiberOpticCablingSection(allFiberOpticCablings, font));
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(
+        _buildFiberOpticCablingSection(
+          allFiberOpticCablings,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
+      );
+      sections.add(pw.SizedBox(height: 25));
     }
+
+    // Custom Components
     final allCustomComponents = _collectAllComponentsOfType<CustomComponent>(
       report.floors,
       (floor) => floor.customComponents,
     );
-
     if (allCustomComponents.isNotEmpty) {
-      // Update this line to pass imageCache as the third argument
       sections.add(
-        _buildCustomComponentSection(allCustomComponents, font, imageCache),
+        _buildCustomComponentSection(
+          allCustomComponents,
+          regularFont,
+          boldFont,
+          imageCache,
+        ),
       );
-      sections.add(pw.SizedBox(height: 20));
+      sections.add(pw.SizedBox(height: 25));
     }
 
     return sections;
   }
 
-  /// Helper method to collect all components of a specific type from all floors
   List<Map<String, dynamic>> _collectAllComponentsOfType<T>(
     List<Floor> floors,
     List<T> Function(Floor) getComponents,
@@ -426,962 +543,662 @@ class PdfGenerationService {
 
   pw.Widget _buildNetworkCabinetSection(
     List<Map<String, dynamic>> cabinets,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Baies Informatiques',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...cabinets.asMap().entries.map((entry) {
-          final index = entry.key;
-          final cabinetData = entry.value;
-          final cabinet = cabinetData['component'] as NetworkCabinet;
-          final floorName = cabinetData['floor'] as String;
+    return _buildSection(
+      'BAIES INFORMATIQUES',
+      cabinets.asMap().entries.map((entry) {
+        final index = entry.key;
+        final cabinetData = entry.value;
+        final cabinet = cabinetData['component'] as NetworkCabinet;
+        final floorName = cabinetData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Baie ${index + 1}: ${cabinet.name} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', cabinet.location, font),
-                    _buildTableRow('État', cabinet.cabinetState, font),
-                    _buildTableRow(
-                      'Alimentation',
-                      cabinet.isPowered ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Prises disponibles',
-                      cabinet.availableOutlets.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Unités rack total',
-                      cabinet.totalRackUnits.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Unités rack disponibles',
-                      cabinet.availableRackUnits.toString(),
-                      font,
-                    ),
-                    if (cabinet.notes.isNotEmpty)
-                      _buildTableRow('Remarques', cabinet.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Baie ${index + 1}: ${cabinet.name}',
+          floorName,
+          [
+            ['Emplacement', cabinet.location],
+            ['État', cabinet.cabinetState],
+            ['Alimentation', cabinet.isPowered ? 'Oui' : 'Non'],
+            ['Prises disponibles', cabinet.availableOutlets.toString()],
+            ['Unités rack total', cabinet.totalRackUnits.toString()],
+            ['Unités rack disponibles', cabinet.availableRackUnits.toString()],
+            if (cabinet.notes.isNotEmpty) ['Remarques', cabinet.notes],
+          ],
+          cabinet.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildPerforationSection(
     List<Map<String, dynamic>> perforations,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Percements',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...perforations.asMap().entries.map((entry) {
-          final index = entry.key;
-          final perforationData = entry.value;
-          final perforation = perforationData['component'] as Perforation;
-          final floorName = perforationData['floor'] as String;
+    return _buildSection(
+      'PERCEMENTS',
+      perforations.asMap().entries.map((entry) {
+        final index = entry.key;
+        final perforationData = entry.value;
+        final perforation = perforationData['component'] as Perforation;
+        final floorName = perforationData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Percement ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', perforation.location, font),
-                    _buildTableRow(
-                      'Type de mur/plancher',
-                      perforation.wallType,
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Épaisseur (cm)',
-                      perforation.wallDepth.toString(),
-                      font,
-                    ),
-                    if (perforation.notes.isNotEmpty)
-                      _buildTableRow('Remarques', perforation.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Percement ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', perforation.location],
+            ['Type de mur/plancher', perforation.wallType],
+            ['Épaisseur (cm)', perforation.wallDepth.toString()],
+            if (perforation.notes.isNotEmpty) ['Remarques', perforation.notes],
+          ],
+          perforation.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildAccessTrapSection(
     List<Map<String, dynamic>> accessTraps,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Trappes d\'accès',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...accessTraps.asMap().entries.map((entry) {
-          final index = entry.key;
-          final trapData = entry.value;
-          final trap = trapData['component'] as AccessTrap;
-          final floorName = trapData['floor'] as String;
+    return _buildSection(
+      'TRAPPES D\'ACCÈS',
+      accessTraps.asMap().entries.map((entry) {
+        final index = entry.key;
+        final trapData = entry.value;
+        final trap = trapData['component'] as AccessTrap;
+        final floorName = trapData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Trappe ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', trap.location, font),
-                    _buildTableRow('Dimensions', trap.trapSize, font),
-                    if (trap.notes.isNotEmpty)
-                      _buildTableRow('Remarques', trap.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Trappe d\'accès ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', trap.location],
+            ['Dimensions', trap.trapSize],
+            if (trap.notes.isNotEmpty) ['Remarques', trap.notes],
+          ],
+          trap.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildCablePathSection(
     List<Map<String, dynamic>> cablePaths,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Chemins de câbles',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...cablePaths.asMap().entries.map((entry) {
-          final index = entry.key;
-          final pathData = entry.value;
-          final path = pathData['component'] as CablePath;
-          final floorName = pathData['floor'] as String;
+    return _buildSection(
+      'CHEMINS DE CÂBLES',
+      cablePaths.asMap().entries.map((entry) {
+        final index = entry.key;
+        final pathData = entry.value;
+        final path = pathData['component'] as CablePath;
+        final floorName = pathData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Chemin de câbles ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', path.location, font),
-                    _buildTableRow('Dimensions', path.size, font),
-                    _buildTableRow(
-                      'Longueur (m)',
-                      path.lengthInMeters.toString(),
-                      font,
-                    ),
-                    _buildTableRow('Type de fixation', path.fixationType, font),
-                    _buildTableRow(
-                      'Visible',
-                      path.isVisible ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Intérieur',
-                      path.isInterior ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Hauteur (m)',
-                      path.heightInMeters.toString(),
-                      font,
-                    ),
-                    if (path.notes.isNotEmpty)
-                      _buildTableRow('Remarques', path.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Chemin de câbles ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', path.location],
+            ['Dimensions', path.size],
+            ['Longueur (m)', path.lengthInMeters.toString()],
+            ['Type de fixation', path.fixationType],
+            ['Visible', path.isVisible ? 'Oui' : 'Non'],
+            ['Intérieur', path.isInterior ? 'Oui' : 'Non'],
+            ['Hauteur (m)', path.heightInMeters.toString()],
+            if (path.notes.isNotEmpty) ['Remarques', path.notes],
+          ],
+          path.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildCableTrunkingSection(
     List<Map<String, dynamic>> cableTrunkings,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Goulottes',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...cableTrunkings.asMap().entries.map((entry) {
-          final index = entry.key;
-          final trunkingData = entry.value;
-          final trunking = trunkingData['component'] as CableTrunking;
-          final floorName = trunkingData['floor'] as String;
+    return _buildSection(
+      'GOULOTTES',
+      cableTrunkings.asMap().entries.map((entry) {
+        final index = entry.key;
+        final trunkingData = entry.value;
+        final trunking = trunkingData['component'] as CableTrunking;
+        final floorName = trunkingData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Goulotte ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', trunking.location, font),
-                    _buildTableRow('Dimensions', trunking.size, font),
-                    _buildTableRow(
-                      'Longueur (m)',
-                      trunking.lengthInMeters.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Angles intérieurs',
-                      trunking.innerAngles.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Angles extérieurs',
-                      trunking.outerAngles.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Angles plats',
-                      trunking.flatAngles.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Intérieur',
-                      trunking.isInterior ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Hauteur (m)',
-                      trunking.workHeight.toString(),
-                      font,
-                    ),
-                    if (trunking.notes.isNotEmpty)
-                      _buildTableRow('Remarques', trunking.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Goulotte ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', trunking.location],
+            ['Dimensions', trunking.size],
+            ['Longueur (m)', trunking.lengthInMeters.toString()],
+            ['Angles intérieurs', trunking.innerAngles.toString()],
+            ['Angles extérieurs', trunking.outerAngles.toString()],
+            ['Angles plats', trunking.flatAngles.toString()],
+            ['Intérieur', trunking.isInterior ? 'Oui' : 'Non'],
+            ['Hauteur (m)', trunking.workHeight.toString()],
+            if (trunking.notes.isNotEmpty) ['Remarques', trunking.notes],
+          ],
+          trunking.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildConduitSection(
     List<Map<String, dynamic>> conduits,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Conduits',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...conduits.asMap().entries.map((entry) {
-          final index = entry.key;
-          final conduitData = entry.value;
-          final conduit = conduitData['component'] as Conduit;
-          final floorName = conduitData['floor'] as String;
+    return _buildSection(
+      'CONDUITS',
+      conduits.asMap().entries.map((entry) {
+        final index = entry.key;
+        final conduitData = entry.value;
+        final conduit = conduitData['component'] as Conduit;
+        final floorName = conduitData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Conduit ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', conduit.location, font),
-                    _buildTableRow('Diamètre', conduit.size, font),
-                    _buildTableRow(
-                      'Longueur (m)',
-                      conduit.lengthInMeters.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Intérieur',
-                      conduit.isInterior ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Hauteur (m)',
-                      conduit.workHeight.toString(),
-                      font,
-                    ),
-                    if (conduit.notes.isNotEmpty)
-                      _buildTableRow('Remarques', conduit.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Conduit ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', conduit.location],
+            ['Diamètre', conduit.size],
+            ['Longueur (m)', conduit.lengthInMeters.toString()],
+            ['Intérieur', conduit.isInterior ? 'Oui' : 'Non'],
+            ['Hauteur (m)', conduit.workHeight.toString()],
+            if (conduit.notes.isNotEmpty) ['Remarques', conduit.notes],
+          ],
+          conduit.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildCopperCablingSection(
     List<Map<String, dynamic>> copperCablings,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Câblages cuivre',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...copperCablings.asMap().entries.map((entry) {
-          final index = entry.key;
-          final cablingData = entry.value;
-          final cabling = cablingData['component'] as CopperCabling;
-          final floorName = cablingData['floor'] as String;
+    return _buildSection(
+      'CÂBLAGES CUIVRE',
+      copperCablings.asMap().entries.map((entry) {
+        final index = entry.key;
+        final cablingData = entry.value;
+        final cabling = cablingData['component'] as CopperCabling;
+        final floorName = cablingData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Câblage cuivre ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', cabling.location, font),
-                    _buildTableRow(
-                      'Description du trajet',
-                      cabling.pathDescription,
-                      font,
-                    ),
-                    _buildTableRow('Catégorie', cabling.category, font),
-                    _buildTableRow(
-                      'Longueur (m)',
-                      cabling.lengthInMeters.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Intérieur',
-                      cabling.isInterior ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Hauteur (m)',
-                      cabling.workHeight.toString(),
-                      font,
-                    ),
-                    if (cabling.notes.isNotEmpty)
-                      _buildTableRow('Remarques', cabling.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Câblage cuivre ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', cabling.location],
+            ['Description du trajet', cabling.pathDescription],
+            ['Catégorie', cabling.category],
+            ['Longueur (m)', cabling.lengthInMeters.toString()],
+            ['Intérieur', cabling.isInterior ? 'Oui' : 'Non'],
+            ['Hauteur (m)', cabling.workHeight.toString()],
+            if (cabling.notes.isNotEmpty) ['Remarques', cabling.notes],
+          ],
+          cabling.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
 
   pw.Widget _buildFiberOpticCablingSection(
     List<Map<String, dynamic>> fiberOpticCablings,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Câblages fibre optique',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...fiberOpticCablings.asMap().entries.map((entry) {
-          final index = entry.key;
-          final cablingData = entry.value;
-          final cabling = cablingData['component'] as FiberOpticCabling;
-          final floorName = cablingData['floor'] as String;
+    return _buildSection(
+      'CÂBLAGES FIBRE OPTIQUE',
+      fiberOpticCablings.asMap().entries.map((entry) {
+        final index = entry.key;
+        final cablingData = entry.value;
+        final cabling = cablingData['component'] as FiberOpticCabling;
+        final floorName = cablingData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Câblage fibre optique ${index + 1} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Emplacement', cabling.location, font),
-                    _buildTableRow('Type de fibre', cabling.fiberType, font),
-                    _buildTableRow(
-                      'Nombre de tiroirs',
-                      cabling.drawerCount.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Nombre de conduits',
-                      cabling.conduitCount.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Longueur (m)',
-                      cabling.lengthInMeters.toString(),
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Intérieur',
-                      cabling.isInterior ? 'Oui' : 'Non',
-                      font,
-                    ),
-                    _buildTableRow(
-                      'Hauteur (m)',
-                      cabling.workHeight.toString(),
-                      font,
-                    ),
-                    if (cabling.notes.isNotEmpty)
-                      _buildTableRow('Remarques', cabling.notes, font),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Câblage fibre optique ${index + 1}',
+          floorName,
+          [
+            ['Emplacement', cabling.location],
+            ['Type de fibre', cabling.fiberType],
+            ['Nombre de tiroirs', cabling.drawerCount.toString()],
+            ['Nombre de conduits', cabling.conduitCount.toString()],
+            ['Longueur (m)', cabling.lengthInMeters.toString()],
+            ['Intérieur', cabling.isInterior ? 'Oui' : 'Non'],
+            ['Hauteur (m)', cabling.workHeight.toString()],
+            if (cabling.notes.isNotEmpty) ['Remarques', cabling.notes],
+          ],
+          cabling.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
   }
-
-  // In lib/services/pdf_generation_service.dart
-  // Update the _buildCustomComponentSection method
 
   pw.Widget _buildCustomComponentSection(
     List<Map<String, dynamic>> components,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
     Map<String, Uint8List> imageCache,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Composants Personnalisés',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        ...components.asMap().entries.map((entry) {
-          final index = entry.key;
-          final componentData = entry.value;
-          final component = componentData['component'] as CustomComponent;
-          final floorName = componentData['floor'] as String;
+    return _buildSection(
+      'COMPOSANTS PERSONNALISÉS',
+      components.asMap().entries.map((entry) {
+        final index = entry.key;
+        final componentData = entry.value;
+        final component = componentData['component'] as CustomComponent;
+        final floorName = componentData['floor'] as String;
 
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.grey100,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Composant ${index + 1}: ${component.name} ($floorName)',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Table(
-                  columnWidths: {
-                    0: const pw.FixedColumnWidth(140),
-                    1: const pw.FlexColumnWidth(),
-                  },
-                  children: [
-                    _buildTableRow('Description', component.description, font),
-                    _buildTableRow('Emplacement', component.location, font),
-                    if (component.notes.isNotEmpty)
-                      _buildTableRow('Remarques', component.notes, font),
-                  ],
-                ),
-
-                // Add photos section if there are photos
-                if (component.photos.isNotEmpty) ...[
-                  pw.SizedBox(height: 10),
-                  pw.Divider(color: PdfColors.grey300),
-                  pw.SizedBox(height: 10),
-                  pw.Text(
-                    'Photos (${component.photos.length})',
-                    style: pw.TextStyle(
-                      font: font,
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-
-                  // Create a grid of photos (2 columns)
-                  pw.Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: _buildPhotosGrid(
-                      component.photos,
-                      font,
-                      imageCache,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        }),
-      ],
+        return _buildComponentCard(
+          'Composant ${index + 1}: ${component.name}',
+          floorName,
+          [
+            ['Description', component.description],
+            ['Emplacement', component.location],
+            if (component.notes.isNotEmpty) ['Remarques', component.notes],
+          ],
+          component.photos,
+          regularFont,
+          boldFont,
+          imageCache,
+        );
+      }).toList(),
+      regularFont,
+      boldFont,
     );
-  }
-
-  // Helper method to build a grid of photos for the PDF
-  List<pw.Widget> _buildPhotosGrid(
-    List<Photo> photos,
-    pw.Font? font,
-    Map<String, Uint8List> imageCache,
-  ) {
-    final List<pw.Widget> photoWidgets = [];
-
-    for (int i = 0; i < photos.length; i++) {
-      final photo = photos[i];
-
-      // Try to get the image from cache
-      pw.Widget imageWidget;
-      if (imageCache.containsKey(photo.id)) {
-        try {
-          // Use the cached image data
-          final imageData = imageCache[photo.id]!;
-          imageWidget = pw.Image(
-            pw.MemoryImage(imageData),
-            height: 120,
-            width: 250,
-            fit: pw.BoxFit.cover,
-          );
-        } catch (e) {
-          imageWidget = _buildImagePlaceholder(i, font);
-        }
-      } else {
-        imageWidget = _buildImagePlaceholder(i, font);
-      }
-
-      // Create a widget for each photo with its comment
-      photoWidgets.add(
-        pw.Container(
-          width: 250,
-          margin: const pw.EdgeInsets.only(bottom: 10),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.grey400),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-          ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Photo placeholder or actual image
-              imageWidget,
-
-              // Photo number and date
-              pw.Container(
-                color: PdfColors.grey300,
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'Photo ${i + 1}',
-                      style: pw.TextStyle(
-                        font: font,
-                        fontSize: 9,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      DateFormat('dd/MM/yyyy').format(photo.takenAt),
-                      style: pw.TextStyle(font: font, fontSize: 8),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Photo comment
-              pw.Container(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(
-                  photo.comment,
-                  style: pw.TextStyle(font: font, fontSize: 9),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return photoWidgets;
   }
 
   pw.Widget _buildConclusionSection(
     TechnicalVisitReport report,
-    pw.Font? font,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
+    return _buildSection(
+      'CONCLUSIONS ET RECOMMANDATIONS',
+      [
         pw.Text(
-          'Conclusion',
-          style: pw.TextStyle(
-            font: font,
-            fontSize: 16,
-            fontWeight: pw.FontWeight.bold,
-            color: PdfColors.blue800,
-          ),
+          report.conclusion,
+          style: pw.TextStyle(font: regularFont, fontSize: 12, height: 1.5),
+          textAlign: pw.TextAlign.justify,
         ),
-        pw.SizedBox(height: 10),
-        pw.Container(
-          padding: const pw.EdgeInsets.all(10),
-          decoration: pw.BoxDecoration(
-            color: PdfColors.grey100,
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+        if (report.assumptions.isNotEmpty) ...[
+          pw.SizedBox(height: 20),
+          pw.Text(
+            'Hypothèses et prérequis :',
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: 13,
+              fontWeight: pw.FontWeight.bold,
+            ),
           ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                report.conclusion,
-                style: pw.TextStyle(font: font),
-                textAlign: pw.TextAlign.justify,
-              ),
-
-              if (report.assumptions.isNotEmpty) ...[
-                pw.SizedBox(height: 10),
-                pw.Divider(color: PdfColors.grey300),
-                pw.SizedBox(height: 10),
-                pw.Text(
-                  'Hypothèses et prérequis:',
-                  style: pw.TextStyle(
-                    font: font,
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children:
-                      report.assumptions.map((assumption) {
-                        return pw.Padding(
-                          padding: const pw.EdgeInsets.only(bottom: 4),
-                          child: pw.Row(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Container(
-                                margin: const pw.EdgeInsets.only(
-                                  top: 3,
-                                  right: 5,
-                                ),
-                                width: 5,
-                                height: 5,
-                                decoration: const pw.BoxDecoration(
-                                  color: PdfColors.black,
-                                  shape: pw.BoxShape.circle,
-                                ),
-                              ),
-                              pw.Expanded(
-                                child: pw.Text(
-                                  assumption,
-                                  style: pw.TextStyle(font: font, fontSize: 10),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                ),
-              ],
-
-              pw.SizedBox(height: 10),
-              pw.Divider(color: PdfColors.grey300),
-              pw.SizedBox(height: 10),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          pw.SizedBox(height: 10),
+          ...report.assumptions.map(
+            (assumption) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 5),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    'Durée estimée du déploiement:',
-                    style: pw.TextStyle(
-                      font: font,
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    '• ',
+                    style: pw.TextStyle(font: regularFont, fontSize: 12),
                   ),
-                  pw.Text(
-                    '${report.estimatedDurationDays} jours',
-                    style: pw.TextStyle(
-                      font: font,
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 12,
+                  pw.Expanded(
+                    child: pw.Text(
+                      assumption,
+                      style: pw.TextStyle(font: regularFont, fontSize: 11),
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ],
+        pw.SizedBox(height: 20),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey400),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'DURÉE ESTIMÉE DU PROJET',
+                style: pw.TextStyle(
+                  font: boldFont,
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Text(
+                '${report.estimatedDurationDays} JOUR${report.estimatedDurationDays > 1 ? 'S' : ''}',
+                style: pw.TextStyle(
+                  font: boldFont,
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.black,
+                ),
               ),
             ],
           ),
         ),
       ],
+      regularFont,
+      boldFont,
     );
   }
 
-  // Helper to build table rows
-  pw.TableRow _buildTableRow(String label, String value, pw.Font? font) {
-    return pw.TableRow(
+  pw.Widget _buildSection(
+    String title,
+    List<pw.Widget> children,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 2),
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey800,
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
           child: pw.Text(
-            label,
+            title,
             style: pw.TextStyle(
-              font: font,
+              font: boldFont,
+              fontSize: 14,
               fontWeight: pw.FontWeight.bold,
-              fontSize: 10,
+              color: PdfColors.white,
             ),
           ),
         ),
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 2),
-          child: pw.Text(value, style: pw.TextStyle(font: font, fontSize: 10)),
+        pw.SizedBox(height: 15),
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.all(20),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey300),
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: children,
+          ),
         ),
       ],
     );
   }
 
-  // Upload PDF to Firestore
+  pw.Widget _buildComponentCard(
+    String title,
+    String floorName,
+    List<List<String>> properties,
+    List<Photo> photos,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
+  ) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 15),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            '$title - $floorName',
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.black,
+            ),
+          ),
+          pw.SizedBox(height: 8),
+          _buildInfoGrid(properties, regularFont, boldFont),
+          if (photos.isNotEmpty) ...[
+            pw.SizedBox(height: 12),
+            pw.Text(
+              'PHOTOS (${photos.length})',
+              style: pw.TextStyle(
+                font: boldFont,
+                fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _buildPhotosGrid(
+                photos,
+                regularFont,
+                boldFont,
+                imageCache,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildInfoGrid(
+    List<List<String>> properties,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+  ) {
+    return pw.Column(
+      children:
+          properties
+              .map(
+                (property) => pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 6),
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Container(
+                        width: 130,
+                        child: pw.Text(
+                          '${property[0]} :',
+                          style: pw.TextStyle(
+                            font: boldFont,
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: pw.Text(
+                          property[1],
+                          style: pw.TextStyle(font: regularFont, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+    );
+  }
+
+  List<pw.Widget> _buildPhotosGrid(
+    List<Photo> photos,
+    pw.Font? regularFont,
+    pw.Font? boldFont,
+    Map<String, Uint8List> imageCache,
+  ) {
+    return photos.asMap().entries.map((entry) {
+      final index = entry.key;
+      final photo = entry.value;
+
+      pw.Widget imageWidget;
+      if (imageCache.containsKey(photo.id)) {
+        try {
+          final imageData = imageCache[photo.id]!;
+          imageWidget = pw.Container(
+            height: 60,
+            width: 100,
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey400),
+            ),
+            child: pw.Image(
+              pw.MemoryImage(imageData),
+              height: 60,
+              width: 100,
+              fit: pw.BoxFit.cover,
+            ),
+          );
+        } catch (e) {
+          print('Error displaying image ${photo.id}: $e');
+          imageWidget = _buildImagePlaceholder(index, regularFont);
+        }
+      } else {
+        print('Image not found in cache: ${photo.id}');
+        imageWidget = _buildImagePlaceholder(index, regularFont);
+      }
+
+      return pw.Container(
+        width: 100,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey400),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            imageWidget,
+            pw.Container(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Photo ${index + 1}',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: 7,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  if (photo.comment.isNotEmpty) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      photo.comment,
+                      style: pw.TextStyle(
+                        font: regularFont,
+                        fontSize: 6,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  pw.Widget _buildImagePlaceholder(int index, pw.Font? regularFont) {
+    return pw.Container(
+      height: 60,
+      width: 100,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey200,
+        border: pw.Border.all(color: PdfColors.grey400),
+      ),
+      child: pw.Column(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(
+            'Photo ${index + 1}',
+            style: pw.TextStyle(
+              font: regularFont,
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.Text(
+            '(voir numérique)',
+            style: pw.TextStyle(font: regularFont, fontSize: 6),
+            textAlign: pw.TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _uploadPdfToFirestore(
     TechnicalVisitReport report,
     File pdfFile,
   ) async {
     try {
       final bytes = await pdfFile.readAsBytes();
-      // Store metadata only - not the actual PDF content as it would exceed Firestore limits
       await FirebaseFirestore.instance
           .collection('technical_visit_reports')
           .doc(report.id)
@@ -1390,10 +1207,6 @@ class PdfGenerationService {
             'pdfGeneratedAt': DateTime.now().toIso8601String(),
             'pdfSizeInBytes': bytes.length,
           });
-
-      // Note: In a production app, you would upload the actual PDF to Firebase Storage
-      // and then store the download URL in Firestore
-
       print('PDF metadata updated in Firestore for report: ${report.id}');
     } catch (e) {
       print('Error updating PDF metadata in Firestore: $e');

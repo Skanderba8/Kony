@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
 import 'package:provider/provider.dart';
-
+import 'package:uuid/uuid.dart';
+import '../../services/technical_visit_report_service.dart';
 import 'package:kony/app/routes.dart';
 import 'package:kony/services/pdf_generation_service.dart';
 import '../../models/technical_visit_report.dart';
@@ -1092,54 +1093,63 @@ class _ReportListScreenState extends State<ReportListScreen>
     );
   }
 
-  // ADD: Method to create new report from rejected one
+  // In report_list_screen.dart - Replace the _createNewReportFromRejected method
+
   Future<void> _createNewReportFromRejected(
     TechnicalVisitReport rejectedReport,
   ) async {
-    // Create a new draft based on the rejected report
-    final viewModel = Provider.of<TechnicalVisitReportViewModel>(
-      context,
-      listen: false,
-    );
-
     try {
-      // Initialize new report with data from rejected report
-      await viewModel.initNewReport();
-
-      // Copy data from rejected report (excluding status and rejection info)
-      final newReport = viewModel.currentReport?.copyWith(
-        clientName: rejectedReport.clientName,
-        location: rejectedReport.location,
-        projectManager: rejectedReport.projectManager,
-        accompanyingPerson: rejectedReport.accompanyingPerson,
-        projectContext: rejectedReport.projectContext,
-        floors: rejectedReport.floors,
-        conclusion: rejectedReport.conclusion,
-        estimatedDurationDays: rejectedReport.estimatedDurationDays,
-        assumptions: rejectedReport.assumptions,
-        status: 'draft', // Set as draft
-        rejectionComment: null, // Clear rejection info
-        rejectedAt: null,
+      debugPrint(
+        'Creating corrected version from rejected: ${rejectedReport.id}',
       );
 
-      if (newReport != null) {
-        await viewModel.saveDraft();
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
 
-        if (mounted) {
-          NotificationUtils.showSuccess(
-            context,
-            'Nouveau brouillon cree base sur le rapport rejete',
-          );
+      // Get the report service
+      final reportService = Provider.of<TechnicalVisitReportService>(
+        context,
+        listen: false,
+      );
 
-          // Navigate to edit the new draft
-          _navigateToForm(newReport.id);
-        }
+      // Create a corrected version with the SAME ID but as draft status
+      // IMPORTANT: Keep it in BOTH collections until resubmitted
+      final correctedDraftReport = rejectedReport.copyWith(
+        status: 'draft', // Change status back to draft for editing
+        lastModified: DateTime.now(),
+        // Keep rejection data so it still shows in rejected list
+        // This will be cleared only when resubmitted
+      );
+
+      // Save as draft (this will go to drafts collection)
+      // but DON'T remove from main collection yet
+      await reportService.saveDraft(correctedDraftReport);
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        NotificationUtils.showSuccess(
+          context,
+          'Brouillon de correction créé - le rapport reste en liste rejetés jusqu\'à soumission',
+        );
+
+        // Navigate to edit with the same ID
+        await _navigateToForm(rejectedReport.id);
       }
     } catch (e) {
+      // Close loading dialog if still showing
+      if (mounted) Navigator.pop(context);
+
+      debugPrint('Error creating corrected version: $e');
       if (mounted) {
         NotificationUtils.showError(
           context,
-          'Erreur lors de la creation du nouveau rapport: $e',
+          'Erreur lors de la correction du rapport: $e',
         );
       }
     }

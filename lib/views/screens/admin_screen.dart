@@ -87,6 +87,8 @@ class _AdminScreenState extends State<AdminScreen>
     setState(() {});
   }
 
+  // In admin_screen.dart - Update the _loadReportCounts method to include rejected reports
+
   Future<void> _loadReportCounts() async {
     final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
@@ -124,6 +126,15 @@ class _AdminScreenState extends State<AdminScreen>
       }
     });
 
+    // ADD: Listen to rejected reports
+    viewModel.getRejectedReportsStream().listen((reports) {
+      if (mounted) {
+        setState(() {
+          _rejectedCount = reports.length;
+        });
+      }
+    });
+
     viewModel.getAllReportsStream().listen((reports) {
       if (mounted) {
         setState(() {
@@ -131,6 +142,99 @@ class _AdminScreenState extends State<AdminScreen>
         });
       }
     });
+  }
+
+  // ADD: Add _rejectedCount variable at the top of the class
+  int _rejectedCount = 0;
+
+  // Update the _buildQuickStatsGrid method to include rejected reports
+  Widget _buildQuickStatsGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Vue d\'ensemble',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'Total',
+                subtitle: 'Rapports',
+                value: _totalReports.toString(),
+                icon: Icons.assessment_outlined,
+                color: Colors.indigo,
+                onTap: () => _showReportsList('all'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: 'En attente',
+                subtitle: 'À examiner',
+                value: _submittedCount.toString(),
+                icon: Icons.pending_actions_outlined,
+                color: Colors.orange,
+                onTap: () => _showReportsList('submitted'),
+                hasNotification: _newSubmittedCount > 0,
+                notificationCount: _newSubmittedCount,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'Examinés',
+                subtitle: 'Révisés',
+                value: _reviewedCount.toString(),
+                icon: Icons.fact_check_outlined,
+                color: Colors.blue,
+                onTap: () => _showReportsList('reviewed'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Approuvés',
+                subtitle: 'Finalisés',
+                value: _approvedCount.toString(),
+                icon: Icons.check_circle_outline,
+                color: Colors.green,
+                onTap: () => _showReportsList('approved'),
+              ),
+            ),
+          ],
+        ),
+        // ADD: New row for rejected reports
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'Rejetés',
+                subtitle: 'À corriger',
+                value: _rejectedCount.toString(),
+                icon: Icons.cancel_outlined,
+                color: Colors.red,
+                onTap: () => _showReportsList('rejected'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Empty space to maintain layout
+            Expanded(child: Container()),
+          ],
+        ),
+      ],
+    );
   }
 
   void _navigateToUserManagement() {
@@ -610,76 +714,6 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _buildQuickStatsGrid() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Vue d\'ensemble',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade800,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                title: 'Total',
-                subtitle: 'Rapports',
-                value: _totalReports.toString(),
-                icon: Icons.assessment_outlined,
-                color: Colors.indigo,
-                onTap: () => _showReportsList('all'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                title: 'En attente',
-                subtitle: 'À examiner',
-                value: _submittedCount.toString(),
-                icon: Icons.pending_actions_outlined,
-                color: Colors.orange,
-                onTap: () => _showReportsList('submitted'),
-                hasNotification: _newSubmittedCount > 0,
-                notificationCount: _newSubmittedCount,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                title: 'Examinés',
-                subtitle: 'Révisés',
-                value: _reviewedCount.toString(),
-                icon: Icons.fact_check_outlined,
-                color: Colors.blue,
-                onTap: () => _showReportsList('reviewed'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                title: 'Approuvés',
-                subtitle: 'Finalisés',
-                value: _approvedCount.toString(),
-                icon: Icons.check_circle_outline,
-                color: Colors.green,
-                onTap: () => _showReportsList('approved'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildStatCard({
     required String title,
     required String subtitle,
@@ -783,6 +817,8 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
+  // In admin_screen.dart - Update the _buildReportsManagementSection method
+
   Widget _buildReportsManagementSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -854,6 +890,21 @@ class _AdminScreenState extends State<AdminScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // ADD: Rejected reports button
+                  Expanded(
+                    child: _buildReportFilterButton(
+                      title: 'Rejetés',
+                      description: 'Corrections requises',
+                      icon: Icons.cancel_outlined,
+                      color: Colors.red,
+                      onTap: () => _showReportsList('rejected'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
                   Expanded(
                     child: _buildReportFilterButton(
                       title: 'Tous',
@@ -863,6 +914,9 @@ class _AdminScreenState extends State<AdminScreen>
                       onTap: () => _showReportsList('all'),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  // Empty space to maintain layout
+                  Expanded(child: Container()),
                 ],
               ),
             ],

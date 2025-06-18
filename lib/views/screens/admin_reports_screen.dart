@@ -35,13 +35,14 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Filter options with refined colors
+  // In admin_reports_screen.dart - Update the _filterOptions map
+
   final Map<String, Map<String, dynamic>> _filterOptions = {
     'all': {
       'label': 'Tous',
       'color': Colors.indigo,
       'icon': Icons.list_alt,
-      'description': 'Tous les rapports soumis', // Changed description
+      'description': 'Tous les rapports soumis',
     },
     'submitted': {
       'label': 'Soumis',
@@ -61,7 +62,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
       'icon': Icons.check_circle,
       'description': 'Finalisés et approuvés',
     },
-    // REMOVED: 'draft' option - admins should not see drafts
+    // ADD: Rejected filter
+    'rejected': {
+      'label': 'Rejetés',
+      'color': Colors.red,
+      'icon': Icons.cancel,
+      'description': 'Rapports rejetés',
+    },
   };
 
   @override
@@ -611,6 +618,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
     );
   }
 
+  // In admin_reports_screen.dart - Complete _buildReportCard method with rejection handling
+
   Widget _buildReportCard(
     TechnicalVisitReport report,
     AdminViewModel viewModel,
@@ -643,16 +652,18 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
         statusIcon = Icons.check_circle;
         statusText = 'APPROUVÉ';
         break;
+      case 'rejected': // Handle rejected status
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        statusText = 'REJETÉ';
+        break;
       default:
         statusColor = Colors.grey;
         statusIcon = Icons.help_outline;
         statusText = report.status.toUpperCase();
     }
 
-    final displayDate =
-        report.status == 'draft'
-            ? (report.lastModified ?? report.createdAt)
-            : (report.submittedAt ?? report.createdAt);
+    final displayDate = _getDisplayDateForReport(report);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -804,6 +815,56 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                   ],
                 ),
 
+                // Show rejection comment if report is rejected
+                if (report.status == 'rejected' &&
+                    report.rejectionComment != null &&
+                    report.rejectionComment!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Colors.red.shade600,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Raison du rejet:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                report.rejectionComment!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red.shade600,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 20),
 
                 // Action buttons
@@ -816,13 +877,25 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
     );
   }
 
+  // Add this helper method to get the correct display date
+  DateTime _getDisplayDateForReport(TechnicalVisitReport report) {
+    switch (report.status) {
+      case 'draft':
+        return report.lastModified ?? report.createdAt;
+      case 'rejected':
+        return report.rejectedAt ?? report.createdAt;
+      default:
+        return report.submittedAt ?? report.createdAt;
+    }
+  }
+
   Widget _buildActionButtons(
     TechnicalVisitReport report,
     AdminViewModel viewModel,
   ) {
     return Row(
       children: [
-        // PDF Button (for all non-draft reports - which is all reports admin sees)
+        // PDF Button (for all non-draft reports)
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () => _viewReportPdf(report, viewModel),
@@ -842,8 +915,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
 
         // Status action button
         if (report.status == 'submitted') ...[
+          // Examine button
           Expanded(
-            flex: 2,
             child: ElevatedButton.icon(
               onPressed:
                   () => _updateReportStatus(report, 'reviewed', viewModel),
@@ -860,9 +933,24 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          // Reject button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: () => _showRejectDialog(report, viewModel),
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              color: Colors.red.shade600,
+              tooltip: 'Rejeter',
+              padding: const EdgeInsets.all(12),
+            ),
+          ),
         ] else if (report.status == 'reviewed') ...[
+          // Approve button
           Expanded(
-            flex: 2,
             child: ElevatedButton.icon(
               onPressed:
                   () => _updateReportStatus(report, 'approved', viewModel),
@@ -879,9 +967,23 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          // Reject button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: () => _showRejectDialog(report, viewModel),
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              color: Colors.red.shade600,
+              tooltip: 'Rejeter',
+              padding: const EdgeInsets.all(12),
+            ),
+          ),
         ] else if (report.status == 'approved') ...[
           Expanded(
-            flex: 2,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
@@ -904,6 +1006,32 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.green.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else if (report.status == 'rejected') ...[
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cancel, size: 16, color: Colors.red.shade600),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Rejeté',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade600,
                     ),
                   ),
                 ],
@@ -1027,20 +1155,24 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
     );
   }
 
+  // In admin_reports_screen.dart - Update the _getStreamForFilter method
+
   Stream<List<TechnicalVisitReport>> _getStreamForFilter(String filter) {
     try {
       final viewModel = Provider.of<AdminViewModel>(context, listen: false);
 
       switch (filter) {
         case 'submitted':
-          return viewModel.getSubmittedReportsStreamForAdmin();
+          return viewModel.getSubmittedReportsStream();
         case 'reviewed':
           return viewModel.getReviewedReportsStream();
         case 'approved':
           return viewModel.getApprovedReportsStream();
+        case 'rejected': // ADD: Handle rejected filter
+          return viewModel.getRejectedReportsStream();
         case 'all':
         default:
-          // Admin sees ALL submitted reports (submitted, reviewed, approved)
+          // Admin sees ALL submitted reports (submitted, reviewed, approved, rejected)
           // but NO drafts
           return viewModel.getSubmittedReportsStreamForAdmin();
       }
@@ -1048,6 +1180,240 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
       debugPrint('AdminViewModel not found: $e');
       return Stream.value(<TechnicalVisitReport>[]);
     }
+  }
+
+  // Add this method to the AdminReportsScreen class in admin_reports_screen.dart
+
+  // ADD: Method to show rejection dialog
+  Future<void> _showRejectDialog(
+    TechnicalVisitReport report,
+    AdminViewModel viewModel,
+  ) async {
+    final TextEditingController commentController = TextEditingController();
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 8,
+            backgroundColor: Colors.white,
+            contentPadding: EdgeInsets.zero,
+            title: null,
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.shade400, Colors.red.shade500],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.cancel,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Rejeter le rapport',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Indiquez la raison du rejet',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Rapport: ${report.clientName}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        Text(
+                          'Technicien: ${report.technicianName}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Commentaire de rejet *',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: commentController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText:
+                                'Expliquez pourquoi ce rapport est rejeté...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.red.shade400,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
+                          ),
+                          autofocus: true,
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.orange.shade600,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Le technicien sera notifié et pourra corriger son rapport',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Actions
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Annuler'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              if (commentController.text.trim().isNotEmpty) {
+                                Navigator.of(context).pop(true);
+                              }
+                            },
+                            icon: const Icon(Icons.cancel, size: 16),
+                            label: const Text('Rejeter'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+
+    if (confirmed == true && commentController.text.trim().isNotEmpty) {
+      final success = await viewModel.rejectReport(
+        report.id,
+        commentController.text.trim(),
+      );
+
+      if (success && mounted) {
+        NotificationUtils.showSuccess(context, 'Rapport rejeté avec succès');
+      } else if (mounted) {
+        NotificationUtils.showError(
+          context,
+          viewModel.errorMessage ?? 'Échec du rejet du rapport',
+        );
+      }
+    }
+
+    commentController.dispose();
   }
 
   String _getEmptyStateText() {
@@ -1058,6 +1424,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen>
         return 'examiné';
       case 'approved':
         return 'approuvé';
+      case 'rejected': // ADD: Handle rejected empty state
+        return 'rejeté';
       default:
         return 'disponible';
     }
